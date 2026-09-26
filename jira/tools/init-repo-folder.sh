@@ -6,7 +6,8 @@
 #
 # Usage:  zsh tools/init-repo-folder.sh [destination]      default destination: ~/Desktop/Mulesoft-N-One
 set -e
-SRC="${SRC:-$HOME/Desktop/Neonone Mulesoft Project}"
+# Historical: used once on 26 Sep 2026 to create this repository from the pre-Git working folder. Kept for reference.
+SRC="${SRC:-$(cd "$(dirname "$0")/.." && pwd)}"
 DEST="${1:-$HOME/Desktop/Mulesoft-N-One}"
 KB="${KB:-$HOME/Desktop/NEONONE-KB}"
 REPO_NAME="$(basename "$DEST")"

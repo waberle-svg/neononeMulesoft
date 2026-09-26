@@ -1,5 +1,5 @@
 # jira-sys-api — DEV secrets, encrypted with the Secure Configuration Properties module (AES/CBC).
-# Decryption key is supplied at runtime as secure.key (locally from ~/Desktop/Neonone Mulesoft Project/.mule-local.env).
+# Decryption key is supplied at runtime as secure.key (locally from the repository's git-ignored .mule-local.env).
 # Values here are Swati's personal Jira token for local development only; the service-account token replaces it at deployment.
 jira:
   email: "![Vg0heNmrtvKr3Aqv+jpEZCHpsGH019SjKUARiettcEs=]"

@@ -1,5 +1,5 @@
 # provisioning-prc-api — DEV secrets, encrypted with the Secure Configuration Properties module (AES/CBC).
-# Decryption key is supplied at runtime as secure.key (locally from ~/Desktop/Neonone Mulesoft Project/.mule-local.env,
+# Decryption key is supplied at runtime as secure.key (locally from the repository's git-ignored .mule-local.env,
 # on CloudHub as a protected Runtime Manager property). Must match secure::api.clientSecret in salesforce-sys-api and
 # jira-sys-api of the same environment.
 api:

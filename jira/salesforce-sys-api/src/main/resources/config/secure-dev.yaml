@@ -1,12 +1,12 @@
 # salesforce-sys-api — DEV secrets, encrypted with the Secure Configuration Properties module (AES/CBC).
-# Decryption key is supplied at runtime as secure.key (locally from ~/Desktop/Neonone Mulesoft Project/.mule-local.env).
+# Decryption key is supplied at runtime as secure.key (locally from the repository's git-ignored .mule-local.env).
 # Plain (unencrypted) values are accepted by the module too; they are used only for not-yet-known placeholders.
 sf:
   # Consumer key of the External Client App "Neon Jira Integration" in the Dev sandbox (ADR-018; Setup > External Client App Manager).
   # Known only after the app is deployed: copy it from ECA Manager and replace this placeholder (encrypt it first).
   consumerKey: "![69quA4tjTBv0OcFAEC5IXL0P1lqCSS2LmCwtOuOumcDsmhltrY4WllIqbwQCA7TAlg0Dfc8C85GTxR/otIgry1MUHghcE83yrC1flRRJ5DliXpPDULe7d3ZD1HmbYX0L]"
   keystore:
-    # Password of ~/Desktop/Neonone Mulesoft Project/.secrets/dev/neon-jira-integration-dev.jks (generated 19 Sep 2026)
+    # Password of the keystore (.secrets/dev/neon-jira-integration-dev.jks, master copy; packaged copy under src/main/resources/keystore/; generated 19 Sep 2026)
     password: "![Xzuvt+9lbjULZd2aQRKSvcx6iwZqfKw/hRaoJXILMnxXi3SV48sfklvOUvLci3Qc]"
 api:
   # Inter-app shared secret (X-Client-Secret) expected from provisioning-prc-api and sent to it. One value for all three

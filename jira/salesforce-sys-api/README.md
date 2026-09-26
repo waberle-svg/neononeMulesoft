@@ -33,7 +33,7 @@ in the persistent Object Store `undelivered_events_store` and re-driven every `p
 1. Metadata deployed from the DX project (`manifest/neon-jira-integration.package.xml`): registry object, event, fields, permission set, Flows, External Client App.
 2. External Client App **Neon Jira Integration** (ADR-018; JWT bearer, Dev certificate) deployed; its consumer key (Setup ▸ External Client App Manager) encrypted into `secure-dev.yaml`.
 3. The JWT principal (`sf.principal`) has the permission set *Jira Integration Access* and is pre-authorised on the External Client App.
-4. Keystore: `~/Desktop/Neonone Mulesoft Project/.secrets/dev/neon-jira-integration-dev.jks` (never committed).
+4. Keystore: `.secrets/dev/neon-jira-integration-dev.jks` at the repo root (master copy, git-ignored) **and** a copy at `src/main/resources/keystore/neon-jira-integration-dev.jks` so it is packaged into the JAR (git-ignored by `*.jks`; `sf.keystore.path` points at the classpath path). Both come from the team vault — see `docs/SETUP.md` §4.
 
 ## Run locally
 ```bash

@@ -1,6 +1,7 @@
 #!/bin/zsh
 # Shared settings for the demo scripts. Source this first:  source demo/demo-env.sh
-export ROOT="$HOME/Desktop/Neonone Mulesoft Project"
+# Repo root = the folder above this script (works when sourced from zsh); override with ROOT=/path if needed
+export ROOT="${ROOT:-${${(%):-%x}:A:h:h}}"
 export SFDX="$HOME/Desktop/NEONONE SF"
 export RT="$HOME/AnypointCodeBuilder/runtime/mule-enterprise-standalone-4.12.3"
 export DEPS="$HOME/.vscode/extensions/salesforce.mule-dx-dependencies-1.7.1-darwin-arm64/build/deps"

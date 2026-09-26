@@ -3,7 +3,7 @@
 # Excludes everything secret or binary: secure-*.yaml, *.jks/*.p12/*.key, .env files, target/, coverage reports.
 # Usage:  zsh tools/bundle-sources-for-study.sh            -> writes ~/Desktop/neon-mule-sources-<date>.txt
 set -e
-ROOT="${ROOT:-$HOME/Desktop/Neonone Mulesoft Project}"
+ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"   # repo root (the folder above tools/)
 OUT="${1:-$HOME/Desktop/neon-mule-sources-$(date +%Y%m%d).txt}"
 : > "$OUT"
 for APP in jira-sys-api salesforce-sys-api provisioning-prc-api; do
