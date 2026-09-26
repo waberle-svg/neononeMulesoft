@@ -51,7 +51,7 @@
                    doc:name="APIkit config"/>
 
     <!-- ===== Salesforce: OAuth 2.0 JWT bearer flow (ADR-003) =====
-         The connector signs a JWT with the private key in the keystore; Salesforce (connected app "Neon Jira Integration",
+         The connector signs a JWT with the private key in the keystore; Salesforce (External Client App "Neon Jira Integration" — ADR-018,
          admin pre-authorised) returns an access token for `principal`. No password, no security token, nothing that expires
          except the certificate (2 years). One keystore per org. -->
     <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce (JWT)">

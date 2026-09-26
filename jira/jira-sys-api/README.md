@@ -1,7 +1,7 @@
 # jira-sys-api
 
 System API wrapping **Jira Cloud REST v3** (neoncrm.atlassian.net) for Neon One's Salesforce ↔ Jira integration.
-Part of the API-led trio: `salesforce-sys-api` (8081) · **`jira-sys-api` (8082)** · `provisioning-prc-api` (8083).
+Part of the API-led trio: `salesforce-sys-api` (8081) · **`jira-sys-api` (8082)** · `provisioning-prc-api` (8083) — local ports; on CloudHub 2.0 every app listens on 8081 inside its container.
 
 Owns: Jira authentication, custom-field-id mapping, error translation to a canonical shape, and the Jira webhook receiver.
 Knows nothing about: Salesforce, opportunities, business rules.
@@ -17,8 +17,8 @@ Knows nothing about: Salesforce, opportunities, business rules.
 
 ## Configuration
 - `src/main/resources/config/config-<env>.yaml` — non-secrets (host, project key, field ids, option values, downstream URL). Selected by `mule.env`.
-- `src/main/resources/config/secure-<env>.yaml` — secrets, **encrypted** (`![...]`) with a key supplied at runtime as `secure.key`. Referenced as `${secure::jira.token}`.
-- Required secrets: `jira.email`, `jira.token`, `jira.webhookSecret`.
+- `src/main/resources/config/secure-<env>.yaml` — secrets, **encrypted** (`![...]`) with a key supplied at runtime as `secure.key`. Referenced as `${secure::jira.token}`. Only `secure-dev.yaml` exists so far; UAT/Prod files must be created before those deployments.
+- Required secrets: `jira.email`, `jira.token`, `jira.webhookSecret`, `api.clientSecret` (inter-app shared secret; checked by `authorize-caller` when `api.enforceClientSecret=true` — off locally, on when hosted; `POST /webhooks/jira` is exempt and protected by HMAC instead).
 
 ## Run locally
 ```bash
@@ -36,7 +36,9 @@ mvn clean test        # MUnit, all Jira calls mocked
 
 ## Deploy (CloudHub 2.0)
 ```bash
-mvn clean deploy -DmuleDeploy -Pdev -Danypoint.clientId=… -Danypoint.clientSecret=… -Dsecure.key=…
+mvn clean deploy -DmuleDeploy -Pdev -Dsecure.key="$MULE_SECURE_KEY" -Dcloudhub.prc.host=<prc internal host>
+# Credentials (anypoint.client.id / anypoint.client.secret) come from ~/.m2/settings.xml — connected app bluvium-neon-jira-deploy-sandbox.
+# -Pdev deploys into the Anypoint environment Sandbox, private space Bluvium, replica size mule.nano. The first deployment is manual (KB plan 16 §3).
 ```
 
 Project knowledge base: `~/Desktop/NEONONE-KB`.
