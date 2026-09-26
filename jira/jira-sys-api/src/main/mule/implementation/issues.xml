@@ -1,0 +1,264 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/issues.xml — the Jira operations.
+  Canonical model in, Jira JSON out (and back). All Jira custom-field ids and option values come from
+  config/config-<env>.yaml, so a Jira field change is a config change, never a flow change.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== GET /myself ===== -->
+    <flow name="jira-get-myself" doc:name="jira-get-myself">
+        <http:request config-ref="Jira_Request_Config" method="GET" path="/myself" doc:name="Jira: GET /myself">
+            <http:headers>#[{ "Accept": "application/json" }]</http:headers>
+        </http:request>
+        <ee:transform doc:name="To canonical Me">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+{
+  accountId: payload.accountId,
+  displayName: payload.displayName,
+  emailAddress: payload.emailAddress
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== POST /issue ===== -->
+    <flow name="jira-create-issue" doc:name="jira-create-issue">
+        <set-variable variableName="request" value="#[payload]" doc:name="Keep canonical request"/>
+        <!-- `output text/plain` is required: the expression mixes a JSON variable with the Java correlationId,
+             and DataWeave refuses to infer an output type when inputs have different media types (ERR-0008) -->
+        <logger level="INFO" doc:name="Log create"
+                message='#[output text/plain --- "Creating Jira issue for opportunity " ++ (vars.request.sfOpportunityId default "n/a") ++ " (correlation " ++ (vars.request.correlationId default correlationId) ++ ")"]'/>
+
+        <ee:transform doc:name="Canonical -> Jira create payload">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+
+var req = vars.request
+var projectKey = req.project default p('jira.defaults.project')
+var issueTypeId = p('jira.issueTypes.' ++ (req.issueType default "SYSTEM_SETUP"))
+var webTemplateCopyValue = p('jira.options.webTemplateCopy.' ++ (req.webTemplateCopy default p('jira.defaults.webTemplateCopy')))
+// Ticket owner: request may override, else the environment default; empty -> Jira decides (token user / project default)
+var reporterAccountId = (req.reporterAccountId default p('jira.defaults.reporterAccountId')) default ""
+
+// Jira Cloud requires rich-text fields in Atlassian Document Format
+fun adf(text) = {
+  "type": "doc",
+  version: 1,
+  content: [{
+    "type": "paragraph",
+    content: [{ "type": "text", text: (text default " ") }]
+  }]
+}
+---
+{
+  fields: {
+    project:   { key: projectKey },
+    issuetype: { id: issueTypeId },
+    summary:   req.summary,
+    description: adf(req.description),
+    reporter:  if (isEmpty(reporterAccountId)) null else { accountId: reporterAccountId },
+
+    // Required custom fields on a System Setup ticket
+    (p('jira.fields.productionInstance')): req.productionInstance default p('jira.defaults.productionInstance'),
+    (p('jira.fields.modules')):            req.modules default p('jira.defaults.modules'),
+    (p('jira.fields.webTemplateCopy')):    { value: webTemplateCopyValue },
+
+    // Correlation keys back to Salesforce (optional in Jira, always sent when present)
+    (p('jira.fields.sfOpportunityId')):    req.sfOpportunityId,
+    (p('jira.fields.sfAccountId')):        req.sfAccountId,
+    (p('jira.fields.organizationName')):   req.organizationName,
+
+    // Contacts
+    (p('jira.fields.primaryContactName')):    req.primaryContact.name,
+    (p('jira.fields.primaryContactEmail')):   req.primaryContact.email,
+    (p('jira.fields.technicalContactName')):  req.technicalContact.name,
+    (p('jira.fields.technicalContactEmail')): req.technicalContact.email
+  }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+
+        <http:request config-ref="Jira_Request_Config" method="POST" path="/issue" doc:name="Jira: POST /issue">
+            <http:headers>#[{ "Content-Type": "application/json", "Accept": "application/json" }]</http:headers>
+        </http:request>
+
+        <ee:transform doc:name="Jira response -> IssueCreated">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  key: payload.key,
+  id:  payload.id,
+  url: "https://" ++ p('jira.host') ++ "/browse/" ++ payload.key
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <set-variable variableName="created" value="#[payload]" doc:name="Keep IssueCreated"/>
+        <logger level="INFO" doc:name="Log created" message='#[output text/plain --- "Created Jira issue " ++ payload.key]'/>
+
+        <!-- Ticket owner: assign to the configured account (Swati in Dev/UAT). Done as a second call because the assignee
+             field is not on the NSSU create screen. A failure here must NOT fail the creation (the ticket exists; failing
+             would make the process API retry and create a duplicate), so it is logged and reported in the response. -->
+        <set-variable variableName="assigneeAccountId"
+                      value="#[output text/plain --- (vars.request.assigneeAccountId default p('jira.defaults.assigneeAccountId')) default '']" doc:name="Resolve assignee"/>
+        <set-variable variableName="assigned" value="#[false]" doc:name="assigned=false"/>
+        <choice doc:name="Assignee configured?">
+            <when expression="#[!isEmpty(vars.assigneeAccountId)]">
+                <try doc:name="Assign (non-fatal)">
+                    <set-payload value="#[output application/json --- { accountId: vars.assigneeAccountId }]" doc:name="Assign body"/>
+                    <http:request config-ref="Jira_Request_Config" method="PUT" path="/issue/{key}/assignee" doc:name="Jira: PUT /issue/{key}/assignee">
+                        <http:headers>#[{ "Content-Type": "application/json", "Accept": "application/json" }]</http:headers>
+                        <http:uri-params>#[{ "key": vars.created.key }]</http:uri-params>
+                    </http:request>
+                    <set-variable variableName="assigned" value="#[true]" doc:name="assigned=true"/>
+                    <logger level="INFO" doc:name="Log assigned" message='#[output text/plain --- "Assigned " ++ vars.created.key ++ " to account " ++ vars.assigneeAccountId]'/>
+                    <error-handler>
+                        <on-error-continue type="ANY" logException="false">
+                            <logger level="WARN" doc:name="Log assign failure"
+                                    message='#[output text/plain --- "Created " ++ vars.created.key ++ " but could not assign it to " ++ vars.assigneeAccountId ++ ": " ++ (error.description default "unknown error")]'/>
+                        </on-error-continue>
+                    </error-handler>
+                </try>
+            </when>
+        </choice>
+        <ee:transform doc:name="IssueCreated + assignment">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+vars.created ++ {
+  assignee: if (isEmpty(vars.assigneeAccountId)) null else { accountId: vars.assigneeAccountId, assigned: vars.assigned }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== GET /issue/{key} with changelog ===== -->
+    <flow name="jira-get-issue" doc:name="jira-get-issue">
+        <http:request config-ref="Jira_Request_Config" method="GET" path="/issue/{key}" doc:name="Jira: GET /issue/{key}">
+            <http:headers>#[{ "Accept": "application/json" }]</http:headers>
+            <http:uri-params>#[{ "key": vars.issueKey }]</http:uri-params>
+            <http:query-params>#[{
+                "fields": "status,summary,project,issuetype,created,updated," ++ p('jira.fields.sfOpportunityId'),
+                "expand": "changelog"
+            }]</http:query-params>
+        </http:request>
+
+        <ee:transform doc:name="Jira issue -> canonical Issue">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+import * from dw::core::Arrays
+output application/json skipNullOn="everywhere"
+
+var readyStatusId = p('jira.status.instanceReadyId')
+var jiraDateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+// Jira writes "2026-09-19T13:52:25.162-0500" (offset without colon). DataWeave keeps the parsed format on output, and
+// RFC 3339 consumers (our RAML `datetime`, salesforce-sys-api) reject it (ERR-0018). Normalise to UTC "…Z".
+fun toDateTime(s) = if (s == null) null
+    else (((s as DateTime { format: jiraDateFormat }) >> "UTC") as String { format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" })
+
+// Histories whose items include a status change INTO the instance-ready status; take the latest.
+var readyTransitions = (payload.changelog.histories default [])
+    filter ((h) -> (h.items default []) some ((i) -> i.field == "status" and (i.to as String) == readyStatusId))
+    orderBy ((h) -> h.created)
+---
+{
+  key: payload.key,
+  id:  payload.id,
+  url: "https://" ++ p('jira.host') ++ "/browse/" ++ payload.key,
+  project:   payload.fields.project.key,
+  issueType: payload.fields.issuetype.name,
+  summary:   payload.fields.summary,
+  status: {
+    id:       payload.fields.status.id,
+    name:     payload.fields.status.name,
+    category: payload.fields.status.statusCategory.key
+  },
+  systemReadyAt:  if (isEmpty(readyTransitions)) null else toDateTime(readyTransitions[-1].created),
+  sfOpportunityId: payload.fields[p('jira.fields.sfOpportunityId')],
+  created: toDateTime(payload.fields.created),
+  updated: toDateTime(payload.fields.updated)
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== Webhook: validate signature, normalise, forward to the process API ===== -->
+    <flow name="jira-process-webhook" doc:name="jira-process-webhook">
+        <ee:transform doc:name="Verify signature">
+            <ee:variables>
+                <ee:set-variable variableName="signatureValid"><![CDATA[%dw 2.0
+import HMACWith from dw::Crypto
+output application/java
+var validate = (p('jira.webhook.validateSignature') default "true") == "true"
+var expected = "sha256=" ++ lower(HMACWith(p('secure::jira.webhookSecret') as Binary, vars.rawBody as Binary, "HmacSHA256"))
+---
+if (validate) (lower(vars.signature default "") == expected) else true]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <choice doc:name="Signature valid?">
+            <when expression="#[vars.signatureValid == false]">
+                <logger level="WARN" doc:name="Reject" message="Jira webhook rejected: invalid or missing X-Hub-Signature"/>
+            </when>
+            <otherwise>
+                <ee:transform doc:name="Jira webhook -> IssueStatusChanged">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+var body = read(vars.rawBody, "application/json")
+var statusItems = (body.changelog.items default []) filter ($.field == "status")
+---
+{
+  eventType:     body.webhookEvent,
+  issueKey:      body.issue.key,
+  issueId:       body.issue.id,
+  statusChanged: !isEmpty(statusItems),
+  status: {
+    id:       body.issue.fields.status.id,
+    name:     body.issue.fields.status.name,
+    category: body.issue.fields.status.statusCategory.key
+  },
+  previousStatus: if (isEmpty(statusItems)) null else { id: statusItems[0].from, name: statusItems[0].fromString },
+  changedAt:      if (body.timestamp != null) (body.timestamp as Number) as DateTime else now(),
+  sfOpportunityId: body.issue.fields[p('jira.fields.sfOpportunityId')],
+  url: "https://" ++ p('jira.host') ++ "/browse/" ++ (body.issue.key default "")
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+
+                <choice doc:name="Forward?">
+                    <when expression="#[(p('jira.webhook.forwardOnlyStatusChanges') == 'true') and (payload.statusChanged == false)]">
+                        <logger level="DEBUG" doc:name="Ignore non-status update"
+                                message='#["Webhook for " ++ (payload.issueKey default "?") ++ " ignored: no status change"]'/>
+                    </when>
+                    <otherwise>
+                        <logger level="INFO" doc:name="Forward"
+                                message='#["Forwarding status change for " ++ payload.issueKey ++ " -> " ++ payload.status.name]'/>
+                        <until-successful maxRetries="${prc.retry.maxRetries}" millisBetweenRetries="${prc.retry.millisBetweenRetries}" doc:name="Retry forward">
+                            <http:request config-ref="Process_Api_Request_Config" method="POST" path="${prc.paths.issueStatusEvents}" doc:name="prc: POST issue-status-events">
+                                <!-- prc enforces the inter-app secret in hosted environments: send it (was missing until 25 Sep 2026) -->
+                                <http:headers>#[{ "Content-Type": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret') }]</http:headers>
+                            </http:request>
+                        </until-successful>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>

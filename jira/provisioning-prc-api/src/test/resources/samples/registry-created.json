@@ -1,0 +1,25 @@
+{
+  "id": "a0BSu000001abcdMAA",
+  "name": "INT-000001",
+  "targetSystem": "JIRA",
+  "requestType": "PROVISIONING",
+  "requestStatus": "Created",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceBusinessKey": "O-0210538",
+  "attempts": 1,
+  "external": {
+    "key": "NSSU-42",
+    "id": "123456",
+    "url": "https://neoncrm.atlassian.net/browse/NSSU-42",
+    "container": "NSSU",
+    "type": "System Setup",
+    "status": "Open",
+    "statusId": "1",
+    "statusCategory": "To Do",
+    "statusChangedAt": "2026-09-19T12:00:07.000Z",
+    "lastSyncedAt": "2026-09-19T12:00:07.000Z"
+  },
+  "createdDate": "2026-09-19T12:00:00.000Z",
+  "lastModifiedDate": "2026-09-19T12:00:07.000Z"
+}

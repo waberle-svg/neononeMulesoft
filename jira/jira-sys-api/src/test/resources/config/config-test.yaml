@@ -1,0 +1,60 @@
+# jira-sys-api — TEST (MUnit) environment. Backends are mocked; hosts point nowhere reachable on purpose.
+api:
+  name: "jira-sys-api"
+  version: "1.0.0-test"
+  enforceClientSecret: "true"
+
+http:
+  port: "18082"
+
+jira:
+  host: "jira.test.invalid"
+  basePath: "/rest/api/3"
+  responseTimeoutMs: "1000"
+  defaults:
+    project: "NSSU"
+    productionInstance: "Pending"
+    modules: "Core Modules"
+    webTemplateCopy: "NOT_PURCHASED"
+    # Ticket ownership (Jira accountIds). MUnit values
+    # assignee is applied with PUT /issue/{key}/assignee after creation (the field is not on the NSSU create screen);
+    # reporter is sent in the create payload (needs Modify Reporter). Empty string = leave Jira defaults.
+    assigneeAccountId: "test-assignee-account-id"
+    reporterAccountId: "test-reporter-account-id"
+  issueTypes:
+    SYSTEM_SETUP: "10800"
+    DEACTIVATE_INSTANCE: "TBD"
+  status:
+    instanceReadyId: "10805"
+  fields:
+    productionInstance: "customfield_11202"
+    modules: "customfield_15204"
+    webTemplateCopy: "customfield_15100"
+    sfOpportunityId: "customfield_15227"
+    sfAccountId: "customfield_15223"
+    organizationName: "customfield_15226"
+    primaryContactName: "customfield_15224"
+    primaryContactEmail: "customfield_15225"
+    technicalContactName: "customfield_15259"
+    technicalContactEmail: "customfield_15260"
+  options:
+    webTemplateCopy:
+      NOT_PURCHASED: "Not Purchased"
+      COPY_NOW: "Copy Now"
+      DELAY: "Delay"
+      NO_PURCHASED: "No Purchased"
+  webhook:
+    validateSignature: "true"
+    forwardOnlyStatusChanges: "true"
+
+prc:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18083"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"
+  paths:
+    issueStatusEvents: "/issue-status-events"
+  retry:
+    maxRetries: "0"
+    millisBetweenRetries: "1"

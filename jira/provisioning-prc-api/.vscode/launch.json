@@ -1,0 +1,20 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "mule-xml-debugger",
+      "request": "launch",
+      "name": "Run provisioning-prc-api (dev)",
+      "noDebug": true,
+      "mule.projects": ["${workspaceFolder}"],
+      "mule.runtime.args": "${config:mule.runtime.defaultArguments}"
+    },
+    {
+      "type": "mule-xml-debugger",
+      "request": "launch",
+      "name": "Debug provisioning-prc-api (dev)",
+      "mule.projects": ["${workspaceFolder}"],
+      "mule.runtime.args": "${config:mule.runtime.defaultArguments}"
+    }
+  ]
+}

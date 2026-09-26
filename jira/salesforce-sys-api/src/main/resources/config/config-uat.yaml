@@ -1,0 +1,45 @@
+# salesforce-sys-api — UAT environment (CloudHub 2.0, Neon One UAT sandbox). Non-secret values only.
+# REPLACE_ME values are filled once Neon One provides the UAT org details and the apps have CloudHub URLs.
+api:
+  name: "salesforce-sys-api"
+  version: "1.0.0"
+  enforceClientSecret: "true"
+
+http:
+  port: "8081"
+
+sf:
+  tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
+  principal: "REPLACE_ME_integration_user_username_in_uat_sandbox"
+  keystore:
+    path: "keystore/neon-jira-integration-uat.jks"   # packaged resource per ADR-006 (decision pending)
+    alias: "neon-jira-integration-uat"
+  reconnect:
+    # Bounded: operations fail fast with a canonical error (ERR-0009); the event listener reconnects forever (events.reconnectFrequencyMs)
+    count: "3"
+    frequencyMs: "2000"
+  events:
+    reconnectFrequencyMs: "30000"
+    channel: "/event/Integration_Request__e"
+    replayOption: "FROM_LAST_REPLAY_ID"
+    targetSystems: "JIRA"
+    allowSimulation: "false"
+  opportunity:
+    extraFields: ""
+  registry:
+    sweepLimit: "200"
+
+prc:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_provisioning-prc-api-uat.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "20000"
+  paths:
+    provisioningRequests: "/provisioning-requests"
+  retry:
+    maxRetries: "3"
+    millisBetweenRetries: "5000"
+  redrive:
+    frequencyMinutes: "5"
+    maxAttempts: "12"

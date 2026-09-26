@@ -1,0 +1,8 @@
+# provisioning-prc-api — DEV secrets, encrypted with the Secure Configuration Properties module (AES/CBC).
+# Decryption key is supplied at runtime as secure.key (locally from ~/Desktop/Neonone Mulesoft Project/.mule-local.env,
+# on CloudHub as a protected Runtime Manager property). Must match secure::api.clientSecret in salesforce-sys-api and
+# jira-sys-api of the same environment.
+api:
+  # Inter-app shared secret (X-Client-Secret) sent to both system APIs and expected from callers. One value for all three
+  # apps of the same environment; generated 25 Sep 2026, plain copy in .mule-local.env (INTER_APP_SECRET) for curl checks.
+  clientSecret: "![8Tl6+ZkXgO47zHXuEMMj8YUDGRIQ0FzC5dua/WRo+Umk/1MBufmXP6VOC/QkyZB9m29ezTBSNfWe6kNBg0i+cw==]"

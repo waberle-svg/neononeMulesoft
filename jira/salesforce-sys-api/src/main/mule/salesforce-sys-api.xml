@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  salesforce-sys-api.xml — the API front door.
+  One HTTP listener, one APIkit router, and one thin flow per RAML operation that delegates to implementation/*.xml.
+  APIkit flow names follow its convention: <method>:\<resource>[:<content-type>]:<apikit-config-name>
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== Main flow: listener + caller check + router ===== -->
+    <flow name="salesforce-sys-api-main" doc:name="salesforce-sys-api main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/v1/*" doc:name="HTTP /api/v1/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <logger level="INFO" doc:name="Log request"
+                message='#[output text/plain --- "salesforce-sys-api " ++ attributes.method ++ " " ++ attributes.requestPath]'/>
+        <flow-ref name="authorize-caller" doc:name="Check caller"/>
+        <apikit:router config-ref="salesforce-sys-api-config" doc:name="APIkit router"/>
+        <error-handler ref="global-error-handler"/>
+    </flow>
+
+    <!-- Interim inter-app authentication (before API Manager client-id enforcement): a shared secret per environment.
+         Off in dev (api.enforceClientSecret=false) so curl works; on in UAT/Prod. -->
+    <sub-flow name="authorize-caller">
+        <choice doc:name="Enforce client secret?">
+            <when expression="#[p('api.enforceClientSecret') == 'true' and (attributes.headers.'x-client-secret' default '') != p('secure::api.clientSecret')]">
+                <raise-error type="APP:UNAUTHORIZED_CALLER" description="Missing or invalid X-Client-Secret" doc:name="401"/>
+            </when>
+            <otherwise>
+                <logger level="DEBUG" doc:name="Caller accepted"
+                        message="#[output text/plain --- 'Caller ' ++ (attributes.headers.'x-client-id' default 'anonymous')]"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- ===== GET /ping — liveness, no Salesforce call ===== -->
+    <flow name="get:\ping:salesforce-sys-api-config" doc:name="GET /ping">
+        <ee:transform doc:name="Ping response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  status: "ok",
+  app: p('api.name'),
+  version: p('api.version'),
+  env: p('mule.env'),
+  timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== GET /opportunities/{id} ===== -->
+    <flow name="get:\opportunities\(id):salesforce-sys-api-config" doc:name="GET /opportunities/{id}">
+        <set-variable variableName="opportunityId" value="#[attributes.uriParams.'id']" doc:name="opportunityId"/>
+        <flow-ref name="sf-get-opportunity" doc:name="SF: get opportunity"/>
+    </flow>
+
+    <!-- ===== GET /integration-requests (sweep list) ===== -->
+    <flow name="get:\integration-requests:salesforce-sys-api-config" doc:name="GET /integration-requests">
+        <set-variable variableName="filters" value="#[attributes.queryParams]" doc:name="filters"/>
+        <flow-ref name="registry-list" doc:name="Registry: list"/>
+    </flow>
+
+    <!-- ===== GET /integration-requests/{id} ===== -->
+    <flow name="get:\integration-requests\(id):salesforce-sys-api-config" doc:name="GET /integration-requests/{id}">
+        <set-variable variableName="recordId" value="#[attributes.uriParams.'id']" doc:name="recordId"/>
+        <flow-ref name="registry-get-by-id" doc:name="Registry: get by id"/>
+    </flow>
+
+    <!-- ===== PATCH /integration-requests/{id} ===== -->
+    <flow name="patch:\integration-requests\(id):application\json:salesforce-sys-api-config" doc:name="PATCH /integration-requests/{id}">
+        <set-variable variableName="recordId" value="#[attributes.uriParams.'id']" doc:name="recordId"/>
+        <set-variable variableName="updateBody" value="#[payload]" doc:name="updateBody"/>
+        <flow-ref name="registry-update" doc:name="Registry: update"/>
+        <flow-ref name="registry-get-by-id" doc:name="Registry: re-read"/>
+        <ee:transform doc:name="WriteResult">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ id: vars.recordId, created: false, record: payload }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== PUT /integration-requests/by-external-key/{key} ===== -->
+    <flow name="put:\integration-requests\by-external-key\(key):application\json:salesforce-sys-api-config" doc:name="PUT /integration-requests/by-external-key/{key}">
+        <set-variable variableName="externalKey" value="#[attributes.uriParams.'key']" doc:name="externalKey"/>
+        <set-variable variableName="createIfMissing" value="#[(attributes.queryParams.createIfMissing default 'false') == 'true']" doc:name="createIfMissing"/>
+        <set-variable variableName="updateBody" value="#[payload]" doc:name="updateBody"/>
+        <flow-ref name="registry-apply-by-external-key" doc:name="Registry: apply by external key"/>
+    </flow>
+
+    <!-- ===== POST /events/integration-requests — dev-only test hook ===== -->
+    <flow name="post:\events\integration-requests:application\json:salesforce-sys-api-config" doc:name="POST /events/integration-requests">
+        <choice doc:name="Simulation allowed?">
+            <when expression="#[p('sf.events.allowSimulation') != 'true']">
+                <raise-error type="APP:FORBIDDEN" description="Event simulation is disabled in this environment" doc:name="403"/>
+            </when>
+            <otherwise>
+                <logger level="WARN" doc:name="Simulated event"
+                        message='#[output text/plain --- "SIMULATED Integration_Request__e for request " ++ (payload.Request_Id__c default "?")]'/>
+                <!-- Shape the body exactly like the connector delivers a platform event -->
+                <ee:transform doc:name="Wrap as event">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/java
+---
+{
+  payload: payload ++ { CreatedDate: (payload.CreatedDate default now()) },
+  event: { replayId: -1 }
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                <flow-ref name="handle-integration-request-event" doc:name="Handle as event"/>
+                <set-variable variableName="httpStatus" value="202" doc:name="202 Accepted"/>
+                <ee:transform doc:name="Accepted body">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ accepted: true, requestId: vars.request.requestId, forwarded: vars.forwarded default false }]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>

@@ -1,0 +1,112 @@
+%dw 2.0
+import try from dw::Runtime
+/**
+ * TicketMapping.dwl — a tiny mapping engine: turns mapping/provisioning-ticket.yaml plus a context
+ * { opp, req, registry, env, sfUrl } into the canonical IssueCreateRequest expected by jira-sys-api.
+ *
+ *   import * from modules::TicketMapping
+ *   buildTicket(readUrl("classpath://mapping/provisioning-ticket.yaml", "application/yaml"), ctx)
+ *
+ * A leaf spec has one of: source | template | rule | value, plus optional default and maxLength.
+ * Anything else is a group and is built recursively, so the YAML shape is the ticket shape.
+ */
+
+var specKeys = ["source", "template", "rule", "value"]
+
+fun isSpec(node) = (node is Object) and !isEmpty((keysOf(node) map ($ as String)) filter ((k) -> specKeys contains k))
+
+/** "a.b.c" against a nested object; null as soon as a segment is missing */
+fun resolve(ctx, path: String) =
+    (path splitBy ".") reduce ((seg, acc = ctx) -> if (acc == null) null else acc[seg])
+
+/** replaces every {path} token; a missing value becomes "" */
+fun fillTemplate(template: String, ctx) =
+    template replace /\{([A-Za-z0-9_.]+)\}/ with ((m) -> (resolve(ctx, m[1]) default "") as String)
+
+/** named rules: business logic that is more than a copy (kept here, referenced from the YAML by name) */
+fun applyRule(rule: String, ctx) =
+    rule match {
+        // Q21 candidate: the Web Template Copy roll-up on the Opportunity says whether the product was bought
+        case "webTemplateCopy" ->
+            if (((ctx.opp.includesWebTemplateCopy default 0) as Number) > 0) "COPY_NOW" else "NOT_PURCHASED"
+        // Q16 candidates: NeonCRM_Modules__c ("A|B|C"), else the product names inside ProductRollup__c ("CODE::Name::Desc|…")
+        case "modules" -> do {
+            var fromModules = trim((ctx.opp.neonCrmModules default "") as String)
+            var fromRollup  = (((ctx.opp.productRollup default "") as String) splitBy "|")
+                                map ((item) -> trim(((item splitBy "::")[1]) default item))
+                                filter ((name) -> !isEmpty(name))
+                                joinBy ", "
+            ---
+            if (!isEmpty(fromModules)) fromModules replace "|" with ", "
+            else if (!isEmpty(fromRollup)) fromRollup
+            else null
+        }
+        else -> null
+    }
+
+fun evalSpec(spec, ctx) = do {
+    var raw =
+        if (spec.value != null) spec.value
+        else if (spec.template != null) fillTemplate(spec.template as String, ctx)
+        else if (spec.rule != null) applyRule(spec.rule as String, ctx)
+        else if (spec.source != null) resolve(ctx, spec.source as String)
+        else null
+    var nonBlank = if (raw is String and isEmpty(trim(raw))) null else raw
+    var withDefault = nonBlank default spec."default"
+    var maxLength = spec.maxLength
+    ---
+    if (withDefault == null) null
+    else if (maxLength != null and withDefault is String and sizeOf(withDefault) > (maxLength as Number))
+        (withDefault as String)[0 to (maxLength as Number) - 1]
+    else withDefault
+}
+
+fun build(node, ctx) =
+    if (isSpec(node)) evalSpec(node, ctx)
+    else if (node is Object) node mapObject ((v, k) -> { (k): build(v, ctx) })
+    else node
+
+/** mapping = parsed YAML; returns the canonical IssueCreateRequest (nulls kept; jira-sys-api skips them) */
+fun buildTicket(mapping, ctx) = build(mapping.fields, ctx)
+
+/**
+ * Failure classification for the orchestration: retryable or terminal, and the Error_Category__c picklist value.
+ * Uses the downstream canonical error body when the HTTP connector attached one, else the error type.
+ */
+fun classify(err) = do {
+    var errNs = err.errorType.namespace default ""
+    var id    = err.errorType.identifier default ""
+    // the downstream canonical error body, when the HTTP connector attached a parseable one
+    var bodyAttempt = try(() -> err.errorMessage.payload)
+    var body  = if (bodyAttempt.success and bodyAttempt.result is Object) bodyAttempt.result else null
+    var statusAttempt = try(() -> err.errorMessage.attributes.statusCode)
+    var status = if (statusAttempt.success) statusAttempt.result else null
+    var bodyRetryable = body.retryable
+    var byType =
+        if (errNs == "HTTP") (
+            if (["CONNECTIVITY", "TIMEOUT", "RETRY_EXHAUSTED", "TOO_MANY_REQUESTS", "INTERNAL_SERVER_ERROR", "BAD_GATEWAY", "SERVICE_UNAVAILABLE", "GATEWAY_TIMEOUT"] contains id) true
+            else false)
+        else if (errNs == "MULE" and (["EXPRESSION", "TRANSFORMATION"] contains id)) false
+        else if (errNs == "APP") false
+        else true
+    var retryable = if (bodyRetryable is Boolean) bodyRetryable else byType
+    var code = body.code default (errNs ++ ":" ++ id)
+    var category =
+        if (retryable) "Transient"
+        else if ((["UNAUTHORIZED", "FORBIDDEN"] contains (body.code default "")) or (["UNAUTHORIZED", "FORBIDDEN"] contains id)) "Auth"
+        else if ((body.code default "") == "VALIDATION" or id == "BAD_REQUEST" or (errNs == "MULE")) "Mapping"
+        else "Terminal"
+    ---
+    {
+        retryable: retryable,
+        category:  category,
+        code:      code,
+        status:    status,
+        message:   (body.message default err.description default "Unexpected error") as String,
+        detail:    body
+    }
+}
+
+/** exponential backoff in seconds: base * 2^(attempt-1), capped */
+fun backoffSeconds(attempt: Number, baseSeconds: Number, maxSeconds: Number) =
+    min([ baseSeconds * pow(2, max([attempt - 1, 0])), maxSeconds ])

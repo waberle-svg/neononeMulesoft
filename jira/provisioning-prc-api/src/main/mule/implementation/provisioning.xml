@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/provisioning.xml — the outbound orchestration (Salesforce -> Jira), step by step as in 11-option-a-design.md:
+
+    payload ProvisioningRequested
+      1. request type we handle?                       else IGNORED_TYPE
+      2. registry row exists and is processable?       else IGNORED_UNKNOWN_REQUEST / SKIPPED_ALREADY_PROCESSED   (idempotency #1)
+      3. Opportunity has no Jira key yet?              else registry -> Cancelled, SKIPPED_EXISTING_KEY           (idempotency #2)
+      4. build the ticket from mapping/provisioning-ticket.yaml
+      5. jira-sys-api POST /issues                     -> key
+      6. jira-sys-api GET /issues/{key}                -> initial status (best effort)
+      7. registry -> Created + external record         => Salesforce Flow copies key/status to the Opportunity
+    failure in 3-7:
+      terminal  -> registry -> Failed - Terminal (+ category, error)      TERMINAL_ERROR
+      transient -> registry -> Retrying, park in retry_store with backoff RETRY_SCHEDULED; after maxAttempts -> Failed - Terminal RETRIES_EXHAUSTED
+    Nothing is ever written to a Salesforce field the integration filters on; the registry row is the audit trail.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <flow name="process-provisioning-request" doc:name="process-provisioning-request">
+        <set-variable variableName="req" value="#[payload]" doc:name="req"/>
+        <set-variable variableName="requestId" value="#[vars.req.requestId]" doc:name="requestId"/>
+        <set-variable variableName="opportunityId" value="#[vars.req.sourceRecordId]" doc:name="opportunityId"/>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'IGNORED_TYPE' }]" doc:name="outcome (default)"/>
+        <logger level="INFO" doc:name="Log start"
+                message='#[output text/plain --- "Provisioning request " ++ (vars.requestId default "?") ++ " type=" ++ (vars.req.requestType default "?") ++ " opportunity=" ++ (vars.opportunityId default "?")]'/>
+
+        <choice doc:name="1. Request type handled?">
+            <when expression="#[!((p('provisioning.requestTypes') splitBy ',') map trim($) contains (vars.req.requestType default ''))]">
+                <logger level="INFO" doc:name="Ignore type" message='#[output text/plain --- "Ignoring request type " ++ (vars.req.requestType default "null")]'/>
+            </when>
+            <otherwise>
+                <!-- 2. Registry row: exists? processable? -->
+                <flow-ref name="sys-sf-get-integration-request" doc:name="Registry: get row"/>
+                <choice doc:name="2. Registry row processable?">
+                    <when expression="#[vars.registry == null]">
+                        <logger level="ERROR" doc:name="Unknown request" message='#[output text/plain --- "No Integration_Transaction__c row for request " ++ vars.requestId ++ "; ignoring"]'/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'IGNORED_UNKNOWN_REQUEST', message: 'Registry row not found' }]" doc:name="IGNORED_UNKNOWN_REQUEST"/>
+                    </when>
+                    <when expression="#[vars.registry.external.key != null or !((p('provisioning.processableStatuses') splitBy ',') map trim($) contains (vars.registry.requestStatus default ''))]">
+                        <logger level="INFO" doc:name="Already processed"
+                                message='#[output text/plain --- "Request " ++ vars.requestId ++ " already processed (status " ++ (vars.registry.requestStatus default "?") ++ ", key " ++ (vars.registry.external.key default "none") ++ "); skipping"]'/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_ALREADY_PROCESSED', issueKey: vars.registry.external.key, message: 'Registry status ' ++ (vars.registry.requestStatus default '') }]" doc:name="SKIPPED_ALREADY_PROCESSED"/>
+                    </when>
+                    <otherwise>
+                        <flow-ref name="provision-ticket" doc:name="3-7. Provision ticket"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+
+        <ee:transform doc:name="ProvisioningOutcome">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+{ requestId: vars.requestId } ++ vars.outcome]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log outcome" message='#[output text/plain --- "Provisioning request " ++ vars.requestId ++ " -> " ++ write(payload, "application/json")]'/>
+    </flow>
+
+    <!-- Steps 3-7 with the terminal / transient decision. Requires vars.req, vars.requestId, vars.opportunityId, vars.registry -->
+    <flow name="provision-ticket" doc:name="provision-ticket">
+        <set-variable variableName="attempt" value="#[((vars.registry.attempts default 0) as Number) + 1]" doc:name="attempt"/>
+        <try doc:name="Provision or record failure">
+            <!-- 3. Opportunity -->
+            <flow-ref name="sys-sf-get-opportunity" doc:name="SF: get opportunity"/>
+            <choice doc:name="3. Opportunity already keyed?">
+                <when expression="#[vars.opp.jiraSetupIssueKey != null]">
+                    <logger level="WARN" doc:name="Existing key"
+                            message='#[output text/plain --- "Opportunity " ++ vars.opportunityId ++ " already has Jira key " ++ vars.opp.jiraSetupIssueKey ++ "; cancelling request " ++ vars.requestId]'/>
+                    <set-variable variableName="registryPatch" doc:name="patch: Cancelled"
+                                  value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastError: 'Opportunity already has Jira key ' ++ vars.opp.jiraSetupIssueKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, external: { key: vars.opp.jiraSetupIssueKey } }]"/>
+                    <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Cancelled"/>
+                    <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_EXISTING_KEY', issueKey: vars.opp.jiraSetupIssueKey, attempts: vars.attempt }]" doc:name="SKIPPED_EXISTING_KEY"/>
+                </when>
+                <otherwise>
+                    <!-- 4. Ticket from mapping -->
+                    <flow-ref name="build-ticket" doc:name="Build ticket"/>
+                    <!-- 5. Create in Jira -->
+                    <flow-ref name="sys-jira-create-issue" doc:name="Jira: create issue"/>
+                    <!-- 6. Initial status (best effort: a failure here must not undo a created ticket) -->
+                    <set-variable variableName="issueKey" value="#[vars.issue.key]" doc:name="issueKey"/>
+                    <try doc:name="Read initial status">
+                        <flow-ref name="sys-jira-get-issue" doc:name="Jira: get issue"/>
+                        <set-variable variableName="issueStatus" value="#[payload.status]" doc:name="issueStatus"/>
+                        <error-handler>
+                            <on-error-continue type="ANY">
+                                <logger level="WARN" doc:name="Status read failed" message='#[output text/plain --- "Could not read initial status of " ++ vars.issueKey ++ ": " ++ (error.description default "")]'/>
+                                <set-variable variableName="issueStatus" value="#[null]" doc:name="issueStatus=null"/>
+                            </on-error-continue>
+                        </error-handler>
+                    </try>
+                    <!-- 7. Registry -> Created (the Salesforce Flow copies key + status to the Opportunity) -->
+                    <ee:transform doc:name="patch: Created">
+                        <ee:variables>
+                            <ee:set-variable variableName="registryPatch"><![CDATA[%dw 2.0
+output application/java
+var st = vars.issueStatus
+---
+{
+  requestStatus: "Created",
+  attempts: vars.attempt,
+  lastError: null,
+  errorCategory: null,
+  muleCorrelationId: correlationId,
+  requestPayload: write(vars.ticket, "application/json"),
+  responsePayload: write(vars.issue, "application/json"),
+  external: {
+    key: vars.issue.key,
+    id: vars.issue.id,
+    url: vars.issue.url,
+    container: vars.ticket.project,
+    "type": "System Setup",
+    status: st.name default "Open",
+    statusId: st.id,
+    statusCategory: p('jira.statusCategoryMap.' ++ (st.category default "new")),
+    statusChangedAt: now(),
+    lastSyncedAt: now()
+  }
+}]]></ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+                    <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Created"/>
+                    <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'CREATED', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt }]" doc:name="CREATED"/>
+                </otherwise>
+            </choice>
+
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <ee:transform doc:name="Classify failure">
+                        <ee:variables>
+                            <ee:set-variable variableName="failure"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+---
+classify(error)]]></ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+                    <logger level="ERROR" doc:name="Log failure"
+                            message='#[output text/plain --- "Provisioning request " ++ vars.requestId ++ " attempt " ++ (vars.attempt as String) ++ " failed (" ++ (if (vars.failure.retryable) "transient" else "terminal") ++ ", " ++ vars.failure.code ++ "): " ++ vars.failure.message]'/>
+                    <choice doc:name="Retryable?">
+                        <when expression="#[vars.failure.retryable and vars.attempt &lt; (p('provisioning.retry.maxAttempts') as Number)]">
+                            <flow-ref name="schedule-retry" doc:name="Schedule retry"/>
+                        </when>
+                        <when expression="#[vars.failure.retryable]">
+                            <set-variable variableName="registryPatch" doc:name="patch: exhausted"
+                                          value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastError: 'Retries exhausted after ' ++ (vars.attempt as String) ++ ' attempts. Last error: ' ++ vars.failure.message, errorCategory: 'Transient', muleCorrelationId: correlationId, responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                            <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal (exhausted)"/>
+                            <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'RETRIES_EXHAUSTED', attempts: vars.attempt, message: vars.failure.message }]" doc:name="RETRIES_EXHAUSTED"/>
+                        </when>
+                        <otherwise>
+                            <set-variable variableName="registryPatch" doc:name="patch: terminal"
+                                          value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message, errorCategory: vars.failure.category, muleCorrelationId: correlationId, requestPayload: if (vars.ticket == null) null else write(vars.ticket, 'application/json'), responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                            <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal"/>
+                            <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'TERMINAL_ERROR', attempts: vars.attempt, message: vars.failure.code ++ ': ' ++ vars.failure.message }]" doc:name="TERMINAL_ERROR"/>
+                        </otherwise>
+                    </choice>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </flow>
+
+    <!-- Step 4 on its own so it can be unit-tested: vars.opp, vars.req, vars.registry -> vars.ticket -->
+    <sub-flow name="build-ticket">
+        <ee:transform doc:name="Mapping -> IssueCreateRequest">
+            <ee:variables>
+                <ee:set-variable variableName="ticket"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+var mapping = readUrl("classpath://" ++ p('provisioning.mappingFile'), "application/yaml")
+var ctx = {
+  opp: vars.opp,
+  req: vars.req,
+  registry: vars.registry,
+  env: { jiraProject: p('jira.project') },
+  sfUrl: p('sf.baseUrl') ++ "/" ++ (vars.opp.id default "")
+}
+---
+buildTicket(mapping, ctx)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log ticket"
+                message='#[output text/plain --- "Ticket for request " ++ vars.requestId ++ ": " ++ write(vars.ticket - "description", "application/json")]'/>
+    </sub-flow>
+
+    <!-- Transient failure: registry -> Retrying and park the request with exponential backoff -->
+    <sub-flow name="schedule-retry">
+        <ee:transform doc:name="Backoff">
+            <ee:variables>
+                <ee:set-variable variableName="nextAttemptAt"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+---
+now() + ("PT" ++ (backoffSeconds(vars.attempt, p('provisioning.retry.baseDelaySeconds') as Number, p('provisioning.retry.maxDelaySeconds') as Number) as String) ++ "S") as Period]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <set-variable variableName="registryPatch" doc:name="patch: Retrying"
+                      value="#[output application/java --- { requestStatus: 'Retrying', attempts: vars.attempt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message ++ ' (next attempt ' ++ (vars.nextAttemptAt as String) ++ ')', errorCategory: 'Transient', muleCorrelationId: correlationId }]"/>
+        <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Retrying"/>
+        <os:store key="#[vars.requestId]" objectStore="retry_store" doc:name="Park in retry store">
+            <os:value>#[output application/json --- { requestId: vars.requestId, attempt: vars.attempt, nextAttemptAt: vars.nextAttemptAt, lastError: vars.failure.message, request: vars.req }]</os:value>
+        </os:store>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'RETRY_SCHEDULED', attempts: vars.attempt, message: vars.failure.message ++ '; next attempt at ' ++ (vars.nextAttemptAt as String) }]" doc:name="RETRY_SCHEDULED"/>
+    </sub-flow>
+
+</mule>

@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.bluvium.neonone</groupId>
+    <artifactId>salesforce-sys-api</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>mule-application</packaging>
+
+    <name>salesforce-sys-api</name>
+    <description>System API for Neon One's Salesforce org. Owns the JWT connection, the Integration_Request__e platform-event subscription (with replay), reads of Opportunities, and every write to the Integration_Transaction__c registry. Knows nothing about Jira.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- Runtime and build tooling (keep identical across the three apps) -->
+        <app.runtime>4.12.3</app.runtime>
+        <mule.maven.plugin.version>4.10.1</mule.maven.plugin.version>
+        <munit.version>3.7.3</munit.version>
+
+        <!-- Connectors and modules (pin every version) -->
+        <http.connector.version>1.11.3</http.connector.version>
+        <sockets.connector.version>1.2.9</sockets.connector.version>
+        <apikit.module.version>1.12.2</apikit.module.version>
+        <secure.properties.module.version>1.2.7</secure.properties.module.version>
+        <salesforce.connector.version>12.0.0</salesforce.connector.version>
+        <objectstore.connector.version>1.2.2</objectstore.connector.version>
+
+        <!-- Deployment: CloudHub 2.0 private space "Bluvium" (25 Sep 2026). Connected-app credentials come from
+             ~/.m2/settings.xml (anypoint.client.id / anypoint.client.secret); the secure key from -Dsecure.key; the
+             process API's internal hostname from -Dcloudhub.prc.host once known. Never hardcode secrets here. -->
+        <cloudhub.env>Sandbox</cloudhub.env>
+        <cloudhub.target>Bluvium</cloudhub.target>
+        <cloudhub.replicas>1</cloudhub.replicas>
+        <cloudhub.instanceType>mule.nano</cloudhub.instanceType>   <!-- usage-based (Mule Credit) org: replica size by instance type, not vCores -->
+        <cloudhub.publicUrl>false</cloudhub.publicUrl>              <!-- internal-only: only the process API is public -->
+        <cloudhub.prc.protocol>HTTPS</cloudhub.prc.protocol>
+        <cloudhub.prc.host>localhost</cloudhub.prc.host>
+        <cloudhub.prc.port>443</cloudhub.prc.port>
+        <mule.env>dev</mule.env>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.2.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.mule.tools.maven</groupId>
+                <artifactId>mule-maven-plugin</artifactId>
+                <version>${mule.maven.plugin.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <!-- CloudHub 2.0 deployment (private space Bluvium):
+                         mvn clean deploy -DmuleDeploy -Pdev -Dsecure.key="$MULE_SECURE_KEY" -Dcloudhub.prc.host=<prc internal host>
+                         Credentials: anypoint.client.id / anypoint.client.secret from ~/.m2/settings.xml (connected app). -->
+                    <cloudhub2Deployment>
+                        <uri>https://anypoint.mulesoft.com</uri>
+                        <provider>MC</provider>
+                        <environment>${cloudhub.env}</environment>
+                        <target>${cloudhub.target}</target>
+                        <muleVersion>${app.runtime}</muleVersion>
+                        <releaseChannel>EDGE</releaseChannel>
+                        <javaVersion>17</javaVersion>
+                        <applicationName>${project.artifactId}-${mule.env}</applicationName>
+                        <replicas>${cloudhub.replicas}</replicas>
+                        <connectedAppClientId>${anypoint.client.id}</connectedAppClientId>
+                        <connectedAppClientSecret>${anypoint.client.secret}</connectedAppClientSecret>
+                        <connectedAppGrantType>client_credentials</connectedAppGrantType>
+                        <deploymentSettings>
+                            <generateDefaultPublicUrl>${cloudhub.publicUrl}</generateDefaultPublicUrl>
+                            <!-- Usage-based (Mule Credit) org: replica size by instance type (mule-maven-plugin 4.10.1 puts it here); use <vCores> at the top level in a vCore-based org -->
+                            <instanceType>${cloudhub.instanceType}</instanceType>
+                            <updateStrategy>rolling</updateStrategy>
+                        </deploymentSettings>
+                        <integrations>
+                            <services>
+                                <objectStoreV2>
+                                    <enabled>true</enabled>
+                                </objectStoreV2>
+                            </services>
+                        </integrations>
+                        <!-- Same names and values as the manual Runtime Manager deployment (KB plan 16 §3) -->
+                        <properties>
+                            <mule.env>${mule.env}</mule.env>
+                            <http.port>8081</http.port>
+                            <api.enforceClientSecret>true</api.enforceClientSecret>
+                            <prc.protocol>${cloudhub.prc.protocol}</prc.protocol>
+                            <prc.host>${cloudhub.prc.host}</prc.host>
+                            <prc.port>${cloudhub.prc.port}</prc.port>
+                        </properties>
+                        <secureProperties>
+                            <secure.key>${secure.key}</secure.key>
+                        </secureProperties>
+                    </cloudhub2Deployment>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.mulesoft.munit.tools</groupId>
+                <artifactId>munit-maven-plugin</artifactId>
+                <version>${munit.version}</version>
+                <executions>
+                    <execution>
+                        <id>test</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>test</goal>
+                            <goal>coverage-report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <runtimeVersion>${app.runtime}</runtimeVersion>
+                    <!-- Tests run against config-test.yaml / secure-test.yaml (fake, plain values); the key below is test-only and must be 16 chars (ERR-0004) -->
+                    <systemPropertyVariables>
+                        <mule.env>test</mule.env>
+                        <secure.key>munit-test-key16</secure.key>
+                    </systemPropertyVariables>
+                    <coverage>
+                        <runCoverage>true</runCoverage>
+                        <failBuild>false</failBuild>
+                        <requiredApplicationCoverage>50</requiredApplicationCoverage>
+                        <formats>
+                            <format>console</format>
+                            <format>html</format>
+                        </formats>
+                    </coverage>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-http-connector</artifactId>
+            <version>${http.connector.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-sockets-connector</artifactId>
+            <version>${sockets.connector.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.modules</groupId>
+            <artifactId>mule-apikit-module</artifactId>
+            <version>${apikit.module.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.mulesoft.modules</groupId>
+            <artifactId>mule-secure-configuration-property-module</artifactId>
+            <version>${secure.properties.module.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.mulesoft.connectors</groupId>
+            <artifactId>mule-salesforce-connector</artifactId>
+            <version>${salesforce.connector.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+        <dependency>
+            <groupId>org.mule.connectors</groupId>
+            <artifactId>mule-objectstore-connector</artifactId>
+            <version>${objectstore.connector.version}</version>
+            <classifier>mule-plugin</classifier>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>com.mulesoft.munit</groupId>
+            <artifactId>munit-runner</artifactId>
+            <version>${munit.version}</version>
+            <classifier>mule-plugin</classifier>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.mulesoft.munit</groupId>
+            <artifactId>munit-tools</artifactId>
+            <version>${munit.version}</version>
+            <classifier>mule-plugin</classifier>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <profiles>
+        <profile>
+            <!-- "dev" = our Dev configuration hosted in the client's Sandbox environment (the only one that exists, 25 Sep 2026) -->
+            <id>dev</id>
+            <properties>
+                <cloudhub.env>Sandbox</cloudhub.env>
+                <mule.env>dev</mule.env>
+            </properties>
+        </profile>
+        <profile>
+            <id>uat</id>
+            <properties>
+                <cloudhub.env>UAT</cloudhub.env>
+                <mule.env>uat</mule.env>
+            </properties>
+        </profile>
+        <profile>
+            <id>prod</id>
+            <properties>
+                <cloudhub.env>Production</cloudhub.env>
+                <mule.env>prod</mule.env>
+                <cloudhub.replicas>1</cloudhub.replicas>
+            </properties>
+        </profile>
+    </profiles>
+
+    <repositories>
+        <repository>
+            <id>anypoint-exchange-v3</id>
+            <name>Anypoint Exchange</name>
+            <url>https://maven.anypoint.mulesoft.com/api/v3/maven</url>
+            <layout>default</layout>
+        </repository>
+        <repository>
+            <id>mulesoft-releases</id>
+            <name>MuleSoft Releases Repository</name>
+            <url>https://repository.mulesoft.org/nexus/repository/releases/</url>
+            <layout>default</layout>
+        </repository>
+    </repositories>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>mulesoft-releases</id>
+            <name>MuleSoft Releases Repository</name>
+            <layout>default</layout>
+            <url>https://repository.mulesoft.org/nexus/repository/releases/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </pluginRepository>
+    </pluginRepositories>
+</project>

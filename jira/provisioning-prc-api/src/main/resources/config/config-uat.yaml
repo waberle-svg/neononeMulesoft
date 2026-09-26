@@ -1,0 +1,50 @@
+# provisioning-prc-api — UAT environment (CloudHub 2.0). Non-secret values only. REPLACE_ME values are filled at first deployment.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0"
+  enforceClientSecret: "true"
+
+http:
+  port: "8081"
+
+provisioning:
+  requestTypes: "PROVISIONING"
+  processableStatuses: "Requested,Retrying"
+  retry:
+    maxAttempts: "6"
+    baseDelaySeconds: "60"
+    maxDelaySeconds: "3600"
+    schedulerFrequencyMinutes: "1"
+  mappingFile: "mapping/provisioning-ticket.yaml"
+
+jira:
+  project: "NSSU"
+  instanceReadyStatusId: "10805"
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "200"
+
+sf:
+  baseUrl: "REPLACE_ME_https://neonone--uat.sandbox.lightning.force.com"
+
+sysSf:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_salesforce-sys-api-uat.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "30000"
+sysJira:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_jira-sys-api-uat.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "45000"

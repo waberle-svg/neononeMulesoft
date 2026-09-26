@@ -1,0 +1,159 @@
+#%RAML 1.0
+title: Jira System API
+version: v1
+description: |
+  System API for Neon One's Jira Cloud site (neoncrm.atlassian.net).
+  Exposes a canonical, Jira-id-free surface for creating and reading issues and receives Jira webhooks.
+  Consumers never see Jira custom field ids; those live in this API's configuration.
+baseUri: http://localhost:8082/api/v1
+mediaType: application/json
+
+types:
+  Contact:
+    description: Optional person on the ticket; either field may be absent or null (ERR-0016).
+    properties:
+      name?: string | nil
+      email?: string | nil
+
+  IssueCreateRequest:
+    description: Canonical request to create a Jira issue. Enum values are mapped to Jira ids by this API.
+    properties:
+      project:
+        type: string
+        description: Jira project key (NSSU, SETUP, WORK, FUND, ARTS). Defaults to the environment's configured project when omitted.
+        required: false
+      issueType:
+        type: string
+        enum: [SYSTEM_SETUP, DEACTIVATE_INSTANCE]
+        default: SYSTEM_SETUP
+        required: false
+      summary: string
+      description?: string | nil
+      productionInstance?: string | nil
+      modules?: string | nil
+      webTemplateCopy?:
+        type: string | nil
+        enum: [NOT_PURCHASED, COPY_NOW, DELAY, NO_PURCHASED]
+      sfOpportunityId?: string | nil
+      sfAccountId?: string | nil
+      sfOpportunityNumber?: string | nil
+      organizationName?: string | nil
+      primaryContact?: Contact | nil
+      technicalContact?: Contact | nil
+      correlationId?:
+        type: string | nil
+        description: Caller's correlation id (e.g. the Integration_Transaction__c record id). Echoed in logs.
+
+  IssueStatus:
+    properties:
+      id: string
+      name: string
+      category?:
+        type: string
+        description: Jira status category key (new, indeterminate, done)
+
+  Issue:
+    properties:
+      key: string
+      id: string
+      url: string
+      project?: string
+      issueType?: string
+      summary?: string
+      status?: IssueStatus
+      systemReadyAt?:
+        type: datetime
+        description: When the issue transitioned into the configured "instance ready" status, derived from the changelog. Null if never.
+      sfOpportunityId?: string
+      created?: datetime
+      updated?: datetime
+
+  IssueCreated:
+    properties:
+      key: string
+      id: string
+      url: string
+
+  Me:
+    properties:
+      accountId: string
+      displayName: string
+      emailAddress?: string
+
+  Error:
+    properties:
+      code:
+        type: string
+        enum: [VALIDATION, NOT_FOUND, UNAUTHORIZED, FORBIDDEN, RATE_LIMITED, BACKEND_UNAVAILABLE, BACKEND_TIMEOUT, INTERNAL]
+      message: string
+      retryable: boolean
+      correlationId: string
+      detail?: any
+
+traits:
+  errorResponses:
+    responses:
+      400:
+        body: Error
+      401:
+        body: Error
+      404:
+        body: Error
+      429:
+        body: Error
+      500:
+        body: Error
+      502:
+        body: Error
+      504:
+        body: Error
+
+/ping:
+  get:
+    description: Liveness check. Does not call Jira.
+    responses:
+      200:
+        body:
+          properties:
+            status: string
+            app: string
+            version: string
+            env: string
+            timestamp: datetime
+
+/me:
+  get:
+    is: [errorResponses]
+    description: Connectivity check. Calls Jira GET /myself with the configured credentials.
+    responses:
+      200:
+        body: Me
+
+/issues:
+  post:
+    is: [errorResponses]
+    description: Create a Jira issue from a canonical request.
+    body: IssueCreateRequest
+    responses:
+      201:
+        body: IssueCreated
+  /{key}:
+    get:
+      is: [errorResponses]
+      description: Read an issue's status and the timestamp of its transition into the configured "instance ready" status.
+      responses:
+        200:
+          body: Issue
+
+/webhooks/jira:
+  post:
+    description: |
+      Receiver for Jira Cloud webhooks (issue updated). Responds 202 immediately, validates the
+      X-Hub-Signature header (HMAC-SHA256 with the shared secret), normalises the event and forwards it
+      to the configured process API. Requests with an invalid signature are logged and dropped.
+    body: any
+    responses:
+      202:
+        body:
+          properties:
+            accepted: boolean

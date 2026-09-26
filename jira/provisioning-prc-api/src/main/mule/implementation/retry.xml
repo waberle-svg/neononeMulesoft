@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/retry.xml — re-drives requests parked in retry_store after a transient failure (ADR-007, implementation A).
+  Each due entry is pushed through process-provisioning-request again; that flow re-reads the registry (status Retrying is
+  processable), re-parks with a longer backoff on another transient failure, or dead-letters on the registry row when
+  maxAttempts is reached. The store entry is removed once the outcome is final.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <flow name="retry-scheduler" doc:name="Retry scheduler">
+        <scheduler doc:name="Every N minutes">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${provisioning.retry.schedulerFrequencyMinutes}" timeUnit="MINUTES"/>
+            </scheduling-strategy>
+        </scheduler>
+        <flow-ref name="retry-due-requests" doc:name="Retry due requests"/>
+    </flow>
+
+    <flow name="retry-due-requests" doc:name="retry-due-requests">
+        <os:retrieve-all-keys objectStore="retry_store" doc:name="Parked keys"/>
+        <set-variable variableName="dueCount" value="#[0]" doc:name="dueCount=0"/>
+        <foreach doc:name="For each parked request">
+            <set-variable variableName="parkedKey" value="#[payload]" doc:name="parkedKey"/>
+            <os:retrieve key="#[vars.parkedKey]" objectStore="retry_store" doc:name="Load entry"/>
+            <ee:transform doc:name="Entry">
+                <ee:variables>
+                    <ee:set-variable variableName="entry"><![CDATA[%dw 2.0
+output application/java
+---
+if (payload is String) read(payload, "application/json") else payload]]></ee:set-variable>
+                </ee:variables>
+            </ee:transform>
+            <choice doc:name="Due?">
+                <when expression="#[vars.entry.nextAttemptAt == null or (vars.entry.nextAttemptAt as DateTime) &lt;= now()]">
+                    <set-variable variableName="dueCount" value="#[vars.dueCount + 1]" doc:name="dueCount+1"/>
+                    <logger level="INFO" doc:name="Retrying" message='#[output text/plain --- "Retrying request " ++ vars.parkedKey ++ " (attempt " ++ ((vars.entry.attempt default 0) as String) ++ " failed earlier)"]'/>
+                    <try doc:name="Reprocess">
+                        <set-payload value="#[vars.entry.request]" doc:name="request"/>
+                        <flow-ref name="process-provisioning-request" doc:name="Process again"/>
+                        <choice doc:name="Final outcome?">
+                            <when expression="#[payload.outcome != 'RETRY_SCHEDULED']">
+                                <os:remove key="#[vars.parkedKey]" objectStore="retry_store" doc:name="Remove from retry store"/>
+                                <logger level="INFO" doc:name="Retry finished" message='#[output text/plain --- "Request " ++ vars.parkedKey ++ " left the retry queue with outcome " ++ payload.outcome]'/>
+                            </when>
+                            <otherwise>
+                                <logger level="INFO" doc:name="Re-parked" message='#[output text/plain --- "Request " ++ vars.parkedKey ++ " re-parked: " ++ (payload.message default "")]'/>
+                            </otherwise>
+                        </choice>
+                        <error-handler>
+                            <on-error-continue type="ANY">
+                                <!-- The registry itself was unreachable: leave the entry as is; the next run tries again -->
+                                <logger level="WARN" doc:name="Retry attempt failed" message='#[output text/plain --- "Retry of " ++ vars.parkedKey ++ " could not run: " ++ (error.description default "")]'/>
+                            </on-error-continue>
+                        </error-handler>
+                    </try>
+                </when>
+                <otherwise>
+                    <logger level="DEBUG" doc:name="Not due" message='#[output text/plain --- "Request " ++ vars.parkedKey ++ " not due until " ++ (vars.entry.nextAttemptAt as String)]'/>
+                </otherwise>
+            </choice>
+        </foreach>
+        <ee:transform doc:name="Summary">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ retried: vars.dueCount }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- GET /retry-queue -->
+    <flow name="retry-queue-list" doc:name="retry-queue-list">
+        <os:retrieve-all-keys objectStore="retry_store" doc:name="Parked keys"/>
+        <set-variable variableName="entries" value="#[[]]" doc:name="entries=[]"/>
+        <foreach doc:name="For each key">
+            <os:retrieve key="#[payload]" objectStore="retry_store" doc:name="Load entry"/>
+            <set-variable variableName="entries" doc:name="append"
+                          value="#[vars.entries + (if (payload is String) read(payload, 'application/json') else payload)]"/>
+        </foreach>
+        <ee:transform doc:name="RetryEntry[]">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.entries orderBy $.nextAttemptAt]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+</mule>

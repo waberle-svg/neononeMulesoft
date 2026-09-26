@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/downstream.xml — every call to the two system APIs, one sub-flow each.
+  Inputs/outputs are vars so the orchestration reads like the design document. Each call carries the interim
+  inter-app headers (X-Client-Id / X-Client-Secret) and the request's correlation id.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- vars.requestId -> vars.registry (canonical IntegrationRequest) or null when 404 -->
+    <sub-flow name="sys-sf-get-integration-request">
+        <try doc:name="GET registry row">
+            <http:request config-ref="Sys_Sf_Request_Config" method="GET" path="/integration-requests/{id}" sendCorrelationId="NEVER" doc:name="sys-sf: GET integration-request">
+                <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+                <http:uri-params>#[{ id: vars.requestId }]</http:uri-params>
+            </http:request>
+            <set-variable variableName="registry" value="#[payload]" doc:name="registry"/>
+            <error-handler>
+                <on-error-continue type="HTTP:NOT_FOUND">
+                    <set-variable variableName="registry" value="#[null]" doc:name="registry=null"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+
+    <!-- vars.opportunityId -> vars.opp (canonical Opportunity) -->
+    <sub-flow name="sys-sf-get-opportunity">
+        <http:request config-ref="Sys_Sf_Request_Config" method="GET" path="/opportunities/{id}" sendCorrelationId="NEVER" doc:name="sys-sf: GET opportunity">
+            <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+            <http:uri-params>#[{ id: vars.opportunityId }]</http:uri-params>
+        </http:request>
+        <set-variable variableName="opp" value="#[payload]" doc:name="opp"/>
+    </sub-flow>
+
+    <!-- vars.requestId, vars.registryPatch (canonical IntegrationRequestUpdate) -> payload WriteResult -->
+    <sub-flow name="sys-sf-patch-integration-request">
+        <logger level="INFO" doc:name="Log patch"
+                message='#[output text/plain --- "Registry " ++ vars.requestId ++ " patch: " ++ write(vars.registryPatch - "requestPayload" - "responsePayload", "application/json")]'/>
+        <http:request config-ref="Sys_Sf_Request_Config" method="PATCH" path="/integration-requests/{id}" sendCorrelationId="NEVER" doc:name="sys-sf: PATCH integration-request">
+            <http:body>#[output application/json --- vars.registryPatch]</http:body>
+            <http:headers>#[{ "Content-Type": "application/json", "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+            <http:uri-params>#[{ id: vars.requestId }]</http:uri-params>
+        </http:request>
+    </sub-flow>
+
+    <!-- vars.issueKey, vars.externalUpdate (canonical ExternalStatusUpdate), vars.createIfMissing -> payload WriteResult -->
+    <sub-flow name="sys-sf-put-external-status">
+        <http:request config-ref="Sys_Sf_Request_Config" method="PUT" path="/integration-requests/by-external-key/{key}" sendCorrelationId="NEVER" doc:name="sys-sf: PUT integration-request by external key">
+            <http:body>#[output application/json --- vars.externalUpdate]</http:body>
+            <http:headers>#[{ "Content-Type": "application/json", "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.issueKey }]</http:headers>
+            <http:uri-params>#[{ key: vars.issueKey }]</http:uri-params>
+            <http:query-params>#[{ createIfMissing: (vars.createIfMissing default false) as String }]</http:query-params>
+        </http:request>
+    </sub-flow>
+
+    <!-- vars.listFilters (query params) -> payload [IntegrationRequest] -->
+    <sub-flow name="sys-sf-list-integration-requests">
+        <http:request config-ref="Sys_Sf_Request_Config" method="GET" path="/integration-requests" sendCorrelationId="NEVER" doc:name="sys-sf: GET integration-requests list">
+            <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret') }]</http:headers>
+            <http:query-params>#[vars.listFilters]</http:query-params>
+        </http:request>
+    </sub-flow>
+
+    <!-- vars.ticket (canonical IssueCreateRequest) -> vars.issue { key, id, url } -->
+    <sub-flow name="sys-jira-create-issue">
+        <http:request config-ref="Sys_Jira_Request_Config" method="POST" path="/issues" sendCorrelationId="NEVER" doc:name="sys-jira: POST issues">
+            <http:body>#[output application/json --- vars.ticket]</http:body>
+            <http:headers>#[{ "Content-Type": "application/json", "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+        </http:request>
+        <set-variable variableName="issue" value="#[payload]" doc:name="issue"/>
+    </sub-flow>
+
+    <!-- vars.issueKey -> payload canonical Issue (status, systemReadyAt, ...) -->
+    <sub-flow name="sys-jira-get-issue">
+        <http:request config-ref="Sys_Jira_Request_Config" method="GET" path="/issues/{key}" sendCorrelationId="NEVER" doc:name="sys-jira: GET issue">
+            <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId default vars.issueKey }]</http:headers>
+            <http:uri-params>#[{ key: vars.issueKey }]</http:uri-params>
+        </http:request>
+    </sub-flow>
+
+</mule>

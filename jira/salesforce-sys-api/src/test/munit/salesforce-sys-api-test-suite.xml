@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MUnit suite for salesforce-sys-api. Every Salesforce and process-API call is mocked by its doc:name, so no network,
+  no keystore and no connected app are needed. MUnit disables flow sources (the platform-event listener and the
+  scheduler) by default, so those flows are exercised through their inner flows.
+
+  Sample payloads: src/test/resources/samples.
+   - Salesforce connector results are Java structures -> readUrl(...) tagged application/java.
+   - HTTP bodies are JSON text -> MunitTools::getResourceAsString(...) tagged application/json (see ERR-0007).
+  Run: mvn clean test
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="salesforce-sys-api-test-suite.xml"/>
+
+    <!-- ===== ping ===== -->
+    <munit:test name="ping-returns-ok" description="GET /ping returns status ok with app metadata">
+        <munit:execution>
+            <flow-ref name="get:\ping:salesforce-sys-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.status]" is="#[MunitTools::equalTo('ok')]"/>
+            <munit-tools:assert-that expression="#[payload.app]" is="#[MunitTools::equalTo('salesforce-sys-api')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== GET /opportunities/{id} ===== -->
+    <munit:test name="get-opportunity-maps-row-to-canonical"
+                description="A query row becomes the canonical Opportunity (nested account, contacts, extra fields)">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Opportunity"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-opportunity-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="opportunityId" value="006Su00000XPwLxIAL"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="sf-get-opportunity"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.id]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[payload.opportunityNumber]" is="#[MunitTools::equalTo('O-0210538')]"/>
+            <munit-tools:assert-that expression="#[payload.account.name]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
+            <munit-tools:assert-that expression="#[payload.primaryContact.email]" is="#[MunitTools::equalTo('pat@example.org')]"/>
+            <munit-tools:assert-that expression="#[payload.technicalContact]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.includesWebTemplateCopy]" is="#[MunitTools::equalTo(1)]"/>
+            <!-- config-test.yaml sets sf.opportunity.extraFields = BusinessUnit__c -->
+            <munit-tools:assert-that expression="#[payload.extra.BusinessUnit__c]" is="#[MunitTools::equalTo('01 NeonCRM')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="get-opportunity-unknown-id-is-not-found"
+                description="No rows -> APP:NOT_FOUND (mapped to 404 by the error handler)"
+                expectedErrorType="APP:NOT_FOUND">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Opportunity"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[[]]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="opportunityId" value="006000000000000AAA"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="sf-get-opportunity"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- ===== PATCH /integration-requests/{id} ===== -->
+    <munit:test name="patch-registry-builds-record-with-fields-to-null"
+                description="Canonical update -> SF record: known keys mapped, unknown ignored, explicit nulls become fieldsToNull">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: update Integration_Transaction__c"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[[{ id: 'a0BSu000001abcdMAA', success: true, errors: [] }]]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="salesforce:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: update Integration_Transaction__c"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentRecords">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="recordId" value="a0BSu000001abcdMAA"/>
+                    <munit:variable key="updateBody" value="#[readUrl('classpath://samples/integration-request-patch.json', 'application/json')]"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="registry-update"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="sentRecords" target="sent"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.sent)]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].Id]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].Request_Status__c]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].Attempts__c]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].External_Key__c]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].External_Status_Category__c]" is="#[MunitTools::equalTo('To Do')]"/>
+            <!-- lastError: null clears both the long text and its Text(255) shadow (ERR-0013) -->
+            <munit-tools:assert-that expression="#[vars.sent[0].fieldsToNull]" is="#[MunitTools::equalTo(['Last_Error__c', 'Last_Error_Short__c'])]"/>
+            <!-- DateTime fields must reach the connector typed, not as strings (ERR-0011) -->
+            <munit-tools:assert-that expression="#[vars.sent[0].Status_Changed_At__c is DateTime]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].notAWritableField]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.writeResult.success]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="patch-registry-rejected-by-salesforce-raises-write-rejected"
+                description="success=false from Salesforce -> APP:WRITE_REJECTED (422, not retryable)"
+                expectedErrorType="APP:WRITE_REJECTED">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:update">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: update Integration_Transaction__c"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[[{ id: null, success: false, errors: [{ statusCode: 'INVALID_OR_NULL_FOR_RESTRICTED_PICKLIST', message: 'bad value for restricted picklist field', fields: ['Request_Status__c'] }] }]]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="recordId" value="a0BSu000001abcdMAA"/>
+                    <munit:variable key="updateBody" value="#[{ requestStatus: 'Nonsense' }]"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="registry-update"/>
+        </munit:execution>
+    </munit:test>
+
+    <!-- ===== GET /integration-requests/{id} ===== -->
+    <munit:test name="get-registry-row-maps-to-canonical" description="A registry row becomes the canonical IntegrationRequest">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Integration_Transaction__c by Id"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-registry-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="recordId" value="a0BSu000001abcdMAA"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="registry-get-by-id"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.id]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[payload.requestStatus]" is="#[MunitTools::equalTo('Requested')]"/>
+            <munit-tools:assert-that expression="#[payload.opportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[payload.sourceBusinessKey]" is="#[MunitTools::equalTo('O-0210538')]"/>
+            <munit-tools:assert-that expression="#[payload.external.key]" is="#[MunitTools::nullValue()]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== GET /integration-requests (sweep) ===== -->
+    <munit:test name="list-registry-binds-filters-as-parameters" description="Filters become bound SOQL parameters, never string concatenation">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Integration_Transaction__c list"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-registry-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="filters" value="#[{ targetSystem: 'JIRA', requestStatus: 'Created', opportunityId: '006Su00000XPwLxIAL' }]"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="registry-list"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[sizeOf(payload)]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[payload[0].id]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::containsString(&quot;Opportunity__c = ':opportunityId'&quot;)]"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::containsString(&quot;External_Status_Category__c != ':excludeCategory'&quot;)]"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::not(MunitTools::containsString('006Su00000XPwLxIAL'))]"/>
+            <munit-tools:assert-that expression="#[vars.params.opportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Platform event -> ProvisioningRequested -> process API ===== -->
+    <munit:test name="event-is-forwarded-as-provisioning-requested"
+                description="An Integration_Request__e for JIRA is normalised and POSTed to the process API">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST provisioning-requests"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[output application/json --- { outcome: "ACCEPTED" }]' mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 202, reasonPhrase: 'Accepted', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST provisioning-requests"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="forwardedRequest">
+                        <munit-tools:value>#[vars.request]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[readUrl('classpath://samples/integration-request-event.json', 'application/json')]" mediaType="application/java"/>
+            </munit:set-event>
+            <flow-ref name="handle-integration-request-event"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="forwardedRequest" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.requestId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.targetSystem]" is="#[MunitTools::equalTo('JIRA')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.requestType]" is="#[MunitTools::equalTo('PROVISIONING')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.sourceRecordId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.replayId]" is="#[MunitTools::equalTo(42)]"/>
+            <munit-tools:assert-that expression="#[vars.sent.payload.priority]" is="#[MunitTools::equalTo('normal')]"/>
+            <munit-tools:assert-that expression="#[vars.forwarded]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:verify-call processor="os:store" times="0"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="event-for-another-target-system-is-ignored"
+                description="Target_System__c not in sf.events.targetSystems -> nothing is forwarded or parked">
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[{ payload: { Target_System__c: 'ROCKETLANE', Request_Type__c: 'PROVISIONING', Request_Id__c: 'a0BSu000001zzzzMAA' }, event: { replayId: 43 } }]" mediaType="application/java"/>
+            </munit:set-event>
+            <flow-ref name="handle-integration-request-event"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="http:request" times="0"/>
+            <munit-tools:verify-call processor="os:store" times="0"/>
+            <munit-tools:assert-that expression="#[vars.forwarded]" is="#[MunitTools::equalTo(false)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="undeliverable-event-is-parked-not-lost"
+                description="When the process API keeps failing, the request is stored in the Object Store under its requestId">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST provisioning-requests"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:CONNECTIVITY"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="os:store">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Park in Object Store"/>
+                </munit-tools:with-attributes>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="os:store">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Park in Object Store"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="parkedRequestId">
+                        <munit-tools:value>#[vars.request.requestId]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[readUrl('classpath://samples/integration-request-event.json', 'application/json')]" mediaType="application/java"/>
+            </munit:set-event>
+            <flow-ref name="handle-integration-request-event"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:verify-call processor="os:store" times="1"/>
+            <munit-tools:retrieve key="parkedRequestId" target="parkedId"/>
+            <munit-tools:assert-that expression="#[vars.parkedId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[vars.forwarded]" is="#[MunitTools::equalTo(false)]"/>
+        </munit:validation>
+    </munit:test>
+
+</mule>

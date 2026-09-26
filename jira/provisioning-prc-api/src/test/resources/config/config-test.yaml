@@ -1,0 +1,50 @@
+# provisioning-prc-api — TEST (MUnit) environment. Both system APIs are mocked; hosts point nowhere on purpose.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0-test"
+  enforceClientSecret: "false"
+
+http:
+  port: "18083"
+
+provisioning:
+  requestTypes: "PROVISIONING"
+  processableStatuses: "Requested,Retrying"
+  retry:
+    maxAttempts: "3"
+    baseDelaySeconds: "1"
+    maxDelaySeconds: "4"
+    schedulerFrequencyMinutes: "60"
+  mappingFile: "mapping/provisioning-ticket.yaml"
+
+jira:
+  project: "NSSU"
+  instanceReadyStatusId: "10805"
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "50"
+
+sf:
+  baseUrl: "https://sf.test.invalid"
+
+sysSf:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18081"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"
+sysJira:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18082"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"

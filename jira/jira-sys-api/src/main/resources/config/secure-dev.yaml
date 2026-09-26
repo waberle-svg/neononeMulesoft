@@ -1,0 +1,11 @@
+# jira-sys-api — DEV secrets, encrypted with the Secure Configuration Properties module (AES/CBC).
+# Decryption key is supplied at runtime as secure.key (locally from ~/Desktop/Neonone Mulesoft Project/.mule-local.env).
+# Values here are Swati's personal Jira token for local development only; the service-account token replaces it at deployment.
+jira:
+  email: "![Vg0heNmrtvKr3Aqv+jpEZCHpsGH019SjKUARiettcEs=]"
+  token: "![L0NMEiT+rteL8u9HdImsdnBm54mhp+E+U4Z3p4dl62rs/SLgv/aFJldxjXaUzbXmiCWOdMX3x0fF55LyuTwdhEQuiJ4XftqUps9ZePZggdlf/heFwVZjJd/e4k+TjKgdoZv0AFafoXfotV2u1QF82MaKee5oblqWtGgifXFVlHey95NfexKqJDUQP+FtZsfndZD0nFpDWj2SbRWVet09XpFIhFH3QQaisG1gK62BlTx1hE6zpDB+VSXkzN/eWkTAwv8DIP+zakVFPgIaDEqvzw==]"
+  webhookSecret: "![PD6iiHJH9D65bGqARHG8IYETiqA42fAQHecbeUS6kOB0Gg/jIXFOO/AbrAWNnI66]"
+api:
+  # Inter-app shared secret (X-Client-Secret) expected from provisioning-prc-api and sent to it. One value for all three
+  # apps of the same environment; generated 25 Sep 2026, plain copy in .mule-local.env (INTER_APP_SECRET) for curl checks.
+  clientSecret: "![8Tl6+ZkXgO47zHXuEMMj8YUDGRIQ0FzC5dua/WRo+Umk/1MBufmXP6VOC/QkyZB9m29ezTBSNfWe6kNBg0i+cw==]"

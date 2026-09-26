@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  global.xml — every global configuration for provisioning-prc-api lives here, nothing else.
+  Flows: provisioning-prc-api.xml (router), implementation/*.xml (orchestration, downstream calls, inbound, retry), common/*.xml.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+
+    <global-property name="mule.env" value="dev" doc:name="Default environment"/>
+    <configuration-properties file="config/config-${mule.env}.yaml" doc:name="Environment properties"/>
+    <secure-properties:config name="Secure_Properties"
+                              file="config/secure-${mule.env}.yaml"
+                              key="${secure.key}"
+                              doc:name="Secure properties">
+        <secure-properties:encrypt algorithm="AES" mode="CBC"/>
+    </secure-properties:config>
+
+    <configuration defaultErrorHandler-ref="global-error-handler" doc:name="Default error handler"/>
+
+    <!-- ===== Inbound: this API's HTTP listener ===== -->
+    <http:listener-config name="api-httpListenerConfig" doc:name="API HTTP listener">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+
+    <apikit:config name="provisioning-prc-api-config"
+                   api="api/provisioning-prc-api.raml"
+                   outboundHeadersMapName="outboundHeaders"
+                   httpStatusVarName="httpStatus"
+                   doc:name="APIkit config"/>
+
+    <!-- ===== Downstream: the two system APIs ===== -->
+    <http:request-config name="Sys_Sf_Request_Config" basePath="${sysSf.basePath}" responseTimeout="${sysSf.responseTimeoutMs}" doc:name="salesforce-sys-api">
+        <http:request-connection protocol="${sysSf.protocol}" host="${sysSf.host}" port="${sysSf.port}"/>
+    </http:request-config>
+    <http:request-config name="Sys_Jira_Request_Config" basePath="${sysJira.basePath}" responseTimeout="${sysJira.responseTimeoutMs}" doc:name="jira-sys-api">
+        <http:request-connection protocol="${sysJira.protocol}" host="${sysJira.host}" port="${sysJira.port}"/>
+    </http:request-config>
+
+    <!-- ===== Object Store: requests parked after a transient failure, keyed by requestId (ADR-007 implementation A) ===== -->
+    <os:object-store name="retry_store"
+                     persistent="true"
+                     entryTtl="14" entryTtlUnit="DAYS"
+                     expirationInterval="1" expirationIntervalUnit="HOURS"
+                     doc:name="Retry store"/>
+
+</mule>

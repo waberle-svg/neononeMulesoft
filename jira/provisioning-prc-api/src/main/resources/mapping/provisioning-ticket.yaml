@@ -1,0 +1,62 @@
+# provisioning-ticket.yaml — how a Jira "System Setup" ticket is built from a Salesforce Opportunity (ADR-014, ADR-017).
+#
+# This file IS the field mapping. Changing what goes on the ticket is a change here, never in a flow.
+# Every leaf is a spec with exactly one of:
+#   source:   "<path>"                 copy a value from the context
+#   template: "text with {path} tokens" fill tokens from the context ("" when a token resolves to nothing)
+#   rule:     "<name>"                 a named rule implemented in modules/TicketMapping.dwl (webTemplateCopy, modules)
+#   value:    <constant>
+# plus optional  default: <used when the result is empty>   and   maxLength: <n>.
+# Anything that is not a spec is a group (nested object) and is built recursively.
+#
+# Context paths available:
+#   opp.*      canonical Opportunity from salesforce-sys-api (id, name, opportunityNumber, description, productionInstanceName,
+#              neonCrmModules, productRollup, includesWebTemplateCopy, account.{id,name}, primaryContact.{name,email},
+#              technicalContact.{name,email}, salesRep.{name,email}, owner.{name,email}, businessUnit, extra.*)
+#   req.*      ProvisioningRequested (requestId, sourceRecordId, accountId, sourceOrgId, payload.*)
+#   registry.* the Integration_Transaction__c row (sourceBusinessKey, attempts, ...)
+#   env.jiraProject   the environment's Jira project key (NSSU in Dev/UAT, SETUP in Production)
+#   sfUrl             link to the Opportunity record
+#
+# Output: the canonical IssueCreateRequest of jira-sys-api (enum values, never Jira field ids).
+version: 1
+fields:
+  project:   { source: "env.jiraProject" }
+  issueType: { value: "SYSTEM_SETUP" }
+
+  summary:
+    template: "{opp.account.name} | {opp.opportunityNumber}"
+    maxLength: 255
+
+  description:
+    template: |
+      Provisioning request from Salesforce (MuleSoft integration).
+      Opportunity: {opp.name} ({opp.opportunityNumber})
+      Account: {opp.account.name}
+      Production instance: {opp.productionInstanceName}
+      Business unit: {opp.businessUnit}
+      Sales notes: {opp.description}
+      Salesforce record: {sfUrl}
+
+  # Required by Jira on a System Setup ticket
+  # (the DataWeave YAML reader rejects trailing comments after inline mappings, so comments sit on their own lines)
+  productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
+  # modules: NeonCRM_Modules__c, else ProductRollup__c product names (Q16 open)
+  modules:            { rule: "modules", default: "TBC" }
+  # webTemplateCopy: MVP static until Q21 is answered; then use  rule: "webTemplateCopy"
+  webTemplateCopy:    { value: "NOT_PURCHASED" }
+
+  # Correlation back to Salesforce (SF Opportunity Id is the key used by the inbound direction)
+  sfOpportunityId:     { source: "opp.id" }
+  sfAccountId:         { source: "opp.account.id" }
+  sfOpportunityNumber: { source: "opp.opportunityNumber" }
+  organizationName:    { source: "opp.account.name" }
+
+  primaryContact:
+    name:  { source: "opp.primaryContact.name" }
+    email: { source: "opp.primaryContact.email" }
+  technicalContact:
+    name:  { source: "opp.technicalContact.name" }
+    email: { source: "opp.technicalContact.email" }
+
+  correlationId: { source: "req.requestId" }

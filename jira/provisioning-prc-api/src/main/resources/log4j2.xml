@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Configuration>
+    <!-- Console appender: what CloudHub 2.0 collects. Every line carries the correlation id so one request can be traced across apps. -->
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%-5p %d{ISO8601} [%t] [event: %X{correlationId}] %c{1}: %m%n"/>
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <!-- HTTP wire logging: switch to DEBUG only while diagnosing a payload problem; never leave on (logs credentials) -->
+        <AsyncLogger name="org.mule.service.http" level="WARN"/>
+        <AsyncLogger name="org.mule.extension.http" level="WARN"/>
+        <AsyncLogger name="org.mule.module.apikit" level="WARN"/>
+        <AsyncLogger name="org.mule.runtime.core.internal.processor.LoggerMessageProcessor" level="INFO"/>
+
+        <AsyncRoot level="INFO">
+            <AppenderRef ref="Console"/>
+        </AsyncRoot>
+    </Loggers>
+</Configuration>

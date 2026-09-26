@@ -1,0 +1,19 @@
+{
+  "id": "123456",
+  "key": "NSSU-42",
+  "fields": {
+    "summary": "Acme Nonprofit | O-0210538",
+    "project": { "key": "NSSU" },
+    "issuetype": { "name": "System Setup" },
+    "status": { "id": "10805", "name": "System Ready", "statusCategory": { "key": "indeterminate" } },
+    "created": "2026-09-17T10:00:00.000+0000",
+    "updated": "2026-09-18T09:30:00.000+0000",
+    "customfield_15227": "006Su00000XPwLxIAL"
+  },
+  "changelog": {
+    "histories": [
+      { "created": "2026-09-17T11:00:00.000+0000", "items": [ { "field": "status", "from": "1", "to": "3" } ] },
+      { "created": "2026-09-18T09:30:00.000+0000", "items": [ { "field": "status", "from": "3", "to": "10805" } ] }
+    ]
+  }
+}

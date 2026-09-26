@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  global.xml — every global configuration for salesforce-sys-api lives here, nothing else.
+  Flows are in salesforce-sys-api.xml (API router), implementation/*.xml (operations, event listener) and common/*.xml.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+
+    <!-- ===== Environment selection =====
+         mule.env is supplied at runtime (-M-Dmule.env=dev locally, a Runtime Manager property on CloudHub). -->
+    <global-property name="mule.env" value="dev" doc:name="Default environment"/>
+
+    <!-- Non-secret configuration, one file per environment -->
+    <configuration-properties file="config/config-${mule.env}.yaml" doc:name="Environment properties"/>
+
+    <!-- Secrets. Values in secure-<env>.yaml are encrypted (![...]) with a key supplied at runtime as secure.key.
+         Referenced as ${secure::name}. On CloudHub the same names can be supplied as protected properties instead. -->
+    <secure-properties:config name="Secure_Properties"
+                              file="config/secure-${mule.env}.yaml"
+                              key="${secure.key}"
+                              doc:name="Secure properties">
+        <secure-properties:encrypt algorithm="AES" mode="CBC"/>
+    </secure-properties:config>
+
+    <!-- Every flow without its own handler uses the global one (common/error-handler.xml) -->
+    <configuration defaultErrorHandler-ref="global-error-handler" doc:name="Default error handler"/>
+
+    <!-- ===== Inbound: this API's HTTP listener ===== -->
+    <http:listener-config name="api-httpListenerConfig" doc:name="API HTTP listener">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+
+    <!-- APIkit router configuration driven by the RAML specification -->
+    <apikit:config name="salesforce-sys-api-config"
+                   api="api/salesforce-sys-api.raml"
+                   outboundHeadersMapName="outboundHeaders"
+                   httpStatusVarName="httpStatus"
+                   doc:name="APIkit config"/>
+
+    <!-- ===== Salesforce: OAuth 2.0 JWT bearer flow (ADR-003) =====
+         The connector signs a JWT with the private key in the keystore; Salesforce (connected app "Neon Jira Integration",
+         admin pre-authorised) returns an access token for `principal`. No password, no security token, nothing that expires
+         except the certificate (2 years). One keystore per org. -->
+    <salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce (JWT)">
+        <salesforce:jwt-connection consumerKey="${secure::sf.consumerKey}"
+                                   keyStore="${sf.keystore.path}"
+                                   storePassword="${secure::sf.keystore.password}"
+                                   certificateAlias="${sf.keystore.alias}"
+                                   principal="${sf.principal}"
+                                   tokenEndpoint="${sf.tokenEndpoint}">
+            <!-- Bounded reconnection so operations FAIL FAST (canonical error to the caller) when Salesforce rejects
+                 the connection; the platform-event listener declares its own reconnect-forever in events.xml.
+                 Found in the local smoke run of 19 Sep 2026 (ERR-0009): with reconnect-forever here, a query on a
+                 broken connection blocked until the caller timed out (30 s) instead of returning an error. -->
+            <reconnection>
+                <reconnect count="${sf.reconnect.count}" frequency="${sf.reconnect.frequencyMs}"/>
+            </reconnection>
+        </salesforce:jwt-connection>
+    </salesforce:sfdc-config>
+
+    <!-- ===== Object Store: events that could not be delivered to the process API =====
+         Persistent (survives restarts; Object Store v2 on CloudHub). Re-driven by the scheduler in implementation/events.xml. -->
+    <os:object-store name="undelivered_events_store"
+                     persistent="true"
+                     entryTtl="30" entryTtlUnit="DAYS"
+                     expirationInterval="1" expirationIntervalUnit="HOURS"
+                     doc:name="Undelivered events"/>
+
+    <!-- ===== Outbound: provisioning-prc-api ===== -->
+    <http:request-config name="Process_Api_Request_Config"
+                         basePath="${prc.basePath}"
+                         responseTimeout="${prc.responseTimeoutMs}"
+                         doc:name="Process API request config">
+        <http:request-connection protocol="${prc.protocol}" host="${prc.host}" port="${prc.port}"/>
+    </http:request-config>
+
+</mule>

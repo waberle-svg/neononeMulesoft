@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  common/error-handler.xml — one canonical error shape for every failure.
+  { code, message, retryable, correlationId, detail }
+  Consumers (the process API) decide what to do from `retryable`, never from the backend's raw status code.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <error-handler name="global-error-handler">
+
+        <!-- Caller's request did not match the RAML -->
+        <on-error-propagate type="APIKIT:BAD_REQUEST">
+            <flow-ref name="set-error-response" doc:name="400 VALIDATION"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:NOT_FOUND, HTTP:NOT_FOUND">
+            <set-variable variableName="errCode" value="NOT_FOUND"/>
+            <set-variable variableName="errStatus" value="404"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+            <set-variable variableName="errCode" value="VALIDATION"/>
+            <set-variable variableName="errStatus" value="405"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:NOT_ACCEPTABLE, APIKIT:UNSUPPORTED_MEDIA_TYPE, APIKIT:NOT_IMPLEMENTED">
+            <set-variable variableName="errCode" value="VALIDATION"/>
+            <set-variable variableName="errStatus" value="415"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Caller failed the inter-app secret check (authorize-caller): 401, not retryable -->
+        <on-error-propagate type="APP:UNAUTHORIZED_CALLER">
+            <set-variable variableName="errCode" value="UNAUTHORIZED"/>
+            <set-variable variableName="errStatus" value="401"/>
+            <set-variable variableName="errRetryable" value="#[false]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Jira rejected the request: terminal, do not retry -->
+        <on-error-propagate type="HTTP:BAD_REQUEST">
+            <flow-ref name="set-error-response" doc:name="400 VALIDATION from Jira"/>
+        </on-error-propagate>
+        <on-error-propagate type="HTTP:FORBIDDEN">
+            <set-variable variableName="errCode" value="FORBIDDEN"/>
+            <set-variable variableName="errStatus" value="403"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <!-- Our own credentials are wrong: the caller cannot fix it, but retrying will not help either -->
+        <on-error-propagate type="HTTP:UNAUTHORIZED">
+            <set-variable variableName="errCode" value="UNAUTHORIZED"/>
+            <set-variable variableName="errStatus" value="502"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Transient: caller may retry -->
+        <on-error-propagate type="HTTP:TOO_MANY_REQUESTS">
+            <set-variable variableName="errCode" value="RATE_LIMITED"/>
+            <set-variable variableName="errStatus" value="429"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="HTTP:TIMEOUT">
+            <set-variable variableName="errCode" value="BACKEND_TIMEOUT"/>
+            <set-variable variableName="errStatus" value="504"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="HTTP:CONNECTIVITY, HTTP:RETRY_EXHAUSTED, HTTP:INTERNAL_SERVER_ERROR, HTTP:BAD_GATEWAY, HTTP:SERVICE_UNAVAILABLE, HTTP:GATEWAY_TIMEOUT">
+            <set-variable variableName="errCode" value="BACKEND_UNAVAILABLE"/>
+            <set-variable variableName="errStatus" value="502"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Our own bug (bad DataWeave, missing property): not retryable -->
+        <on-error-propagate type="MULE:EXPRESSION, MULE:TRANSFORMATION">
+            <set-variable variableName="errCode" value="INTERNAL"/>
+            <set-variable variableName="errStatus" value="500"/>
+            <set-variable variableName="errRetryable" value="#[false]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Anything else: unknown, allow a retry -->
+        <on-error-propagate type="ANY">
+            <set-variable variableName="errCode" value="INTERNAL"/>
+            <set-variable variableName="errStatus" value="500"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+    </error-handler>
+
+    <!-- Shorthand for the 400 VALIDATION case used twice above -->
+    <sub-flow name="set-error-response">
+        <set-variable variableName="errCode" value="VALIDATION"/>
+        <set-variable variableName="errStatus" value="400"/>
+        <set-variable variableName="errRetryable" value="#[false]"/>
+        <flow-ref name="build-error-response"/>
+    </sub-flow>
+
+    <!-- Builds the canonical error body and sets the HTTP status for the listener's error-response -->
+    <sub-flow name="build-error-response">
+        <set-variable variableName="httpStatus" value="#[vars.errStatus default 500]"/>
+        <ee:transform doc:name="Canonical error">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/json skipNullOn="everywhere"
+// The failed HTTP call's response body (Jira's own error JSON), when there is one
+var backendBody = try(() -> error.errorMessage.payload)
+---
+{
+  code: vars.errCode default "INTERNAL",
+  message: error.description default "Unexpected error",
+  retryable: vars.errRetryable default false,
+  correlationId: correlationId,
+  detail: {
+    errorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    backend: if (backendBody.success) backendBody.result else null
+  }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="ERROR" doc:name="Log error"
+                message='#["jira-sys-api error " ++ (vars.errCode default "INTERNAL") ++ " (" ++ (vars.httpStatus as String) ++ "): " ++ (error.description default "")]'/>
+    </sub-flow>
+
+</mule>

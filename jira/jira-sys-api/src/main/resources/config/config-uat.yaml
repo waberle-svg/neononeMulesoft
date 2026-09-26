@@ -1,0 +1,60 @@
+# jira-sys-api — UAT environment. Non-secret values only. Secrets are protected properties in Runtime Manager (or secure-uat.yaml).
+api:
+  name: "jira-sys-api"
+  version: "1.0.0"
+  enforceClientSecret: "true"
+
+http:
+  port: "8081"                      # CloudHub 2.0 routes public traffic to 8081
+
+jira:
+  host: "neoncrm.atlassian.net"
+  basePath: "/rest/api/3"
+  responseTimeoutMs: "30000"
+  defaults:
+    project: "NSSU"
+    productionInstance: "Pending"
+    modules: "Core Modules"
+    webTemplateCopy: "NOT_PURCHASED"
+    # Ticket ownership (Jira accountIds). Swati Sharma (Bluvium) — Dev/UAT only; the client decides the owner for Production
+    # assignee is applied with PUT /issue/{key}/assignee after creation (the field is not on the NSSU create screen);
+    # reporter is sent in the create payload (needs Modify Reporter). Empty string = leave Jira defaults.
+    assigneeAccountId: "61121eff4e8d8d0069df301b"
+    reporterAccountId: "61121eff4e8d8d0069df301b"
+  issueTypes:
+    SYSTEM_SETUP: "10800"
+    DEACTIVATE_INSTANCE: "TBD"
+  status:
+    instanceReadyId: "10805"
+  fields:
+    productionInstance: "customfield_11202"
+    modules: "customfield_15204"
+    webTemplateCopy: "customfield_15100"
+    sfOpportunityId: "customfield_15227"
+    sfAccountId: "customfield_15223"
+    organizationName: "customfield_15226"
+    primaryContactName: "customfield_15224"
+    primaryContactEmail: "customfield_15225"
+    technicalContactName: "customfield_15259"
+    technicalContactEmail: "customfield_15260"
+  options:
+    webTemplateCopy:
+      NOT_PURCHASED: "Not Purchased"
+      COPY_NOW: "Copy Now"
+      DELAY: "Delay"
+      NO_PURCHASED: "No Purchased"
+  webhook:
+    validateSignature: "true"
+    forwardOnlyStatusChanges: "true"
+
+prc:
+  protocol: "HTTPS"
+  host: "provisioning-prc-api-uat.REPLACE-WITH-CLOUDHUB-HOST.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "15000"
+  paths:
+    issueStatusEvents: "/issue-status-events"
+  retry:
+    maxRetries: "3"
+    millisBetweenRetries: "5000"

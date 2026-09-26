@@ -1,0 +1,50 @@
+# provisioning-prc-api — PRODUCTION environment (CloudHub 2.0). Non-secret values only.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0"
+  enforceClientSecret: "true"
+
+http:
+  port: "8081"
+
+provisioning:
+  requestTypes: "PROVISIONING"
+  processableStatuses: "Requested,Retrying"
+  retry:
+    maxAttempts: "8"
+    baseDelaySeconds: "120"
+    maxDelaySeconds: "3600"
+    schedulerFrequencyMinutes: "2"
+  mappingFile: "mapping/provisioning-ticket.yaml"
+
+jira:
+  project: "SETUP"                   # Production project "New System Setups" (id 10902)
+  instanceReadyStatusId: "10805"
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "500"
+
+sf:
+  baseUrl: "REPLACE_ME_https://neonone.lightning.force.com"
+
+sysSf:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_salesforce-sys-api-prod.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "30000"
+sysJira:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_jira-sys-api-prod.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "45000"

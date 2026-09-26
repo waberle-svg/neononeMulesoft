@@ -1,0 +1,59 @@
+# provisioning-prc-api — DEV environment (local runtime). Non-secret values only. Secrets live in secure-dev.yaml.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0"
+  enforceClientSecret: "false"
+
+http:
+  port: "8083"
+
+# Business configuration
+provisioning:
+  # Request types this process handles; anything else is acknowledged and ignored
+  requestTypes: "PROVISIONING"
+  # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
+  processableStatuses: "Requested,Retrying"
+  # Transient failures: exponential backoff, then dead-letter on the registry row (Failed - Terminal, category Transient)
+  retry:
+    maxAttempts: "6"
+    baseDelaySeconds: "60"
+    maxDelaySeconds: "3600"
+    schedulerFrequencyMinutes: "1"
+  # Where the mapping lives (classpath). ADR-014: YAML now, Salesforce Custom Metadata later.
+  mappingFile: "mapping/provisioning-ticket.yaml"
+
+jira:
+  project: "NSSU"                    # UAT project in Dev and UAT; SETUP in Production
+  instanceReadyStatusId: "10805"     # "System Ready" — matched by id, never by category
+  # Jira status category key -> Salesforce External_Status_Category__c picklist value
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  # Webhook for a ticket we did not create: false = ignore (log), true = create an EXTERNAL registry row
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "200"
+
+# Salesforce record links placed in ticket descriptions
+sf:
+  baseUrl: "https://neonone--cpqtriage.sandbox.lightning.force.com"
+
+# Downstream system APIs (local ports: sys-sf 8081, sys-jira 8082, prc 8083)
+sysSf:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8081"
+  basePath: "/api/v1"
+  responseTimeoutMs: "30000"
+sysJira:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8082"
+  basePath: "/api/v1"
+  responseTimeoutMs: "45000"

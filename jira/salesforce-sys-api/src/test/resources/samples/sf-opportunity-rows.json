@@ -1,0 +1,32 @@
+[
+  {
+    "Id": "006Su00000XPwLxIAL",
+    "OpportunityNumber__c": "O-0210538",
+    "Name": "Acme Nonprofit - Neon CRM",
+    "StageName": "Closed Won",
+    "Type": "New",
+    "CloseDate": "2026-09-18",
+    "Description": "Sales notes for the setup team",
+    "Is_Test_Account_Opportunity__c": false,
+    "Project_Requirement_Met__c": true,
+    "ProductionInstanceName__c": "acmenonprofit",
+    "NeonCRM_Modules__c": "Membership|Events|Store",
+    "ProductRollup__c": "NCRM::Neon CRM::Base|MEM::Membership::Module",
+    "Includes_Web_Template_Copy__c": 1,
+    "BusinessUnit__c": "01 NeonCRM",
+    "JIRA_SETUP_Issue__c": null,
+    "JIRA_SETUP_Status__c": null,
+    "JIRA_SETUP_Status_Updated__c": null,
+    "JIRA_Error_Message__c": null,
+    "AccountId": "001Su00000tjc9VIAQ",
+    "Account": { "Name": "Acme Nonprofit", "Neon_CRM_Instance_Created_Date__c": null, "NCRM_Instance__c": null },
+    "PrimaryContact__c": "003Su000004AbCdEFG",
+    "PrimaryContact__r": { "Name": "Pat Example", "Email": "pat@example.org" },
+    "TechnicalContact__c": null,
+    "TechnicalContact__r": null,
+    "OwnerId": "005Su00000ABCDEFGH",
+    "Owner": { "Name": "Sam Seller", "Email": "sam.seller@neonone.com" },
+    "SalesRep__c": "005Su00000ABCDEFGH",
+    "SalesRep__r": { "Name": "Sam Seller", "Email": "sam.seller@neonone.com" }
+  }
+]

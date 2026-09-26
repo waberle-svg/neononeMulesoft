@@ -1,0 +1,271 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MUnit suite for jira-sys-api. Every Jira call is mocked by its doc:name, so no network is needed.
+  Sample payloads live in src/test/resources/samples and are loaded with MunitTools::getResourceAsString(),
+  which yields the raw JSON text tagged application/json, exactly as the HTTP listener hands it to the flow.
+  (readUrl() would return an already-parsed Java Map; tagging that as application/json makes DataWeave fail
+  with "'application/json' requires a Stream Compatible content" — see ERR-0007.)
+  Run: mvn clean test   (mule.env=test and secure.key are set by the munit-maven-plugin in pom.xml)
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="jira-sys-api-test-suite.xml"/>
+
+    <!-- ping needs no mocks -->
+    <munit:test name="ping-returns-ok" description="GET /ping returns status ok with app metadata">
+        <munit:execution>
+            <flow-ref name="get:\ping:jira-sys-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.status]" is="#[MunitTools::equalTo('ok')]"/>
+            <munit-tools:assert-that expression="#[payload.app]" is="#[MunitTools::equalTo('jira-sys-api')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- caller check (config-test.yaml sets api.enforceClientSecret=true; secure-test.yaml holds munit-client-secret) -->
+    <munit:test name="caller-without-secret-is-rejected"
+                description="With enforcement on, a request without X-Client-Secret raises APP:UNAUTHORIZED_CALLER"
+                expectedErrorType="APP:UNAUTHORIZED_CALLER">
+        <munit:execution>
+            <munit:set-event>
+                <munit:attributes value="#[{ method: 'POST', requestPath: '/api/v1/issues', headers: { 'x-client-id': 'munit' } }]"/>
+            </munit:set-event>
+            <flow-ref name="authorize-caller"/>
+        </munit:execution>
+    </munit:test>
+
+    <munit:test name="caller-with-correct-secret-is-accepted"
+                description="With enforcement on, the configured X-Client-Secret is accepted">
+        <munit:execution>
+            <munit:set-event>
+                <munit:attributes value="#[{ method: 'POST', requestPath: '/api/v1/issues', headers: { 'x-client-id': 'munit', 'x-client-secret': 'munit-client-secret' } }]"/>
+            </munit:set-event>
+            <flow-ref name="authorize-caller"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[vars.callerAccepted]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="webhook-path-is-exempt-from-secret-check"
+                description="POST /webhooks/jira is accepted without X-Client-Secret (Jira signs with HMAC instead)">
+        <munit:execution>
+            <munit:set-event>
+                <munit:attributes value="#[{ method: 'POST', requestPath: '/api/v1/webhooks/jira', headers: {} }]"/>
+            </munit:set-event>
+            <flow-ref name="authorize-caller"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[vars.callerAccepted]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- create issue: canonical request in, Jira mocked, canonical response out -->
+    <munit:test name="create-issue-maps-canonical-to-jira-and-returns-key"
+                description="POST /issues builds the Jira payload from config, assigns the configured owner and returns key/id/url">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="assignBody">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="post:\issues:application\json:jira-sys-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[payload.id]" is="#[MunitTools::equalTo('123456')]"/>
+            <munit-tools:assert-that expression="#[payload.url]" is="#[MunitTools::equalTo('https://jira.test.invalid/browse/NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[vars.httpStatus]" is="#[MunitTools::equalTo('201')]"/>
+            <munit-tools:assert-that expression="#[payload.assignee.accountId]" is="#[MunitTools::equalTo('test-assignee-account-id')]"/>
+            <munit-tools:assert-that expression="#[payload.assignee.assigned]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:retrieve key="assignBody" target="assignSent"/>
+            <munit-tools:assert-that expression="#[vars.assignSent.accountId]" is="#[MunitTools::equalTo('test-assignee-account-id')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ownership: the assign call failing must not fail the creation (no duplicate tickets) -->
+    <munit:test name="create-issue-assign-failure-is-non-fatal"
+                description="If PUT /assignee fails, POST /issues still returns the created key with assigned=false">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:FORBIDDEN"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[payload.assignee.assigned]" is="#[MunitTools::equalTo(false)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- the mapping itself: verify the Jira payload we would send -->
+    <munit:test name="create-issue-jira-payload-uses-configured-field-ids"
+                description="The Jira create payload carries project, issue type id, required custom fields and the SF correlation id">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <!-- capture what the flow built just before calling Jira -->
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="jiraPayload">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="jiraPayload" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.project.key]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.issuetype.id]" is="#[MunitTools::equalTo('10800')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.summary]" is="#[MunitTools::equalTo('Acme Nonprofit | O-0210538')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_11202]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core Modules')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100.value]" is="#[MunitTools::equalTo('Not Purchased')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15227]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15224]" is="#[MunitTools::equalTo('Pat Example')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.'type']" is="#[MunitTools::equalTo('doc')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('test-reporter-account-id')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- get issue: changelog with a transition into 10805 yields systemReadyAt -->
+    <munit:test name="get-issue-derives-system-ready-timestamp"
+                description="GET /issues/{key} returns canonical status and the System Ready transition time">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: GET /issue/{key}"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-issue-system-ready.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="issueKey" value="NSSU-42"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="jira-get-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.status.id]" is="#[MunitTools::equalTo('10805')]"/>
+            <munit-tools:assert-that expression="#[payload.status.category]" is="#[MunitTools::equalTo('indeterminate')]"/>
+            <munit-tools:assert-that expression="#[payload.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[payload.systemReadyAt as String]" is="#[MunitTools::startsWith('2026-09-18T09:30:00')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- error translation: Jira 400 becomes canonical VALIDATION, not retryable -->
+    <munit:test name="jira-400-becomes-canonical-validation-error"
+                description="A Jira 400 is translated to {code: VALIDATION, retryable: false} with HTTP 400"
+                expectedErrorType="HTTP:BAD_REQUEST">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:BAD_REQUEST"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+    </munit:test>
+
+</mule>

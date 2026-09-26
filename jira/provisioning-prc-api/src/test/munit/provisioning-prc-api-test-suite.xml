@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MUnit suite for provisioning-prc-api. Both system APIs are mocked by the doc:name of each http:request, so the
+  orchestration is tested end to end without Salesforce, Jira or the other two Mule apps running.
+  Schedulers (retry, sweep) are flow sources and are disabled by MUnit; their inner flows are called directly.
+  HTTP bodies are JSON text (MunitTools::getResourceAsString, ERR-0007); the Object Store is mocked where a write is expected.
+  Run: mvn clean test
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
+      xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
+        http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
+
+    <munit:config name="provisioning-prc-api-test-suite.xml"/>
+
+    <munit:test name="ping-returns-ok" description="GET /ping returns status ok">
+        <munit:execution>
+            <flow-ref name="get:\ping:provisioning-prc-api-config"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.status]" is="#[MunitTools::equalTo('ok')]"/>
+            <munit-tools:assert-that expression="#[payload.app]" is="#[MunitTools::equalTo('provisioning-prc-api')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Mapping ===== -->
+    <munit:test name="ticket-mapping-follows-the-yaml" description="mapping/provisioning-ticket.yaml + Opportunity -> canonical IssueCreateRequest">
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="opp" value="#[readUrl('classpath://samples/opportunity.json', 'application/json')]"/>
+                    <munit:variable key="req" value="#[readUrl('classpath://samples/provisioning-requested.json', 'application/json')]"/>
+                    <munit:variable key="registry" value="#[readUrl('classpath://samples/registry-requested.json', 'application/json')]"/>
+                    <munit:variable key="requestId" value="a0BSu000001abcdMAA"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="build-ticket"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[vars.ticket.project]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.issueType]" is="#[MunitTools::equalTo('SYSTEM_SETUP')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('Acme Nonprofit | O-0210538')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Salesforce record: https://sf.test.invalid/006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.productionInstance]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Membership, Events, Store')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.webTemplateCopy]" is="#[MunitTools::equalTo('NOT_PURCHASED')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.organizationName]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.primaryContact.name]" is="#[MunitTools::equalTo('Pat Example')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.technicalContact.name]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.correlationId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Outbound orchestration: happy path ===== -->
+    <munit:test name="provisioning-request-creates-ticket-and-marks-registry-created"
+                description="Requested row + Opportunity without key -> ticket created in Jira -> registry Created with the external record">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-created.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-open.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentTicket"><munit-tools:value>#[vars.ticket]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('CREATED')]"/>
+            <munit-tools:assert-that expression="#[payload.requestId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[payload.attempts]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:retrieve key="sentTicket" target="ticket"/>
+            <munit-tools:assert-that expression="#[vars.ticket.project]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('Acme Nonprofit | O-0210538')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.webTemplateCopy]" is="#[MunitTools::equalTo('NOT_PURCHASED')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:retrieve key="sentPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.attempts]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.status]" is="#[MunitTools::equalTo('Open')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.statusCategory]" is="#[MunitTools::equalTo('To Do')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('Acme Nonprofit')]"/>
+            <munit-tools:verify-call processor="os:store" times="0"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Idempotency ===== -->
+    <munit:test name="provisioning-request-already-created-is-skipped" description="A registry row that already has a key is never sent to Jira again">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-created.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('SKIPPED_ALREADY_PROCESSED')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="non-provisioning-request-type-is-ignored" description="Other request types are acknowledged without any downstream call">
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value='#[output application/json --- { requestId: "a0BSu000001zzzzMAA", requestType: "DEACTIVATION", sourceRecordId: "006Su00000XPwLxIAL" }]' mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('IGNORED_TYPE')]"/>
+            <munit-tools:verify-call processor="http:request" times="0"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Failure handling ===== -->
+    <munit:test name="jira-validation-error-is-terminal" description="A 400 from jira-sys-api -> registry Failed - Terminal (category Mapping), nothing parked">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:BAD_REQUEST"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('TERMINAL_ERROR')]"/>
+            <munit-tools:retrieve key="sentPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Failed - Terminal')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Mapping')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.attempts]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('Acme Nonprofit')]"/>
+            <munit-tools:verify-call processor="os:store" times="0"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="jira-unavailable-schedules-a-retry" description="A connectivity failure -> registry Retrying and the request is parked in retry_store">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:CONNECTIVITY"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="os:store">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('RETRY_SCHEDULED')]"/>
+            <munit-tools:retrieve key="sentPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Retrying')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Transient')]"/>
+            <munit-tools:verify-call processor="os:store" times="1"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Inbound: webhook event ===== -->
+    <munit:test name="issue-status-event-updates-registry" description="IssueStatusChanged -> PUT by external key with mapped status category and transition time">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentUpdate"><munit-tools:value>#[vars.externalUpdate]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-status-changed.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="handle-issue-status-event"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('UPDATED')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:retrieve key="sentUpdate" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.statusId]" is="#[MunitTools::equalTo('10805')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.status]" is="#[MunitTools::equalTo('System Ready')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.statusCategory]" is="#[MunitTools::equalTo('In Progress')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.statusChangedAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="issue-status-event-for-unknown-key-is-ignored" description="404 from the registry -> IGNORED_UNKNOWN_KEY, no error">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:NOT_FOUND"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-status-changed.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="handle-issue-status-event"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('IGNORED_UNKNOWN_KEY')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Inbound: sweep ===== -->
+    <munit:test name="sweep-updates-rows-whose-status-changed" description="Open row at status 1, Jira says System Ready -> one PUT with the System Ready transition time">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-requests list"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-list.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-system-ready.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="sentUpdate"><munit-tools:value>#[vars.externalUpdate]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="sweep-instance-ready"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.checked]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[payload.updated]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[payload.unchanged]" is="#[MunitTools::equalTo(0)]"/>
+            <munit-tools:assert-that expression="#[payload.errors]" is="#[MunitTools::equalTo(0)]"/>
+            <munit-tools:retrieve key="sentUpdate" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.statusId]" is="#[MunitTools::equalTo('10805')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.external.statusChangedAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="sweep-skips-a-failing-ticket-and-continues" description="A Jira failure on one row is counted, not fatal">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-requests list"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-list.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:error typeId="HTTP:INTERNAL_SERVER_ERROR"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <flow-ref name="sweep-instance-ready"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.checked]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[payload.updated]" is="#[MunitTools::equalTo(0)]"/>
+            <munit-tools:assert-that expression="#[payload.errors]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PUT integration-request by external key"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+</mule>

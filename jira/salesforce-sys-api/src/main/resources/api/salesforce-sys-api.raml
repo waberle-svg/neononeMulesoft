@@ -1,0 +1,270 @@
+#%RAML 1.0
+title: Salesforce System API
+version: v1
+description: |
+  System API for Neon One's Salesforce org.
+  Exposes canonical, Salesforce-API-name-free resources for the provisioning integration:
+  Opportunities (read), the Integration_Transaction__c registry (read/write), and a test hook to inject
+  an Integration_Request__e event locally. Also hosts the platform-event subscription (not an HTTP resource):
+  every Integration_Request__e is forwarded to the process API as a ProvisioningRequested message.
+baseUri: http://localhost:8081/api/v1
+mediaType: application/json
+
+types:
+  Contact:
+    properties:
+      id?: string
+      name?: string
+      email?: string
+
+  Opportunity:
+    description: Provisioning view of an Opportunity, with the fields the ticket mapping may use.
+    properties:
+      id: string
+      opportunityNumber?: string
+      name: string
+      stageName?: string
+      type?: string
+      closeDate?: string
+      description?: string
+      isTestAccountOpportunity?: boolean
+      projectRequirementMet?: boolean
+      productionInstanceName?: string
+      neonCrmModules?: string
+      productRollup?: string
+      includesWebTemplateCopy?: number
+      businessUnit?: string
+      jiraSetupIssueKey?: string
+      jiraSetupStatus?: string
+      jiraSetupStatusUpdated?: datetime
+      jiraErrorMessage?: string
+      account:
+        properties:
+          id?: string
+          name?: string
+          neonCrmInstanceCreatedDate?: string
+          ncrmInstance?: string
+      primaryContact?: Contact
+      technicalContact?: Contact
+      owner?: Contact
+      salesRep?: Contact
+      extra?:
+        type: object
+        description: Any additional Opportunity fields configured in sf.opportunity.extraFields, keyed by API name.
+
+  RequestStatus:
+    type: string
+    enum: [Requested, Created, Failed - Terminal, Retrying, Cancelled]
+  ErrorCategory:
+    type: string
+    enum: [Terminal, Transient, Mapping, Auth]
+  StatusCategory:
+    type: string
+    enum: [To Do, In Progress, Done]
+
+  ExternalRecord:
+    description: |
+      The external system's record that a registry row tracks (for JIRA, the issue).
+      In an update body an explicit null clears the field in Salesforce (same rule as IntegrationRequestUpdate).
+    properties:
+      key?: string | nil
+      id?: string | nil
+      url?: string | nil
+      container?: string | nil
+      type?: string | nil
+      status?: string | nil
+      statusId?: string | nil
+      statusCategory?: StatusCategory | nil
+      statusChangedAt?: datetime | nil
+      lastSyncedAt?: datetime | nil
+
+  IntegrationRequest:
+    description: One Integration_Transaction__c row.
+    properties:
+      id: string
+      name?: string
+      targetSystem?: string
+      requestType?:
+        type: string
+        enum: [PROVISIONING, DEACTIVATION, EXTERNAL]
+      requestStatus?:
+        type: string
+        enum: [Requested, Created, Failed - Terminal, Retrying, Cancelled]
+      opportunityId?: string
+      accountId?: string
+      sourceBusinessKey?: string
+      attempts?: number
+      lastError?: string
+      errorCategory?:
+        type: string
+        enum: [Terminal, Transient, Mapping, Auth]
+      muleCorrelationId?: string
+      external?: ExternalRecord
+      createdDate?: datetime
+      lastModifiedDate?: datetime
+
+  IntegrationRequestUpdate:
+    description: |
+      Partial update of a registry row. Only the listed keys are writable; anything else is ignored.
+      Send a key with an explicit null to clear that field in Salesforce.
+    properties:
+      requestStatus?: RequestStatus | nil
+      attempts?: number | nil
+      lastError?: string | nil
+      errorCategory?: ErrorCategory | nil
+      muleCorrelationId?: string | nil
+      requestPayload?: string | nil
+      responsePayload?: string | nil
+      external?: ExternalRecord
+
+  ExternalStatusUpdate:
+    description: Status update arriving from the external system (webhook or sweep), addressed by external key.
+    properties:
+      external: ExternalRecord
+      requestPayload?: string | nil
+      responsePayload?: string | nil
+
+  WriteResult:
+    properties:
+      id: string
+      created: boolean
+      record?: IntegrationRequest
+
+  IntegrationRequestEvent:
+    description: Fields of an Integration_Request__e event (test hook body).
+    properties:
+      Target_System__c: string
+      Request_Type__c: string
+      Request_Id__c: string
+      Source_Object__c?: string
+      Source_Record_Id__c?: string
+      Account_Id__c?: string
+      Source_Org_Id__c?: string
+      Payload_JSON__c?: string
+
+  Error:
+    properties:
+      code:
+        type: string
+        enum: [VALIDATION, NOT_FOUND, UNAUTHORIZED, FORBIDDEN, RATE_LIMITED, BACKEND_UNAVAILABLE, BACKEND_TIMEOUT, CONFLICT, INTERNAL]
+      message: string
+      retryable: boolean
+      correlationId: string
+      detail?: any
+
+traits:
+  errorResponses:
+    responses:
+      400:
+        body: Error
+      401:
+        body: Error
+      403:
+        body: Error
+      404:
+        body: Error
+      422:
+        body: Error
+      429:
+        body: Error
+      500:
+        body: Error
+      502:
+        body: Error
+      504:
+        body: Error
+
+/ping:
+  get:
+    description: Liveness check. Does not call Salesforce.
+    responses:
+      200:
+        body:
+          properties:
+            status: string
+            app: string
+            version: string
+            env: string
+            timestamp: datetime
+
+/opportunities:
+  /{id}:
+    get:
+      is: [errorResponses]
+      description: Read the provisioning view of one Opportunity by Salesforce Id.
+      responses:
+        200:
+          body: Opportunity
+
+/integration-requests:
+  get:
+    is: [errorResponses]
+    description: |
+      List registry rows, primarily for the reconciliation sweep: rows for a target system in a given
+      request status whose external status category is not the excluded one (default: not Done).
+    queryParameters:
+      targetSystem:
+        type: string
+        default: JIRA
+      requestStatus:
+        type: string
+        default: Created
+      excludeExternalStatusCategory:
+        type: string
+        default: Done
+        description: Rows with this External_Status_Category__c are left out. Send an empty string to disable the filter.
+      opportunityId?: string
+      externalKey?: string
+      limit?:
+        type: integer
+        maximum: 2000
+    responses:
+      200:
+        body: IntegrationRequest[]
+  /{id}:
+    get:
+      is: [errorResponses]
+      description: Read one registry row by Salesforce Id.
+      responses:
+        200:
+          body: IntegrationRequest
+    patch:
+      is: [errorResponses]
+      description: Partially update one registry row. Returns the row after the update.
+      body: IntegrationRequestUpdate
+      responses:
+        200:
+          body: WriteResult
+  /by-external-key/{key}:
+    put:
+      is: [errorResponses]
+      description: |
+        Apply an external status update to the row whose External_Key__c equals {key}.
+        Unknown keys return 404 unless createIfMissing=true, in which case a row with
+        requestType EXTERNAL is created (for tickets not originated by Salesforce).
+      queryParameters:
+        createIfMissing:
+          type: boolean
+          default: false
+      body: ExternalStatusUpdate
+      responses:
+        200:
+          body: WriteResult
+        201:
+          body: WriteResult
+
+/events/integration-requests:
+  post:
+    is: [errorResponses]
+    description: |
+      TEST HOOK (dev only, sf.events.allowSimulation=true): processes the body exactly as if it had arrived
+      as an Integration_Request__e platform event, including forwarding to the process API. Returns 202.
+      Disabled environments answer 403.
+    body: IntegrationRequestEvent
+    responses:
+      202:
+        body:
+          properties:
+            accepted: boolean
+            requestId?: string
+            forwarded: boolean

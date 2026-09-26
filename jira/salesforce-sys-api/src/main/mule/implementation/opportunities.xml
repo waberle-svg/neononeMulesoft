@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/opportunities.xml — reads of Salesforce Opportunities.
+  Salesforce API names stop here: consumers get the canonical Opportunity shape from the RAML.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== Provisioning view of one Opportunity (vars.opportunityId) ===== -->
+    <flow name="sf-get-opportunity" doc:name="sf-get-opportunity">
+        <!-- Optional extra fields from config are appended to the SELECT so a new mapping source never needs a code change -->
+        <set-variable variableName="extraFields" doc:name="extraFields"
+                      value="#[((p('sf.opportunity.extraFields') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
+        <ee:transform doc:name="SOQL">
+            <ee:variables>
+                <ee:set-variable variableName="soql"><![CDATA[%dw 2.0
+output text/plain
+---
+"SELECT Id, OpportunityNumber__c, Name, StageName, Type, CloseDate, Description, "
+  ++ "Is_Test_Account_Opportunity__c, Project_Requirement_Met__c, ProductionInstanceName__c, "
+  ++ "NeonCRM_Modules__c, ProductRollup__c, Includes_Web_Template_Copy__c, BusinessUnit__c, "
+  ++ "JIRA_SETUP_Issue__c, JIRA_SETUP_Status__c, JIRA_SETUP_Status_Updated__c, JIRA_Error_Message__c, "
+  ++ "AccountId, Account.Name, Account.Neon_CRM_Instance_Created_Date__c, Account.NCRM_Instance__c, "
+  ++ "PrimaryContact__c, PrimaryContact__r.Name, PrimaryContact__r.Email, "
+  ++ "TechnicalContact__c, TechnicalContact__r.Name, TechnicalContact__r.Email, "
+  ++ "OwnerId, Owner.Name, Owner.Email, SalesRep__c, SalesRep__r.Name, SalesRep__r.Email"
+  ++ (if (isEmpty(vars.extraFields)) "" else ", " ++ (vars.extraFields joinBy ", "))
+  ++ " FROM Opportunity WHERE Id = ':id'"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Opportunity">
+            <salesforce:salesforce-query>#[vars.soql]</salesforce:salesforce-query>
+            <salesforce:parameters>#[{ id: vars.opportunityId }]</salesforce:parameters>
+        </salesforce:query>
+
+        <!-- The connector streams results; materialise once so the empty check and the mapping see the same rows -->
+        <set-variable variableName="rows" value="#[payload as Array]" doc:name="rows"/>
+        <choice doc:name="Found?">
+            <when expression="#[isEmpty(vars.rows)]">
+                <raise-error type="APP:NOT_FOUND" description="#['Opportunity ' ++ vars.opportunityId ++ ' not found']" doc:name="404"/>
+            </when>
+            <otherwise>
+                <ee:transform doc:name="Row -> canonical Opportunity">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+var r = vars.rows[0]
+fun person(id, rel) = if (id == null and rel == null) null else { id: id, name: rel.Name, email: rel.Email }
+---
+{
+  id:                       r.Id,
+  opportunityNumber:        r.OpportunityNumber__c,
+  name:                     r.Name,
+  stageName:                r.StageName,
+  "type":                   r.Type,
+  closeDate:                r.CloseDate,
+  description:              r.Description,
+  isTestAccountOpportunity: r.Is_Test_Account_Opportunity__c,
+  projectRequirementMet:    r.Project_Requirement_Met__c,
+  productionInstanceName:   r.ProductionInstanceName__c,
+  neonCrmModules:           r.NeonCRM_Modules__c,
+  productRollup:            r.ProductRollup__c,
+  includesWebTemplateCopy:  r.Includes_Web_Template_Copy__c,
+  businessUnit:             r.BusinessUnit__c,
+  jiraSetupIssueKey:        r.JIRA_SETUP_Issue__c,
+  jiraSetupStatus:          r.JIRA_SETUP_Status__c,
+  jiraSetupStatusUpdated:   r.JIRA_SETUP_Status_Updated__c,
+  jiraErrorMessage:         r.JIRA_Error_Message__c,
+  account: {
+    id:                         r.AccountId,
+    name:                       r.Account.Name,
+    neonCrmInstanceCreatedDate: r.Account.Neon_CRM_Instance_Created_Date__c,
+    ncrmInstance:               r.Account.NCRM_Instance__c
+  },
+  primaryContact:   person(r.PrimaryContact__c, r.PrimaryContact__r),
+  technicalContact: person(r.TechnicalContact__c, r.TechnicalContact__r),
+  owner:            person(r.OwnerId, r.Owner),
+  salesRep:         person(r.SalesRep__c, r.SalesRep__r),
+  extra: if (isEmpty(vars.extraFields)) null
+         else vars.extraFields reduce ((f, acc = {}) -> acc ++ { (f): r[f] })
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>
