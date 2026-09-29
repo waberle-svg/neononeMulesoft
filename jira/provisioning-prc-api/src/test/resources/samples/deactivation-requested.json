@@ -1,0 +1,13 @@
+{
+  "requestId": "a66Su000000deactMAA",
+  "targetSystem": "JIRA",
+  "requestType": "DEACTIVATION",
+  "sourceObject": "Opportunity",
+  "sourceRecordId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceOrgId": "00DSu000008AXB0MAO",
+  "payload": { "productLine": "Neon CRM", "instanceId": "acmenonprofit", "deactivationDate": "2027-09-22", "cancellationStatus": "Partial Cancellation" },
+  "eventCreatedAt": "2026-09-29T09:00:05.000Z",
+  "replayId": 77,
+  "receivedAt": "2026-09-29T09:00:06.000Z"
+}

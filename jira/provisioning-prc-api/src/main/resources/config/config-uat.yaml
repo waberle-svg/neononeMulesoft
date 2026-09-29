@@ -8,7 +8,7 @@ http:
   port: "8081"
 
 provisioning:
-  requestTypes: "PROVISIONING"
+  requestTypes: "PROVISIONING,DEACTIVATION"
   processableStatuses: "Requested,Retrying"
   retry:
     maxAttempts: "6"
@@ -17,9 +17,39 @@ provisioning:
     schedulerFrequencyMinutes: "1"
   mappingFile: "mapping/provisioning-ticket.yaml"
 
+# Scenario 2 — see config-dev.yaml for the meaning of each key. UAT mirrors DEV (NSSU / System Setup stand-in) until
+# Neon One provides the test copy of WORK; then NEON_CRM -> <WORK copy> / DEACTIVATE_INSTANCE.
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  duplicateCheck: "true"
+  labelPrefix: "sf-deact"
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  lines:
+    NEON_CRM:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+    NEON_FUNDRAISE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+    ARTS_PEOPLE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+
 jira:
   project: "NSSU"
   instanceReadyStatusId: "10805"
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
   statusCategoryMap:
     new: "To Do"
     indeterminate: "In Progress"

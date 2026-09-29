@@ -1,8 +1,9 @@
 %dw 2.0
 import try from dw::Runtime
 /**
- * TicketMapping.dwl — a tiny mapping engine: turns mapping/provisioning-ticket.yaml plus a context
- * { opp, req, registry, env, sfUrl } into the canonical IssueCreateRequest expected by jira-sys-api.
+ * TicketMapping.dwl — a tiny mapping engine: turns a mapping YAML (mapping/provisioning-ticket.yaml,
+ * mapping/deactivation-ticket.yaml) plus a context { opp, req, registry, line?, env, sfUrl } into the canonical
+ * IssueCreateRequest expected by jira-sys-api. A `source` may resolve to an array (e.g. labels); it is passed through.
  *
  *   import * from modules::TicketMapping
  *   buildTicket(readUrl("classpath://mapping/provisioning-ticket.yaml", "application/yaml"), ctx)
@@ -91,10 +92,13 @@ fun classify(err) = do {
         else true
     var retryable = if (bodyRetryable is Boolean) bodyRetryable else byType
     var code = body.code default (errNs ++ ":" ++ id)
+    // Our own data guards (Scenario 2): the Salesforce record lacks what the ticket needs -> a data problem, category Mapping
+    var dataGuards = ["MISSING_INSTANCE_ID", "UNSUPPORTED_PRODUCT_LINE"]
     var category =
         if (retryable) "Transient"
         else if ((["UNAUTHORIZED", "FORBIDDEN"] contains (body.code default "")) or (["UNAUTHORIZED", "FORBIDDEN"] contains id)) "Auth"
         else if ((body.code default "") == "VALIDATION" or id == "BAD_REQUEST" or (errNs == "MULE")) "Mapping"
+        else if (errNs == "APP" and (dataGuards contains id)) "Mapping"
         else "Terminal"
     ---
     {

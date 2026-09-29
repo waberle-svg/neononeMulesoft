@@ -77,6 +77,14 @@
         <set-variable variableName="issue" value="#[payload]" doc:name="issue"/>
     </sub-flow>
 
+    <!-- vars.searchLabel, vars.searchProject -> payload canonical Issue[] carrying that label (Scenario 2 duplicate check) -->
+    <sub-flow name="sys-jira-search-issues">
+        <http:request config-ref="Sys_Jira_Request_Config" method="GET" path="/issues" sendCorrelationId="NEVER" doc:name="sys-jira: GET issues by label">
+            <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+            <http:query-params>#[{ label: vars.searchLabel } ++ (if (vars.searchProject == null) {} else { project: vars.searchProject })]</http:query-params>
+        </http:request>
+    </sub-flow>
+
     <!-- vars.issueKey -> payload canonical Issue (status, systemReadyAt, ...) -->
     <sub-flow name="sys-jira-get-issue">
         <http:request config-ref="Sys_Jira_Request_Config" method="GET" path="/issues/{key}" sendCorrelationId="NEVER" doc:name="sys-jira: GET issue">

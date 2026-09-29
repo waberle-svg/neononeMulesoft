@@ -27,7 +27,14 @@ output text/plain
   ++ "Is_Test_Account_Opportunity__c, Project_Requirement_Met__c, ProductionInstanceName__c, "
   ++ "NeonCRM_Modules__c, ProductRollup__c, Includes_Web_Template_Copy__c, BusinessUnit__c, "
   ++ "JIRA_SETUP_Issue__c, JIRA_SETUP_Status__c, JIRA_SETUP_Status_Updated__c, JIRA_Error_Message__c, "
+  // Scenario 2 (cancellation): the churn trigger fields and the per-product-line write-back fields
+  ++ "Risk_Stage__c, Forecast_Opportunity__c, "
+  ++ "Neon_CRM_Cancellation_JIRA__c, Neon_CRM_Cancellation_Error__c, "
+  ++ "Fundraise_Cancellation_JIRA__c, Fundraise_Cancellation_Error__c, "
+  ++ "Arts_People_Cancellation_JIRA__c, Arts_People_Cancellation_Error__c, "
   ++ "AccountId, Account.Name, Account.Neon_CRM_Instance_Created_Date__c, Account.NCRM_Instance__c, "
+  // Scenario 2: the Account carries one instance identifier per product line, plus the cancellation outcome set by Apex
+  ++ "Account.RB_RB_ID__c, Account.Arts_People_Theatre_Id__c, Account.Deactivation_Date__c, Account.CancellationStatus__c, Account.IsTestAccount__c, "
   ++ "PrimaryContact__c, PrimaryContact__r.Name, PrimaryContact__r.Email, "
   ++ "TechnicalContact__c, TechnicalContact__r.Name, TechnicalContact__r.Email, "
   ++ "OwnerId, Owner.Name, Owner.Email, SalesRep__c, SalesRep__r.Name, SalesRep__r.Email"
@@ -54,6 +61,11 @@ output text/plain
 output application/json skipNullOn="everywhere"
 var r = vars.rows[0]
 fun person(id, rel) = if (id == null and rel == null) null else { id: id, name: rel.Name, email: rel.Email }
+// Arts People theatre id is a Number in Salesforce (arrives as 1376.0); the ticket needs "1376"
+fun wholeNumberText(v) = if (v == null) null else (floor(v as Number) as String)
+fun blankAsNull(v) = if (v == null or isEmpty(trim(v as String))) null else v
+// Salesforce Date fields: the connector may hand them over as a String, a Date or a DateTime; the contract is always yyyy-MM-dd
+fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyyy-MM-dd" })
 ---
 {
   id:                       r.Id,
@@ -61,7 +73,7 @@ fun person(id, rel) = if (id == null and rel == null) null else { id: id, name: 
   name:                     r.Name,
   stageName:                r.StageName,
   "type":                   r.Type,
-  closeDate:                r.CloseDate,
+  closeDate:                dateOnly(r.CloseDate),
   description:              r.Description,
   isTestAccountOpportunity: r.Is_Test_Account_Opportunity__c,
   projectRequirementMet:    r.Project_Requirement_Met__c,
@@ -74,11 +86,24 @@ fun person(id, rel) = if (id == null and rel == null) null else { id: id, name: 
   jiraSetupStatus:          r.JIRA_SETUP_Status__c,
   jiraSetupStatusUpdated:   r.JIRA_SETUP_Status_Updated__c,
   jiraErrorMessage:         r.JIRA_Error_Message__c,
+  riskStage:                r.Risk_Stage__c,
+  forecastOpportunity:      r.Forecast_Opportunity__c,
   account: {
     id:                         r.AccountId,
     name:                       r.Account.Name,
-    neonCrmInstanceCreatedDate: r.Account.Neon_CRM_Instance_Created_Date__c,
-    ncrmInstance:               r.Account.NCRM_Instance__c
+    neonCrmInstanceCreatedDate: dateOnly(r.Account.Neon_CRM_Instance_Created_Date__c),
+    ncrmInstance:               blankAsNull(r.Account.NCRM_Instance__c),
+    rbId:                       blankAsNull(r.Account.RB_RB_ID__c),
+    artsPeopleTheatreId:        wholeNumberText(r.Account.Arts_People_Theatre_Id__c),
+    deactivationDate:           dateOnly(r.Account.Deactivation_Date__c),
+    cancellationStatus:         r.Account.CancellationStatus__c,
+    isTestAccount:              r.Account.IsTestAccount__c
+  },
+  // Scenario 2 write-back fields, one pair per product line (set by the registry Flow, never by Mule)
+  deactivation: {
+    neonCrm:       { jiraKey: blankAsNull(r.Neon_CRM_Cancellation_JIRA__c),    error: r.Neon_CRM_Cancellation_Error__c },
+    neonFundraise: { jiraKey: blankAsNull(r.Fundraise_Cancellation_JIRA__c),   error: r.Fundraise_Cancellation_Error__c },
+    artsPeople:    { jiraKey: blankAsNull(r.Arts_People_Cancellation_JIRA__c), error: r.Arts_People_Cancellation_Error__c }
   },
   primaryContact:   person(r.PrimaryContact__c, r.PrimaryContact__r),
   technicalContact: person(r.TechnicalContact__c, r.TechnicalContact__r),

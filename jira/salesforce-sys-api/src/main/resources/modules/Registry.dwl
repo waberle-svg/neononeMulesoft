@@ -8,7 +8,8 @@
 
 // Fields read from Salesforce for every registry query (keep in sync with toCanonical below)
 var soqlFields = "Id, Name, Target_System__c, Request_Type__c, Request_Status__c, Opportunity__c, Account__c, " ++
-    "Source_Business_Key__c, Attempts__c, Last_Error__c, Last_Error_Short__c, Error_Category__c, Mule_Correlation_Id__c, " ++
+    "Source_Business_Key__c, Product_Line__c, Group_Key__c, " ++
+    "Attempts__c, Last_Error__c, Last_Error_Short__c, Error_Category__c, Mule_Correlation_Id__c, " ++
     "External_Key__c, External_Id__c, External_URL__c, External_Container__c, External_Type__c, " ++
     "External_Status__c, External_Status_Id__c, External_Status_Category__c, Status_Changed_At__c, Last_Synced_At__c, " ++
     "CreatedDate, LastModifiedDate"
@@ -65,6 +66,8 @@ fun toCanonical(r) = {
     opportunityId:     r.Opportunity__c,
     accountId:         r.Account__c,
     sourceBusinessKey: r.Source_Business_Key__c,
+    productLine:       r.Product_Line__c,
+    groupKey:          r.Group_Key__c,
     attempts:          if (r.Attempts__c == null) null else (r.Attempts__c as Number),
     lastError:         r.Last_Error__c,
     lastErrorShort:    r.Last_Error_Short__c,

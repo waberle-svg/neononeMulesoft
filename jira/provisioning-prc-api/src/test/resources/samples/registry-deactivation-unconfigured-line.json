@@ -1,0 +1,16 @@
+{
+  "id": "a66Su000000deactMAA",
+  "name": "INT-000006",
+  "targetSystem": "JIRA",
+  "requestType": "DEACTIVATION",
+  "requestStatus": "Requested",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceBusinessKey": "O-0210538",
+  "productLine": "Arts People",
+  "groupKey": "006Su00000XPwLxIAL:DEACTIVATION:ARTS_PEOPLE",
+  "attempts": 0,
+  "external": {},
+  "createdDate": "2026-09-29T09:00:00.000Z",
+  "lastModifiedDate": "2026-09-29T09:00:00.000Z"
+}

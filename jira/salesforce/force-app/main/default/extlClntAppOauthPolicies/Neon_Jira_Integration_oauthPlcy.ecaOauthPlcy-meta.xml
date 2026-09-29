@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- OAuth policies. Deployed in a SECOND step, after the app + OAuth settings exist (Salesforce generates a default policy
+     record on first deploy; this file then sets "Admin approved users are pre-authorized"). -->
+<ExtlClntAppOauthConfigurablePolicies xmlns="http://soap.sforce.com/2006/04/metadata">
+    <externalClientApplication>Neon_Jira_Integration</externalClientApplication>
+    <ipRelaxationPolicyType>Enforce</ipRelaxationPolicyType>
+    <isClientCredentialsFlowEnabled>false</isClientCredentialsFlowEnabled>
+    <isGuestCodeCredFlowEnabled>false</isGuestCodeCredFlowEnabled>
+    <isTokenExchangeFlowEnabled>false</isTokenExchangeFlowEnabled>
+    <label>Neon_Jira_Integration_oauthPlcy</label>
+    <permittedUsersPolicyType>AdminApprovedPreAuthorized</permittedUsersPolicyType>
+    <refreshTokenPolicyType>SpecificInactivity</refreshTokenPolicyType>
+    <refreshTokenValidityPeriod>30</refreshTokenValidityPeriod>
+    <refreshTokenValidityUnit>Days</refreshTokenValidityUnit>
+    <requiredSessionLevel>STANDARD</requiredSessionLevel>
+</ExtlClntAppOauthConfigurablePolicies>

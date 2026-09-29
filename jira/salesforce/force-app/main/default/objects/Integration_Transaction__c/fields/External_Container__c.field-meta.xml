@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>External_Container__c</fullName>
+    <label>External Container</label>
+    <type>Text</type>
+    <description>Container of the external record, e.g. Jira project key (NSSU, SETUP, WORK, FUND, ARTS).</description>
+    <length>20</length>
+    <externalId>false</externalId>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <unique>false</unique>
+</CustomField>

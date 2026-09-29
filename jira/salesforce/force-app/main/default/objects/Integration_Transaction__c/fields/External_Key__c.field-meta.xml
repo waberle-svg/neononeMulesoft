@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>External_Key__c</fullName>
+    <label>External Key</label>
+    <type>Text</type>
+    <description>Human key of the external record, e.g. Jira issue key SETUP-11058. External Id, unique: MuleSoft upserts by it.</description>
+    <length>30</length>
+    <externalId>true</externalId>
+    <required>false</required>
+    <caseSensitive>false</caseSensitive>
+    <trackHistory>true</trackHistory>
+    <unique>true</unique>
+</CustomField>

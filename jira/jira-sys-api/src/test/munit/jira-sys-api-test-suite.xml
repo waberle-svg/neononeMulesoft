@@ -268,4 +268,209 @@
         </munit:execution>
     </munit:test>
 
+    <!-- ===== Scenario 2 (29 Sep 2026): create-screen profiles, labels, due date, label search ===== -->
+    <munit:test name="create-deactivate-instance-payload-keeps-only-screen-fields"
+                description="A DEACTIVATE_INSTANCE request sends only the fields on that type's create screen: labels and due date in, reporter / modules / SF ids out; multi-line description becomes paragraphs">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="jiraPayload">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-deactivation-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="jiraPayload" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.project.key]" is="#[MunitTools::equalTo('WORK')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.issuetype.id]" is="#[MunitTools::equalTo('11900')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.summary]" is="#[MunitTools::equalTo('System shutdown for /acmenonprofit/')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-deact-006Su00000Xd0ehIAB-neon_crm', 'sf-deact'])]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.duedate]" is="#[MunitTools::equalTo('2027-09-22')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_11202]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.description.content)]" is="#[MunitTools::equalTo(3)]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[1].content[0].text]" is="#[MunitTools::equalTo('CRM Instance: acmenonprofit')]"/>
+            <!-- not on the Deactivate Instance screen: must not be sent (Jira would answer 400) -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15227]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15226]" is="#[MunitTools::nullValue()]"/>
+            <!-- assignee is on the WORK screen, so the configured owner is still applied -->
+            <munit-tools:assert-that expression="#[payload.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[payload.assignee.assigned]" is="#[MunitTools::equalTo(true)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="create-system-setup-still-sends-every-screen-field"
+                description="The SYSTEM_SETUP profile keeps the Phase 1 payload intact (labels/dueDate simply absent when not supplied)">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="jiraPayload">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="jiraPayload" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('test-reporter-account-id')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core Modules')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100.value]" is="#[MunitTools::equalTo('Not Purchased')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.duedate]" is="#[MunitTools::nullValue()]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="create-deactivation-on-system-setup-standin-keeps-labels-and-required-fields"
+                description="The NSSU stand-in (a deactivation sent as SYSTEM_SETUP) must carry the labels (duplicate check) and due date AND every field NSSU requires">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="jiraPayload">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-deactivation-standin-request.json')]"
+                               mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="jiraPayload" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.project.key]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.issuetype.id]" is="#[MunitTools::equalTo('10800')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-deact-006Su00000Xd0ehIAB-neon_crm', 'sf-deact'])]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.duedate]" is="#[MunitTools::equalTo('2027-09-22')]"/>
+            <!-- required on the System Setup create screen -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.summary]" is="#[MunitTools::equalTo('System shutdown for /acmenonprofit/')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_11202]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('N/A - deactivation')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100.value]" is="#[MunitTools::equalTo('Not Purchased')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('test-reporter-account-id')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15227]" is="#[MunitTools::equalTo('006Su00000Xd0ehIAB')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="search-issues-by-label-maps-jira-results"
+                description="GET /issues?label= builds a sanitised JQL and returns canonical Issue[]">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: GET /search/jql"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-search-one.json')]"
+                                         mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="searchLabel" value="sf-deact-006Su00000Xd0ehIAB-neon_crm"/>
+                    <munit:variable key="searchProject" value="NSSU OR 1=1"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="jira-search-issues"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[vars.jql]" is="#[MunitTools::containsString('labels = &quot;sf-deact-006Su00000Xd0ehIAB-neon_crm&quot;')]"/>
+            <!-- the project value is sanitised: spaces and "=" cannot reach the JQL -->
+            <munit-tools:assert-that expression="#[vars.jql]" is="#[MunitTools::containsString('project = &quot;NSSUOR11&quot;')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload)]" is="#[MunitTools::equalTo(1)]"/>
+            <munit-tools:assert-that expression="#[payload[0].key]" is="#[MunitTools::equalTo('NSSU-77')]"/>
+            <munit-tools:assert-that expression="#[payload[0].url]" is="#[MunitTools::equalTo('https://jira.test.invalid/browse/NSSU-77')]"/>
+            <munit-tools:assert-that expression="#[payload[0].status.name]" is="#[MunitTools::equalTo('Open')]"/>
+            <munit-tools:assert-that expression="#[payload[0].sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000Xd0ehIAB')]"/>
+            <munit-tools:assert-that expression="#[payload[0].created as String]" is="#[MunitTools::startsWith('2026-09-29T06:24:22')]"/>
+        </munit:validation>
+    </munit:test>
+
 </mule>

@@ -34,7 +34,10 @@ types:
       requestId: string
       outcome:
         type: string
-        enum: [CREATED, SKIPPED_ALREADY_PROCESSED, SKIPPED_EXISTING_KEY, IGNORED_TYPE, IGNORED_UNKNOWN_REQUEST, TERMINAL_ERROR, RETRY_SCHEDULED, RETRIES_EXHAUSTED]
+        enum: [CREATED, LINKED_EXISTING_TICKET, SKIPPED_ALREADY_PROCESSED, SKIPPED_EXISTING_KEY, IGNORED_TYPE, IGNORED_UNKNOWN_REQUEST, TERMINAL_ERROR, RETRY_SCHEDULED, RETRIES_EXHAUSTED]
+        description: |
+          LINKED_EXISTING_TICKET (deactivation only): Jira already held a ticket carrying this request's label, so it was
+          linked to the registry row instead of a duplicate being created.
       issueKey?: string
       issueUrl?: string
       attempts?: number
@@ -130,8 +133,10 @@ traits:
   post:
     is: [errorResponses]
     description: |
-      Process one provisioning request end to end: idempotency check on the registry, read the Opportunity,
+      Process one integration request end to end: idempotency check on the registry, read the Opportunity,
       build the ticket from the mapping, create it in Jira, write the outcome back to the registry.
+      Routed on the registry row's request type: PROVISIONING (System Setup ticket, Scenario 1) or
+      DEACTIVATION (one deactivation ticket per product line of a churned Opportunity, Scenario 2).
       Always answers 200 with an outcome when the request could be handled (including terminal failures,
       which are recorded on the registry row). A 5xx means the registry itself could not be read or written;
       the caller should re-deliver later.

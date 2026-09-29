@@ -75,6 +75,13 @@ output application/json
         <flow-ref name="jira-get-myself" doc:name="Jira: get myself"/>
     </flow>
 
+    <!-- ===== GET /issues?label=… — issues carrying a label (the process API's duplicate check before creating) ===== -->
+    <flow name="get:\issues:jira-sys-api-config" doc:name="GET /issues">
+        <set-variable variableName="searchLabel" value="#[attributes.queryParams.label]" doc:name="searchLabel"/>
+        <set-variable variableName="searchProject" value="#[attributes.queryParams.project]" doc:name="searchProject"/>
+        <flow-ref name="jira-search-issues" doc:name="Jira: search issues by label"/>
+    </flow>
+
     <!-- ===== POST /issues — create an issue from the canonical request ===== -->
     <flow name="post:\issues:application\json:jira-sys-api-config" doc:name="POST /issues">
         <flow-ref name="jira-create-issue" doc:name="Jira: create issue"/>

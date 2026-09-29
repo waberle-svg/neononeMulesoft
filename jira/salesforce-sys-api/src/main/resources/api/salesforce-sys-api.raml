@@ -38,12 +38,35 @@ types:
       jiraSetupStatus?: string
       jiraSetupStatusUpdated?: datetime
       jiraErrorMessage?: string
+      riskStage?:
+        type: string
+        description: Opportunity.Risk_Stage__c (Closed/Churn is the cancellation trigger).
+      forecastOpportunity?: boolean
       account:
         properties:
           id?: string
           name?: string
           neonCrmInstanceCreatedDate?: string
-          ncrmInstance?: string
+          ncrmInstance?:
+            type: string
+            description: Neon CRM instance identifier (Account.NCRM_Instance__c). Null when blank.
+          rbId?:
+            type: string
+            description: Neon Fundraise (Rallybound) customer id (Account.RB_RB_ID__c). Null when blank.
+          artsPeopleTheatreId?:
+            type: string
+            description: Arts People theatre id (Account.Arts_People_Theatre_Id__c, a Number) as whole-number text, e.g. "1376".
+          deactivationDate?:
+            type: date-only
+            description: Account.Deactivation_Date__c, set by the renewal-churn Apex to the last paid day.
+          cancellationStatus?: string
+          isTestAccount?: boolean
+      deactivation?:
+        description: Scenario 2 write-back fields on the Opportunity, one pair per product line (written by the registry Flow).
+        properties:
+          neonCrm?: DeactivationOutcome
+          neonFundraise?: DeactivationOutcome
+          artsPeople?: DeactivationOutcome
       primaryContact?: Contact
       technicalContact?: Contact
       owner?: Contact
@@ -51,6 +74,13 @@ types:
       extra?:
         type: object
         description: Any additional Opportunity fields configured in sf.opportunity.extraFields, keyed by API name.
+
+  DeactivationOutcome:
+    properties:
+      jiraKey?:
+        type: string
+        description: The deactivation ticket key already recorded on the Opportunity for this product line (idempotency guard).
+      error?: string
 
   RequestStatus:
     type: string
@@ -93,6 +123,12 @@ types:
       opportunityId?: string
       accountId?: string
       sourceBusinessKey?: string
+      productLine?:
+        type: string
+        description: Product line this row is for (DEACTIVATION rows; one row per line). Salesforce picklist value, e.g. Neon CRM.
+      groupKey?:
+        type: string
+        description: Idempotency key set by the publishing Flow, e.g. <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
       attempts?: number
       lastError?: string
       errorCategory?:

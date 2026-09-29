@@ -3,6 +3,8 @@
 **/.mule/
 **/.tooling-project/
 **/services/
+# DataWeave playground scratch folders the MuleSoft VS Code extension drops next to test resources
+**/embedded-dw_*/
 .DS_Store
 *.log
 

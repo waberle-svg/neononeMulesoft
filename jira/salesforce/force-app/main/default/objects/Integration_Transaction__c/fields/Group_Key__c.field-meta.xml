@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Group_Key__c</fullName>
+    <label>Group Key</label>
+    <type>Text</type>
+    <description>Idempotency key of the request, set by the publishing Flow: &lt;source record Id&gt;:&lt;request type&gt;:&lt;product line code&gt;, e.g. 006...:DEACTIVATION:NEON_CRM. Unique, so a second row for the same record, type and line is impossible at the database level (the Flow checks first and swallows the fault). External Id for MuleSoft lookups.</description>
+    <length>255</length>
+    <externalId>true</externalId>
+    <required>false</required>
+    <caseSensitive>false</caseSensitive>
+    <trackHistory>false</trackHistory>
+    <unique>true</unique>
+</CustomField>

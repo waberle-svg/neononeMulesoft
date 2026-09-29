@@ -10,7 +10,7 @@ http:
 # Business configuration
 provisioning:
   # Request types this process handles; anything else is acknowledged and ignored
-  requestTypes: "PROVISIONING"
+  requestTypes: "PROVISIONING,DEACTIVATION"
   # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
   processableStatuses: "Requested,Retrying"
   # Transient failures: exponential backoff, then dead-letter on the registry row (Failed - Terminal, category Transient)
@@ -22,9 +22,51 @@ provisioning:
   # Where the mapping lives (classpath). ADR-014: YAML now, Salesforce Custom Metadata later.
   mappingFile: "mapping/provisioning-ticket.yaml"
 
+# Scenario 2 — cancellation / deactivation (Swati's requirements 24 Sep 2026; decisions 28-29 Sep 2026)
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  # Before creating, ask Jira for a ticket that already carries this request's label (closes the duplicate gap)
+  duplicateCheck: "true"
+  # Labels put on every deactivation ticket: "<prefix>-<opportunity id>-<line code>" and the bare prefix
+  labelPrefix: "sf-deact"
+  # Shown on the ticket when Account.Deactivation_Date__c is blank (the Apex leaves it blank when no asset has an end date)
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  # One entry per product line, keyed by the Salesforce value in UPPER_SNAKE_CASE (Neon CRM -> NEON_CRM).
+  #   project / issueType   where the ticket goes (issueType = jira-sys-api canonical code)
+  #   instanceField         key under opportunity.account in salesforce-sys-api that holds this line's instance id
+  #   opportunityKey        key under opportunity.deactivation holding this line's write-back pair (existing-key guard)
+  #   instanceLabel         how the receiving team names the identifier (appears on the ticket)
+  # DEV (29 Sep 2026): every line -> NSSU / System Setup, on Neon One's instruction ("create tickets only in NSSU").
+  # Targets per the document, to switch on when Neon One provides the test copy of WORK and creates FUND/ARTS:
+  #   NEON_CRM -> WORK / DEACTIVATE_INSTANCE ; NEON_FUNDRAISE -> FUND / DEACTIVATE_INSTANCE ; ARTS_PEOPLE -> ARTS / DEACTIVATE_INSTANCE
+  # A line with project "TBD" (or no entry) fails terminally with a clear message instead of creating a wrong ticket.
+  lines:
+    NEON_CRM:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+    NEON_FUNDRAISE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+    ARTS_PEOPLE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+
 jira:
   project: "NSSU"                    # UAT project in Dev and UAT; SETUP in Production
   instanceReadyStatusId: "10805"     # "System Ready" — matched by id, never by category
+  # Display names written to Integration_Transaction__c.External_Type__c, by canonical issue type code
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
   # Jira status category key -> Salesforce External_Status_Category__c picklist value
   statusCategoryMap:
     new: "To Do"

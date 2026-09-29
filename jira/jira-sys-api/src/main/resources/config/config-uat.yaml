@@ -23,7 +23,13 @@ jira:
     reporterAccountId: "61121eff4e8d8d0069df301b"
   issueTypes:
     SYSTEM_SETUP: "10800"
-    DEACTIVATE_INSTANCE: "TBD"
+    DEACTIVATE_INSTANCE: "11900"
+  # Canonical fields each issue type's create screen accepts; the payload keeps only these (see config-dev.yaml)
+  screens:
+    SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail"
+    DEACTIVATE_INSTANCE: "summary,description,assignee,labels,dueDate,priority,productionInstance"
+  search:
+    maxResults: "10"
   status:
     instanceReadyId: "10805"
   fields:

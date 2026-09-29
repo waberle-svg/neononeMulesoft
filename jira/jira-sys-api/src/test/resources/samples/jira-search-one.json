@@ -1,0 +1,19 @@
+{
+  "issues": [
+    {
+      "id": "246600",
+      "key": "NSSU-77",
+      "self": "https://jira.test.invalid/rest/api/3/issue/246600",
+      "fields": {
+        "summary": "System shutdown for /acmenonprofit/",
+        "status": { "id": "1", "name": "Open", "statusCategory": { "key": "new", "name": "To Do" } },
+        "project": { "key": "NSSU", "name": "New System Setups - UAT" },
+        "issuetype": { "id": "10800", "name": "System Setup" },
+        "created": "2026-09-29T01:24:22.804-0500",
+        "updated": "2026-09-29T01:24:22.804-0500",
+        "customfield_15227": "006Su00000Xd0ehIAB"
+      }
+    }
+  ],
+  "isLast": true
+}

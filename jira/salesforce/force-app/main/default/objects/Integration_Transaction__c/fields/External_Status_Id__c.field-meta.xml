@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>External_Status_Id__c</fullName>
+    <label>External Status Id</label>
+    <type>Text</type>
+    <description>Current status id of the external record (Jira status id, e.g. 10805). Flows match on this, never on the name.</description>
+    <length>20</length>
+    <externalId>false</externalId>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <unique>false</unique>
+</CustomField>

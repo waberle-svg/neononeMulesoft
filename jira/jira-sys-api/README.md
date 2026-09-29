@@ -3,7 +3,7 @@
 System API wrapping **Jira Cloud REST v3** (neoncrm.atlassian.net) for Neon One's Salesforce ↔ Jira integration.
 Part of the API-led trio: `salesforce-sys-api` (8081) · **`jira-sys-api` (8082)** · `provisioning-prc-api` (8083) — local ports; on CloudHub 2.0 every app listens on 8081 inside its container.
 
-Owns: Jira authentication, custom-field-id mapping, error translation to a canonical shape, and the Jira webhook receiver.
+Owns: Jira authentication, custom-field-id mapping, the per-issue-type **create-screen profiles** (`jira.screens.<TYPE>`: only fields on that type's create screen are sent, because Jira rejects the rest with a 400), error translation to a canonical shape, label search and the Jira webhook receiver.
 Knows nothing about: Salesforce, opportunities, business rules.
 
 ## Endpoints (`/api/v1`, spec in `src/main/resources/api/jira-sys-api.raml`)
@@ -11,12 +11,13 @@ Knows nothing about: Salesforce, opportunities, business rules.
 |---|---|---|
 | GET | `/ping` | Liveness |
 | GET | `/me` | Connectivity check (Jira `/myself`) |
-| POST | `/issues` | Create an issue from a canonical request |
+| GET | `/issues?label=&project=` | Issues carrying a label (the process API's duplicate check before creating) |
+| POST | `/issues` | Create an issue from a canonical request (`SYSTEM_SETUP` or `DEACTIVATE_INSTANCE`; supports `labels`, `dueDate`, `priority`) |
 | GET | `/issues/{key}` | Status + `systemReadyAt` derived from the changelog |
 | POST | `/webhooks/jira` | Jira webhook receiver: 202, HMAC check, normalise, forward to the process API |
 
 ## Configuration
-- `src/main/resources/config/config-<env>.yaml` — non-secrets (host, project key, field ids, option values, downstream URL). Selected by `mule.env`.
+- `src/main/resources/config/config-<env>.yaml` — non-secrets (host, project key, issue type ids incl. `DEACTIVATE_INSTANCE = 11900`, `screens.<TYPE>` create-screen profiles, field ids, option values, `search.maxResults`, downstream URL). Selected by `mule.env`.
 - `src/main/resources/config/secure-<env>.yaml` — secrets, **encrypted** (`![...]`) with a key supplied at runtime as `secure.key`. Referenced as `${secure::jira.token}`. Only `secure-dev.yaml` exists so far; UAT/Prod files must be created before those deployments.
 - Required secrets: `jira.email`, `jira.token`, `jira.webhookSecret`, `api.clientSecret` (inter-app shared secret; checked by `authorize-caller` when `api.enforceClientSecret=true` — off locally, on when hosted; `POST /webhooks/jira` is exempt and protected by HMAC instead).
 

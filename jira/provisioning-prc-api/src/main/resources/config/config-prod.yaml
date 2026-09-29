@@ -8,7 +8,7 @@ http:
   port: "8081"
 
 provisioning:
-  requestTypes: "PROVISIONING"
+  requestTypes: "PROVISIONING,DEACTIVATION"
   processableStatuses: "Requested,Retrying"
   retry:
     maxAttempts: "8"
@@ -17,9 +17,40 @@ provisioning:
     schedulerFrequencyMinutes: "2"
   mappingFile: "mapping/provisioning-ticket.yaml"
 
+# Scenario 2 — see config-dev.yaml for the meaning of each key. PRODUCTION targets per the requirements document:
+# Neon CRM -> WORK "Deactivate Instance" (exists). FUND and ARTS do not exist yet (Neon One, 29 Sep 2026): "TBD" makes
+# such a request fail terminally with a clear message on the Opportunity instead of creating a ticket in the wrong place.
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  duplicateCheck: "true"
+  labelPrefix: "sf-deact"
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  lines:
+    NEON_CRM:
+      project: "WORK"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+    NEON_FUNDRAISE:
+      project: "TBD"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+    ARTS_PEOPLE:
+      project: "TBD"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+
 jira:
   project: "SETUP"                   # Production project "New System Setups" (id 10902)
   instanceReadyStatusId: "10805"
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
   statusCategoryMap:
     new: "To Do"
     indeterminate: "In Progress"

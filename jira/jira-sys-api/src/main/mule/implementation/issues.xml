@@ -44,51 +44,69 @@ output application/json skipNullOn="everywhere"
         <ee:transform doc:name="Canonical -> Jira create payload">
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
+import try from dw::Runtime
 output application/json skipNullOn="everywhere"
 
 var req = vars.request
+var issueTypeCode = req.issueType default "SYSTEM_SETUP"
 var projectKey = req.project default p('jira.defaults.project')
-var issueTypeId = p('jira.issueTypes.' ++ (req.issueType default "SYSTEM_SETUP"))
+var issueTypeId = p('jira.issueTypes.' ++ issueTypeCode)
 var webTemplateCopyValue = p('jira.options.webTemplateCopy.' ++ (req.webTemplateCopy default p('jira.defaults.webTemplateCopy')))
 // Ticket owner: request may override, else the environment default; empty -> Jira decides (token user / project default)
 var reporterAccountId = (req.reporterAccountId default p('jira.defaults.reporterAccountId')) default ""
 
-// Jira Cloud requires rich-text fields in Atlassian Document Format
-fun adf(text) = {
-  "type": "doc",
-  version: 1,
-  content: [{
-    "type": "paragraph",
-    content: [{ "type": "text", text: (text default " ") }]
-  }]
+// Jira Cloud requires rich-text fields in Atlassian Document Format; one paragraph per line of the canonical description
+fun paragraph(text) = { "type": "paragraph", content: [{ "type": "text", text: text }] }
+fun adf(text) = do {
+  var lines = (((text default "") as String) splitBy "\n") filter ((l) -> !isEmpty(trim(l)))
+  ---
+  { "type": "doc", version: 1, content: if (isEmpty(lines)) [paragraph(" ")] else (lines map paragraph($)) }
 }
+
+// Every field this API knows how to send, by canonical name -> { Jira field, value }
+var candidates = {
+  summary:               { field: "summary",     value: req.summary },
+  description:           { field: "description", value: adf(req.description) },
+  reporter:              { field: "reporter",    value: if (isEmpty(reporterAccountId)) null else { accountId: reporterAccountId } },
+  labels:                { field: "labels",      value: req.labels },
+  dueDate:               { field: "duedate",     value: req.dueDate },
+  priority:              { field: "priority",    value: if (req.priority == null) null else { name: req.priority } },
+  productionInstance:    { field: p('jira.fields.productionInstance'), value: req.productionInstance default p('jira.defaults.productionInstance') },
+  modules:               { field: p('jira.fields.modules'),            value: req.modules default p('jira.defaults.modules') },
+  webTemplateCopy:       { field: p('jira.fields.webTemplateCopy'),    value: { value: webTemplateCopyValue } },
+  sfOpportunityId:       { field: p('jira.fields.sfOpportunityId'),    value: req.sfOpportunityId },
+  sfAccountId:           { field: p('jira.fields.sfAccountId'),        value: req.sfAccountId },
+  organizationName:      { field: p('jira.fields.organizationName'),   value: req.organizationName },
+  primaryContactName:    { field: p('jira.fields.primaryContactName'),    value: req.primaryContact.name },
+  primaryContactEmail:   { field: p('jira.fields.primaryContactEmail'),   value: req.primaryContact.email },
+  technicalContactName:  { field: p('jira.fields.technicalContactName'),  value: req.technicalContact.name },
+  technicalContactEmail: { field: p('jira.fields.technicalContactEmail'), value: req.technicalContact.email }
+}
+// The issue type's CREATE SCREEN decides which of them are sent: Jira answers 400 for a field that is not on the screen.
+// jira.screens.<TYPE> lists canonical names (config); no entry = send everything (the behaviour before Scenario 2).
+var screenProp = try(() -> p('jira.screens.' ++ issueTypeCode))
+var screen = if (screenProp.success and !isEmpty(trim((screenProp.result default "") as String)))
+                 ((screenProp.result as String) splitBy ",") map trim($)
+             else (keysOf(candidates) map ($ as String))
+var onScreen = candidates filterObject ((v, k) -> (screen contains (k as String)) and v.value != null)
 ---
 {
-  fields: {
-    project:   { key: projectKey },
-    issuetype: { id: issueTypeId },
-    summary:   req.summary,
-    description: adf(req.description),
-    reporter:  if (isEmpty(reporterAccountId)) null else { accountId: reporterAccountId },
-
-    // Required custom fields on a System Setup ticket
-    (p('jira.fields.productionInstance')): req.productionInstance default p('jira.defaults.productionInstance'),
-    (p('jira.fields.modules')):            req.modules default p('jira.defaults.modules'),
-    (p('jira.fields.webTemplateCopy')):    { value: webTemplateCopyValue },
-
-    // Correlation keys back to Salesforce (optional in Jira, always sent when present)
-    (p('jira.fields.sfOpportunityId')):    req.sfOpportunityId,
-    (p('jira.fields.sfAccountId')):        req.sfAccountId,
-    (p('jira.fields.organizationName')):   req.organizationName,
-
-    // Contacts
-    (p('jira.fields.primaryContactName')):    req.primaryContact.name,
-    (p('jira.fields.primaryContactEmail')):   req.primaryContact.email,
-    (p('jira.fields.technicalContactName')):  req.technicalContact.name,
-    (p('jira.fields.technicalContactEmail')): req.technicalContact.email
-  }
+  fields: { project: { key: projectKey }, issuetype: { id: issueTypeId } }
+          ++ (onScreen mapObject ((v, k) -> { (v.field): v.value }))
 }]]></ee:set-payload>
             </ee:message>
+            <ee:variables>
+                <!-- true when the issue type's screen lists "assignee" (or no screen is configured): decides the PUT below -->
+                <ee:set-variable variableName="assigneeAllowed"><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/java
+var issueTypeCode = vars.request.issueType default "SYSTEM_SETUP"
+var screenProp = try(() -> p('jira.screens.' ++ issueTypeCode))
+---
+if (screenProp.success and !isEmpty(trim((screenProp.result default "") as String)))
+    (((screenProp.result as String) splitBy ",") map trim($)) contains "assignee"
+else true]]></ee:set-variable>
+            </ee:variables>
         </ee:transform>
 
         <http:request config-ref="Jira_Request_Config" method="POST" path="/issue" doc:name="Jira: POST /issue">
@@ -116,8 +134,8 @@ output application/json
         <set-variable variableName="assigneeAccountId"
                       value="#[output text/plain --- (vars.request.assigneeAccountId default p('jira.defaults.assigneeAccountId')) default '']" doc:name="Resolve assignee"/>
         <set-variable variableName="assigned" value="#[false]" doc:name="assigned=false"/>
-        <choice doc:name="Assignee configured?">
-            <when expression="#[!isEmpty(vars.assigneeAccountId)]">
+        <choice doc:name="Assignee configured and on the screen?">
+            <when expression="#[!isEmpty(vars.assigneeAccountId) and vars.assigneeAllowed == true]">
                 <try doc:name="Assign (non-fatal)">
                     <set-payload value="#[output application/json --- { accountId: vars.assigneeAccountId }]" doc:name="Assign body"/>
                     <http:request config-ref="Jira_Request_Config" method="PUT" path="/issue/{key}/assignee" doc:name="Jira: PUT /issue/{key}/assignee">
@@ -259,6 +277,60 @@ var statusItems = (body.changelog.items default []) filter ($.field == "status")
                 </choice>
             </otherwise>
         </choice>
+    </flow>
+
+    <!-- ===== GET /search/jql — issues carrying a label (vars.searchLabel, optional vars.searchProject) -> Issue[] =====
+         The process API labels every ticket it creates (sf-deact-<opportunity id>-<line>) and asks here before creating,
+         so a ticket whose key never reached Salesforce is linked instead of duplicated (Scenario 2, 29 Sep 2026). -->
+    <flow name="jira-search-issues" doc:name="jira-search-issues">
+        <ee:transform doc:name="JQL">
+            <ee:variables>
+                <ee:set-variable variableName="jql"><![CDATA[%dw 2.0
+output text/plain
+// Values are generated by us; anything outside [A-Za-z0-9_-:.] is stripped so nothing foreign can enter the JQL
+fun clean(s) = ((s default "") as String) replace /[^A-Za-z0-9_\-:.]/ with ""
+fun quoted(s) = "\"" ++ clean(s) ++ "\""
+---
+"labels = " ++ quoted(vars.searchLabel)
+  ++ (if (isEmpty(clean(vars.searchProject))) "" else " AND project = " ++ quoted(vars.searchProject))
+  ++ " ORDER BY created ASC"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log search" message='#[output text/plain --- "Searching Jira: " ++ vars.jql]'/>
+        <http:request config-ref="Jira_Request_Config" method="GET" path="/search/jql" doc:name="Jira: GET /search/jql">
+            <http:headers>#[{ "Accept": "application/json" }]</http:headers>
+            <http:query-params>#[{
+                "jql": vars.jql,
+                "maxResults": p('jira.search.maxResults'),
+                "fields": "status,summary,project,issuetype,created,updated," ++ p('jira.fields.sfOpportunityId')
+            }]</http:query-params>
+        </http:request>
+        <ee:transform doc:name="Jira search -> Issue[]">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+var jiraDateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+fun toDateTime(s) = if (s == null) null
+    else (((s as DateTime { format: jiraDateFormat }) >> "UTC") as String { format: "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'" })
+---
+(payload.issues default []) map ((i) -> {
+  key: i.key,
+  id:  i.id,
+  url: "https://" ++ p('jira.host') ++ "/browse/" ++ i.key,
+  project:   i.fields.project.key,
+  issueType: i.fields.issuetype.name,
+  summary:   i.fields.summary,
+  status: {
+    id:       i.fields.status.id,
+    name:     i.fields.status.name,
+    category: i.fields.status.statusCategory.key
+  },
+  sfOpportunityId: i.fields[p('jira.fields.sfOpportunityId')],
+  created: toDateTime(i.fields.created),
+  updated: toDateTime(i.fields.updated)
+})]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
     </flow>
 
 </mule>

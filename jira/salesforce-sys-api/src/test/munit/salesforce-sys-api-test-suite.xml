@@ -62,6 +62,19 @@
             <munit-tools:assert-that expression="#[payload.includesWebTemplateCopy]" is="#[MunitTools::equalTo(1)]"/>
             <!-- config-test.yaml sets sf.opportunity.extraFields = BusinessUnit__c -->
             <munit-tools:assert-that expression="#[payload.extra.BusinessUnit__c]" is="#[MunitTools::equalTo('01 NeonCRM')]"/>
+            <!-- Scenario 2 view: trigger fields, per-line instance ids (blank -> null, Number -> whole-number text), write-back pairs -->
+            <munit-tools:assert-that expression="#[payload.riskStage]" is="#[MunitTools::equalTo('Closed/Churn')]"/>
+            <munit-tools:assert-that expression="#[payload.forecastOpportunity]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.account.ncrmInstance]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
+            <munit-tools:assert-that expression="#[payload.account.rbId]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.account.artsPeopleTheatreId]" is="#[MunitTools::equalTo('1376')]"/>
+            <!-- the sample row carries the date as a midnight timestamp (one of the shapes the connector can return): the contract is still yyyy-MM-dd -->
+            <munit-tools:assert-that expression="#[payload.account.deactivationDate as String]" is="#[MunitTools::equalTo('2027-09-22')]"/>
+            <munit-tools:assert-that expression="#[payload.closeDate as String]" is="#[MunitTools::equalTo('2026-09-18')]"/>
+            <munit-tools:assert-that expression="#[payload.account.cancellationStatus]" is="#[MunitTools::equalTo('Partial Cancellation')]"/>
+            <munit-tools:assert-that expression="#[payload.deactivation.neonCrm.jiraKey]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.deactivation.neonFundraise.jiraKey]" is="#[MunitTools::equalTo('NSSU-9')]"/>
+            <munit-tools:assert-that expression="#[payload.deactivation.artsPeople.error]" is="#[MunitTools::containsString('MISSING_INSTANCE_ID')]"/>
         </munit:validation>
     </munit:test>
 
@@ -187,6 +200,8 @@
             <munit-tools:assert-that expression="#[payload.opportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
             <munit-tools:assert-that expression="#[payload.sourceBusinessKey]" is="#[MunitTools::equalTo('O-0210538')]"/>
             <munit-tools:assert-that expression="#[payload.external.key]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.productLine]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::containsString('Product_Line__c, Group_Key__c')]"/>
         </munit:validation>
     </munit:test>
 

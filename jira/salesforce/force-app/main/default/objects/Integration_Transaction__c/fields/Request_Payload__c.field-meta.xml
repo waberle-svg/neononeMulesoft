@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Request_Payload__c</fullName>
+    <label>Request Payload</label>
+    <type>LongTextArea</type>
+    <description>Canonical request MuleSoft sent to the external system (no secrets).</description>
+    <length>32768</length>
+    <visibleLines>5</visibleLines>
+    <trackHistory>false</trackHistory>
+</CustomField>

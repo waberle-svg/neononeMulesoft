@@ -8,7 +8,7 @@ http:
   port: "18083"
 
 provisioning:
-  requestTypes: "PROVISIONING"
+  requestTypes: "PROVISIONING,DEACTIVATION"
   processableStatuses: "Requested,Retrying"
   retry:
     maxAttempts: "3"
@@ -17,9 +17,37 @@ provisioning:
     schedulerFrequencyMinutes: "60"
   mappingFile: "mapping/provisioning-ticket.yaml"
 
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  duplicateCheck: "true"
+  labelPrefix: "sf-deact"
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  lines:
+    NEON_CRM:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+    NEON_FUNDRAISE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+    ARTS_PEOPLE:
+      project: "TBD"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+
 jira:
   project: "NSSU"
   instanceReadyStatusId: "10805"
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
   statusCategoryMap:
     new: "To Do"
     indeterminate: "In Progress"

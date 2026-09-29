@@ -1,0 +1,32 @@
+{
+  "id": "006Su00000XPwLxIAL",
+  "opportunityNumber": "O-0210538",
+  "name": "Acme Nonprofit - Renewal Forecast - Cancellation",
+  "stageName": "Closed Lost",
+  "type": "RCA Retention",
+  "closeDate": "2027-09-22",
+  "description": null,
+  "isTestAccountOpportunity": false,
+  "riskStage": "Closed/Churn",
+  "forecastOpportunity": true,
+  "jiraSetupIssueKey": "NSSU-8",
+  "account": {
+    "id": "001Su00000tjc9VIAQ",
+    "name": "Acme Nonprofit",
+    "ncrmInstance": "acmenonprofit",
+    "rbId": null,
+    "artsPeopleTheatreId": "1376",
+    "deactivationDate": "2027-09-22",
+    "cancellationStatus": "Partial Cancellation",
+    "isTestAccount": false
+  },
+  "deactivation": {
+    "neonCrm":       { "jiraKey": null, "error": null },
+    "neonFundraise": { "jiraKey": null, "error": null },
+    "artsPeople":    { "jiraKey": null, "error": null }
+  },
+  "primaryContact": null,
+  "technicalContact": null,
+  "owner": { "id": "005Su00000ABCDEFGH", "name": "Sam Seller", "email": "sam.seller@neonone.com" },
+  "salesRep": null
+}

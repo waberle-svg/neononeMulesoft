@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <label>Integration Request</label>
+    <pluralLabel>Integration Requests</pluralLabel>
+    <description>Generic request for an external integration action (e.g. create a Jira ticket). Published after commit by Salesforce Flows; consumed by MuleSoft. One event type for every target system; consumers filter on Target_System__c.</description>
+    <eventType>StandardVolume</eventType>
+    <publishBehavior>PublishAfterCommit</publishBehavior>
+    <deploymentStatus>Deployed</deploymentStatus>
+</CustomObject>

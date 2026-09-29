@@ -27,8 +27,22 @@ types:
         enum: [SYSTEM_SETUP, DEACTIVATE_INSTANCE]
         default: SYSTEM_SETUP
         required: false
+        description: |
+          Decides the Jira issue type id AND which of the fields below are sent: each type has a configured create-screen
+          profile (jira.screens.<TYPE>); fields not on that screen are dropped, because Jira rejects them with a 400.
       summary: string
-      description?: string | nil
+      description?:
+        type: string | nil
+        description: Plain text; each line becomes one paragraph of the Jira description.
+      labels?:
+        type: string[] | nil
+        description: Jira labels (no spaces). The process API uses them to detect a ticket it already created.
+      dueDate?:
+        type: date-only | nil
+        description: Jira "Due date" (yyyy-MM-dd), e.g. the account's deactivation date.
+      priority?:
+        type: string | nil
+        description: Jira priority name (e.g. Medium). Sent only when the issue type's screen has the field.
       productionInstance?: string | nil
       modules?: string | nil
       webTemplateCopy?:
@@ -130,9 +144,25 @@ traits:
         body: Me
 
 /issues:
+  get:
+    is: [errorResponses]
+    description: |
+      Issues that carry a label, optionally within one project, oldest first. The process API calls this before
+      creating a ticket: every ticket it creates carries a label derived from the Salesforce record, so a ticket that
+      exists but whose key never reached Salesforce is found instead of duplicated.
+    queryParameters:
+      label:
+        type: string
+        description: Exact label value. Only letters, digits, "-", "_", ":" and "." are kept; anything else is stripped before it enters JQL.
+      project?:
+        type: string
+        description: Restrict to one Jira project key.
+    responses:
+      200:
+        body: Issue[]
   post:
     is: [errorResponses]
-    description: Create a Jira issue from a canonical request.
+    description: Create a Jira issue from a canonical request. The issue type's create-screen profile decides which fields are sent.
     body: IssueCreateRequest
     responses:
       201:
