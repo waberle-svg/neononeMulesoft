@@ -32,18 +32,24 @@ deactivation:
       instanceField: "ncrmInstance"
       opportunityKey: "neonCrm"
       instanceLabel: "CRM Instance"
+      summaryLabel: "CRM"
+      summarySubject: "instanceId"
     NEON_FUNDRAISE:
       project: "TBD"
       issueType: "DEACTIVATE_INSTANCE"
       instanceField: "rbId"
       opportunityKey: "neonFundraise"
       instanceLabel: "Customer Id"
+      summaryLabel: "Fundraise"
+      summarySubject: "accountName"
     ARTS_PEOPLE:
       project: "TBD"
       issueType: "DEACTIVATE_INSTANCE"
       instanceField: "artsPeopleTheatreId"
       opportunityKey: "artsPeople"
       instanceLabel: "Theatre Id"
+      summaryLabel: "Arts People"
+      summarySubject: "accountName"
 
 jira:
   project: "SETUP"                   # Production project "New System Setups" (id 10902)

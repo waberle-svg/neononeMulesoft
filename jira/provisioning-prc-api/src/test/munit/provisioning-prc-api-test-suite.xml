@@ -496,7 +496,7 @@
             <!-- config-test: NEON_CRM -> NSSU / SYSTEM_SETUP (the agreed stand-in until the WORK test copy exists) -->
             <munit-tools:assert-that expression="#[vars.ticket.project]" is="#[MunitTools::equalTo('NSSU')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.issueType]" is="#[MunitTools::equalTo('SYSTEM_SETUP')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('System shutdown for /acmenonprofit/')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('System shutdown for CRM /acmenonprofit/')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Please deactivate the following:')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('CRM Instance: acmenonprofit')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Deactivation date (last paid day): 2027-09-22')]"/>
@@ -510,7 +510,7 @@
             <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.'type']" is="#[MunitTools::equalTo('System Setup')]"/>
-            <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('System shutdown for /acmenonprofit/')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('System shutdown for CRM /acmenonprofit/')]"/>
             <munit-tools:verify-call processor="os:store" times="0"/>
         </munit:validation>
     </munit:test>

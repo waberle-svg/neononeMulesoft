@@ -14,6 +14,8 @@
 #   line.instanceLabel    how the receiving team names that identifier (CRM Instance / Customer Id / Theatre Id)
 #   line.tags             labels: ["sf-deact-<opportunity id>-<line>", "sf-deact"] — the duplicate-detection key in Jira
 #   line.deactivationDateText   the Account's deactivation date, or config deactivation.missingDateText when it is blank
+#   line.summaryLabel / line.summarySubject   the two variable parts of the summary (config per line: CRM + instance id;
+#                         Fundraise and Arts People + Account name)
 #   opp.account.deactivationDate / cancellationStatus   set by the renewal-churn Apex (last paid day; Cancel Account | Partial Cancellation)
 #
 # Output: the canonical IssueCreateRequest of jira-sys-api. jira-sys-api keeps only the fields that exist on the issue
@@ -24,9 +26,10 @@ fields:
   project:   { source: "line.project" }
   issueType: { source: "line.issueType" }
 
-  # Document template (24 Sep 2026): "System shutdown for /<instance>/" — the WORK team's automation wording (WORK-31002)
+  # Summary (Swati, 1 Oct 2026): "System shutdown for CRM /<instance id>/", "System shutdown for Fundraise /<Account name>/",
+  # "System shutdown for Arts People /<Account name>/" — label and subject come from config deactivation.lines.<CODE>
   summary:
-    template: "System shutdown for /{line.instanceId}/"
+    template: "System shutdown for {line.summaryLabel} /{line.summarySubject}/"
     maxLength: 255
 
   # First line as in the document; the rest gives the receiving team the "when" and the "why" (agreed with Swati 29 Sep 2026)

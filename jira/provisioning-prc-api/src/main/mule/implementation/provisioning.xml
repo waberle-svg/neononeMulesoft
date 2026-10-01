@@ -195,6 +195,7 @@ fun cfg(key) = do {
 }
 var instanceField  = cfg('instanceField')
 var opportunityKey = cfg('opportunityKey')
+var instanceId = if (instanceField == null) null else vars.opp.account[instanceField]
 var label = p('deactivation.labelPrefix') ++ "-" ++ (vars.opportunityId default "") ++ "-" ++ lower(code)
 var deactivationDate = vars.opp.account.deactivationDate
 ---
@@ -206,10 +207,14 @@ var deactivationDate = vars.opp.account.deactivationDate
   instanceField:   instanceField,
   instanceLabel:   cfg('instanceLabel') default "instance id",
   opportunityKey:  opportunityKey,
-  instanceId:      if (instanceField == null) null else vars.opp.account[instanceField],
+  instanceId:      instanceId,
   existingKey:     if (opportunityKey == null) null else vars.opp.deactivation[opportunityKey].jiraKey,
   label:           label,
   tags:            [label, p('deactivation.labelPrefix')],
+  // Summary rule (Swati, 1 Oct 2026): "System shutdown for <summaryLabel> /<summarySubject>/" — CRM shows the instance id,
+  // Fundraise and Arts People show the Account name
+  summaryLabel:    cfg('summaryLabel') default sfValue,
+  summarySubject:  if ((cfg('summarySubject') default "instanceId") == "accountName") (vars.opp.account.name default "") else (instanceId default ""),
   // What the ticket says about the date: never a blank after "Deactivation date:" (the receiving team must see a missing date)
   deactivationDateText: if (deactivationDate == null or isEmpty(trim(deactivationDate as String))) p('deactivation.missingDateText')
                         else (deactivationDate as String)

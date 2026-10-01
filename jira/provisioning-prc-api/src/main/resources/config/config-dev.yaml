@@ -36,6 +36,8 @@ deactivation:
   #   instanceField         key under opportunity.account in salesforce-sys-api that holds this line's instance id
   #   opportunityKey        key under opportunity.deactivation holding this line's write-back pair (existing-key guard)
   #   instanceLabel         how the receiving team names the identifier (appears on the ticket)
+  #   summaryLabel          the word after "System shutdown for" in the ticket summary (Swati, 1 Oct 2026: CRM | Fundraise | Arts People)
+  #   summarySubject        what goes between the slashes in the summary: instanceId (Neon CRM) | accountName (Fundraise, Arts People)
   # DEV (1 Oct 2026): every line -> project WOU "Work Orders - UAT" (Neon One's test copy of WORK, created 30 Sep 2026),
   # real issue type Deactivate Instance (11900). Swati: WOU stands in for WORK, FUND and ARTS until those exist.
   # 29-30 Sep the stand-in was NSSU / SYSTEM_SETUP (ticket NSSU-9). Production: see config-prod.yaml.
@@ -47,18 +49,24 @@ deactivation:
       instanceField: "ncrmInstance"
       opportunityKey: "neonCrm"
       instanceLabel: "CRM Instance"
+      summaryLabel: "CRM"
+      summarySubject: "instanceId"
     NEON_FUNDRAISE:
       project: "WOU"
       issueType: "DEACTIVATE_INSTANCE"
       instanceField: "rbId"
       opportunityKey: "neonFundraise"
       instanceLabel: "Customer Id"
+      summaryLabel: "Fundraise"
+      summarySubject: "accountName"
     ARTS_PEOPLE:
       project: "WOU"
       issueType: "DEACTIVATE_INSTANCE"
       instanceField: "artsPeopleTheatreId"
       opportunityKey: "artsPeople"
       instanceLabel: "Theatre Id"
+      summaryLabel: "Arts People"
+      summarySubject: "accountName"
 
 jira:
   project: "NSSU"                    # UAT project in Dev and UAT; SETUP in Production
