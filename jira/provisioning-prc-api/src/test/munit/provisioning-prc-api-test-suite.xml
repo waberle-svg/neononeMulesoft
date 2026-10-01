@@ -127,6 +127,8 @@
             <munit-tools:assert-that expression="#[vars.ticket.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
             <munit-tools:retrieve key="sentPatch" target="patch"/>
             <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <!-- Scenario 1 rows have no product line: the key must be absent, never null (null would clear the field) -->
+            <munit-tools:assert-that expression="#[vars.patch.productLine?]" is="#[MunitTools::equalTo(false)]"/>
             <munit-tools:assert-that expression="#[vars.patch.attempts]" is="#[MunitTools::equalTo(1)]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
@@ -504,6 +506,7 @@
             <munit-tools:assert-that expression="#[vars.ticket.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
             <munit-tools:retrieve key="sentPatch" target="patch"/>
             <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.'type']" is="#[MunitTools::equalTo('System Setup')]"/>

@@ -27,7 +27,7 @@ jira:
   # Canonical fields each issue type's create screen accepts; the payload keeps only these (see config-dev.yaml)
   screens:
     SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail"
-    DEACTIVATE_INSTANCE: "summary,description,assignee,labels,dueDate,priority,productionInstance"
+    DEACTIVATE_INSTANCE: "summary,description,reporter,assignee,labels,dueDate,priority,productionInstance"   # WOU requires reporter
   search:
     maxResults: "10"
   status:

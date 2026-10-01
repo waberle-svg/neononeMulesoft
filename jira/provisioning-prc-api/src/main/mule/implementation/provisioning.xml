@@ -329,6 +329,8 @@ var typeName = do { var r = try(() -> p('jira.issueTypeNames.' ++ typeCode)) ---
   muleCorrelationId: correlationId,
   requestPayload: if (vars.ticket == null) null else write(vars.ticket, "application/json"),
   responsePayload: write(vars.issue, "application/json"),
+  // Scenario 2: stamp the resolved line so the write-back Flow can route the row even if the publisher left Product_Line__c blank
+  (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null),
   external: {
     key: vars.issue.key,
     id: vars.issue.id,
@@ -350,7 +352,7 @@ var typeName = do { var r = try(() -> p('jira.issueTypeNames.' ++ typeCode)) ---
     <!-- vars.existingKey, vars.attempt -> registry Cancelled + outcome SKIPPED_EXISTING_KEY -->
     <sub-flow name="registry-mark-cancelled-existing-key">
         <set-variable variableName="registryPatch" doc:name="patch: Cancelled"
-                      value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastError: 'Opportunity already has Jira key ' ++ vars.existingKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, external: { key: vars.existingKey } }]"/>
+                      value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastError: 'Opportunity already has Jira key ' ++ vars.existingKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null), external: { key: vars.existingKey } }]"/>
         <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Cancelled"/>
         <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_EXISTING_KEY', issueKey: vars.existingKey, attempts: vars.attempt }]" doc:name="SKIPPED_EXISTING_KEY"/>
     </sub-flow>

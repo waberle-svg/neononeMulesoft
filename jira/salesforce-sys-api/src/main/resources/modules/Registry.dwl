@@ -17,6 +17,9 @@ var soqlFields = "Id, Name, Target_System__c, Request_Type__c, Request_Status__c
 // Canonical (flattened, "external.x" for the nested group) -> Salesforce API name. Only these keys are writable.
 var fieldMap = {
     requestStatus:              "Request_Status__c",
+    // Scenario 2: the process API stamps the resolved product line so the write-back Flow can route a row that was created
+    // without it (e.g. by a publisher that carries the line only in the event payload). Never cleared by Mule.
+    productLine:                "Product_Line__c",
     attempts:                   "Attempts__c",
     lastError:                  "Last_Error__c",
     errorCategory:              "Error_Category__c",

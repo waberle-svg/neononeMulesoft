@@ -252,7 +252,8 @@ var statusItems = (body.changelog.items default []) filter ($.field == "status")
     category: body.issue.fields.status.statusCategory.key
   },
   previousStatus: if (isEmpty(statusItems)) null else { id: statusItems[0].from, name: statusItems[0].fromString },
-  changedAt:      if (body.timestamp != null) (body.timestamp as Number) as DateTime else now(),
+  // Jira sends `timestamp` in epoch MILLISECONDS; DataWeave's default Number -> DateTime coercion assumes seconds (parking-lot bug, fixed 1 Oct 2026)
+  changedAt:      if (body.timestamp != null) ((body.timestamp as Number) as DateTime { unit: "milliseconds" }) else now(),
   sfOpportunityId: body.issue.fields[p('jira.fields.sfOpportunityId')],
   url: "https://" ++ p('jira.host') ++ "/browse/" ++ (body.issue.key default "")
 }]]></ee:set-payload>

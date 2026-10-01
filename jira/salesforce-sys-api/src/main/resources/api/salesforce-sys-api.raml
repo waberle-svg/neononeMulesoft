@@ -145,6 +145,9 @@ types:
       Send a key with an explicit null to clear that field in Salesforce.
     properties:
       requestStatus?: RequestStatus | nil
+      productLine?:
+        type: string
+        description: Product line the process API resolved for a DEACTIVATION row (Salesforce picklist value). Set, never cleared.
       attempts?: number | nil
       lastError?: string | nil
       errorCategory?: ErrorCategory | nil

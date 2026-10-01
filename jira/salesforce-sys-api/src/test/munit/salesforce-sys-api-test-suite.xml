@@ -141,6 +141,8 @@
             <munit-tools:assert-that expression="#[vars.sent[0].Attempts__c]" is="#[MunitTools::equalTo(1)]"/>
             <munit-tools:assert-that expression="#[vars.sent[0].External_Key__c]" is="#[MunitTools::equalTo('NSSU-42')]"/>
             <munit-tools:assert-that expression="#[vars.sent[0].External_Status_Category__c]" is="#[MunitTools::equalTo('To Do')]"/>
+            <!-- Scenario 2: the resolved product line is written to Product_Line__c -->
+            <munit-tools:assert-that expression="#[vars.sent[0].Product_Line__c]" is="#[MunitTools::equalTo('Neon CRM')]"/>
             <!-- lastError: null clears both the long text and its Text(255) shadow (ERR-0013) -->
             <munit-tools:assert-that expression="#[vars.sent[0].fieldsToNull]" is="#[MunitTools::equalTo(['Last_Error__c', 'Last_Error_Short__c'])]"/>
             <!-- DateTime fields must reach the connector typed, not as strings (ERR-0011) -->

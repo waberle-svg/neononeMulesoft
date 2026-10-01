@@ -17,8 +17,8 @@ provisioning:
     schedulerFrequencyMinutes: "1"
   mappingFile: "mapping/provisioning-ticket.yaml"
 
-# Scenario 2 — see config-dev.yaml for the meaning of each key. UAT mirrors DEV (NSSU / System Setup stand-in) until
-# Neon One provides the test copy of WORK; then NEON_CRM -> <WORK copy> / DEACTIVATE_INSTANCE.
+# Scenario 2 — see config-dev.yaml for the meaning of each key. UAT = project WOU "Work Orders - UAT" (Neon One's test
+# copy of WORK) with the real Deactivate Instance type, for all three lines (Swati, 1 Oct 2026).
 deactivation:
   mappingFile: "mapping/deactivation-ticket.yaml"
   duplicateCheck: "true"
@@ -26,20 +26,20 @@ deactivation:
   missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
   lines:
     NEON_CRM:
-      project: "NSSU"
-      issueType: "SYSTEM_SETUP"
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
       instanceField: "ncrmInstance"
       opportunityKey: "neonCrm"
       instanceLabel: "CRM Instance"
     NEON_FUNDRAISE:
-      project: "NSSU"
-      issueType: "SYSTEM_SETUP"
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
       instanceField: "rbId"
       opportunityKey: "neonFundraise"
       instanceLabel: "Customer Id"
     ARTS_PEOPLE:
-      project: "NSSU"
-      issueType: "SYSTEM_SETUP"
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
       instanceField: "artsPeopleTheatreId"
       opportunityKey: "artsPeople"
       instanceLabel: "Theatre Id"

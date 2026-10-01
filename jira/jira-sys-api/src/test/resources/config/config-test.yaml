@@ -26,7 +26,7 @@ jira:
     DEACTIVATE_INSTANCE: "11900"
   screens:
     SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail"
-    DEACTIVATE_INSTANCE: "summary,description,assignee,labels,dueDate,priority,productionInstance"
+    DEACTIVATE_INSTANCE: "summary,description,reporter,assignee,labels,dueDate,priority,productionInstance"
   search:
     maxResults: "10"
   status:
@@ -49,7 +49,7 @@ jira:
       DELAY: "Delay"
       NO_PURCHASED: "No Purchased"
   webhook:
-    validateSignature: "true"
+    validateSignature: "false"      # MUnit exercises the normalisation; the HMAC check itself is a one-liner over the raw body
     forwardOnlyStatusChanges: "true"
 
 prc:

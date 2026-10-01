@@ -34,7 +34,9 @@ jira:
   # mean "may be set" (reporter needs Modify Reporter; assignee is a second call). No entry for a type = send everything.
   screens:
     SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail"
-    DEACTIVATE_INSTANCE: "summary,description,assignee,labels,dueDate,priority,productionInstance"
+    # Dev/UAT target is project WOU ("Work Orders - UAT", created by Neon One 30 Sep 2026): its Deactivate Instance screen
+    # REQUIRES reporter (verified 1 Oct 2026). Production WORK has no reporter on that screen — see config-prod.yaml.
+    DEACTIVATE_INSTANCE: "summary,description,reporter,assignee,labels,dueDate,priority,productionInstance"
 
   search:
     maxResults: "10"                # GET /issues?label= (duplicate check by the process API)

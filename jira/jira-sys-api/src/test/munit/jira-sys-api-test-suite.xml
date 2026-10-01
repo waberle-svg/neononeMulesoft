@@ -319,8 +319,9 @@
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_11202]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
             <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.description.content)]" is="#[MunitTools::equalTo(3)]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.description.content[1].content[0].text]" is="#[MunitTools::equalTo('CRM Instance: acmenonprofit')]"/>
+            <!-- reporter IS on the WOU Deactivate Instance screen (and required there); config-test mirrors dev/uat -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('test-reporter-account-id')]"/>
             <!-- not on the Deactivate Instance screen: must not be sent (Jira would answer 400) -->
-            <munit-tools:assert-that expression="#[vars.sent.fields.reporter]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15227]" is="#[MunitTools::nullValue()]"/>
@@ -434,6 +435,54 @@
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15100.value]" is="#[MunitTools::equalTo('Not Purchased')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('test-reporter-account-id')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15227]" is="#[MunitTools::equalTo('006Su00000Xd0ehIAB')]"/>
+        </munit:validation>
+    </munit:test>
+
+    <!-- webhook: Jira's epoch-millisecond timestamp must become the right instant, and the status change must be forwarded -->
+    <munit:test name="webhook-status-change-is-normalised-with-millisecond-timestamp"
+                description="jira:issue_updated with a status item -> IssueStatusChanged forwarded to prc; changedAt derived from the ms timestamp (1790663571211 = 2026-09-29T06:32:51Z)">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST issue-status-events"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value='#[output application/json --- { issueKey: "NSSU-8", outcome: "UPDATED" }]' mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST issue-status-events"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="forwardedEvent">
+                        <munit-tools:value>#[payload]</munit-tools:value>
+                    </munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="rawBody" value="#[MunitTools::getResourceAsString('samples/jira-webhook-status-change.json')]"/>
+                    <munit:variable key="signature" value="sha256=not-checked-in-test-config"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="jira-process-webhook"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="forwardedEvent" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.issueKey]" is="#[MunitTools::equalTo('NSSU-8')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.statusChanged]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.sent.status.id]" is="#[MunitTools::equalTo('10805')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.status.category]" is="#[MunitTools::equalTo('indeterminate')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.previousStatus.name]" is="#[MunitTools::equalTo('Testing in Progress')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000YAW34IAH')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.changedAt as String]" is="#[MunitTools::startsWith('2026-09-29T06:32:51')]"/>
+            <munit-tools:verify-call processor="http:request" times="1">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="prc: POST issue-status-events"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
         </munit:validation>
     </munit:test>
 
