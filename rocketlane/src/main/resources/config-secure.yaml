@@ -1,0 +1,14 @@
+rocketlane:
+  host: "api.rocketlane.com"
+  basePath: "/api/1.0"
+  apiKey: "![kRtEdtslmGZPtOTr2FKhoOAgNzMFqM8fLRq0dyA1gBxJFmjTpM68w42vHHjKGaU3Gb0RbZJyQ0VSnlL2it/fUA==]"
+  defaultOwnerId: "5000000077944"
+
+salesforce:
+  consumerKey: "![tQNg0/r353KgrwcviqOywTeKRsmrVezqvip09ms7loikqLaH5osrNpPvQV8T9kapbeh0cvWXSnwkdtfmfqS00DgYNIDSrL4AtO/Vbj0vZqOQxfQaDYN6ai7P5RuLf2IIL/3g/zeIS1MZKY5SsNw6sQ==]"
+  principal: "rocketlane.integration@neonone.com"
+  keyStore: "rocketlane-sf.jks"
+  storePassword: "![nzxAcoJ7uhbLrh1YXRG5KPhlzHAj2ispGfnEOAZLx8s=]"
+  certificateAlias: "rocketlane-sf"
+  tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
+  audienceUrl: "https://test.salesforce.com"

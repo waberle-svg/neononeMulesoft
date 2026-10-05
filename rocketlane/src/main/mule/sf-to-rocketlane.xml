@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="ee5cc7eb-520f-4e8a-992e-46458512341c" file="config-secure.yaml" key="${secure.key}" >
+		<secure-properties:encrypt useRandomIVs="true" />
+	</secure-properties:config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="cd86ba17-fe38-4b0b-a55a-dc70f4ca0e35" >
+		<salesforce:jwt-connection consumerKey="${secure::salesforce.consumerKey}" keyStore="${secure::salesforce.keyStore}" storePassword="${secure::salesforce.storePassword}" certificateAlias="${secure::salesforce.certificateAlias}" principal="${secure::salesforce.principal}" tokenEndpoint="${secure::salesforce.tokenEndpoint}" audienceUrl="${secure::salesforce.audienceUrl}" />
+	</salesforce:sfdc-config>
+	<http:request-config name="Rocketlane_HTTP" doc:name="HTTP Request configuration" doc:id="6a96d235-37f9-4811-9ba4-3061b1e3bee4" basePath="${secure::rocketlane.basePath}" >
+		<http:request-connection protocol="HTTPS" host="${secure::rocketlane.host}" port="443" />
+		<http:default-headers >
+			<http:default-header key="api-key" value="${secure::rocketlane.apiKey}" />
+			<http:default-header key="Accept" value="application/json" />
+		</http:default-headers>
+	</http:request-config>
+	<flow name="project-created-to-rocketlane" doc:id="79f5ba93-ffc2-4e1d-ba72-9e185f10f811" >
+		<salesforce:replay-channel-listener doc:name="Replay channel listener" doc:id="d77671ee-5467-46d0-8305-812f5eb983fc" config-ref="Salesforce_Config" streamingChannel="/data/Project__ChangeEvent" replayOption="ONLY_NEW"/>
+		<choice doc:name="Choice" doc:id="9a8d60cb-3d26-4d1d-852a-40da278b6435" >
+			<when expression='#[payload.data.payload.ChangeEventHeader.changeType == "CREATE"]'>
+				<salesforce:query doc:name="Query" doc:id="d0601d18-3fb3-45cf-bd1a-8e639a8e6918" config-ref="Salesforce_Config" >
+					<salesforce:salesforce-query ><![CDATA[SELECT Id, Name, Account__r.Name, Rocketlane_Id__c
+FROM Project__c
+WHERE Id IN :ids AND Rocketlane_Id__c = null
+]]></salesforce:salesforce-query>
+					<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+    ids: "('" ++ (payload.data.payload.ChangeEventHeader.recordIds joinBy "','") ++ "')"
+}]]]></salesforce:parameters>
+				</salesforce:query>
+				<foreach doc:name="For Each" doc:id="5965fcf3-4040-419c-a7ad-0289626da326" collection="#[payload]">
+					<set-variable value="#[payload.Id]" doc:name="Set Variable" doc:id="940e9764-3058-4a2d-8f64-07cbae3e78cc" variableName="sfId"/>
+					<ee:transform doc:name="Transform Message" doc:id="7cbe5124-ea68-4982-8219-72b4953feb59" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+  projectName: payload.Name,
+  owner: { userId: p('secure::rocketlane.defaultOwnerId') as Number },
+  customer: { companyName: payload.Account__r.Name },
+  externalReferenceId: payload.Id,
+  visibility: "EVERYONE",
+  autoCreateCompany: true
+}
+]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+					<http:request method="POST" doc:name="Request" doc:id="322c2a1e-93f6-44f8-9066-20890079b4e7" config-ref="Rocketlane_HTTP" path="/projects"/>
+					<salesforce:update type="Project__c" doc:name="Update" doc:id="36ed15b2-725d-4ec1-b842-d8ac97cd44a2" config-ref="Salesforce_Config">
+						<salesforce:records ><![CDATA[#[[{ Id: vars.sfId, Rocketlane_Id__c: payload.projectId as String }]]]]></salesforce:records>
+					</salesforce:update>
+					<logger level="INFO" doc:name="Logger" doc:id="d113ad59-bcff-493c-9c91-cba3fd8f7c85" message="#[output application/json --- payload]" />
+				</foreach>
+			</when>
+		</choice>
+	</flow>
+</mule>
