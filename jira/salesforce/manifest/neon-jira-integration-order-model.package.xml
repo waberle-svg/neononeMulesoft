@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Scenario 1, Order model (requirements v3; Swati's answers 5 Oct 2026): the Order lookup on the registry row and the
+     integration permission set with read access to Order, OrderItem, Product2, PricebookEntry and the fields the
+     setup ticket reads. Deploy with: sf project deploy start --test-level NoTestRun --manifest <this file> -o neon-dev -->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Integration_Transaction__c.Order__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Jira_Integration_Access</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>62.0</version>
+</Package>

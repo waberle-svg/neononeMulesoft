@@ -69,3 +69,9 @@ mvn clean test        # MUnit (16 tests): both system APIs mocked; Scenario 2: c
 ```
 
 Project knowledge base: `~/Desktop/NEONONE-KB`.
+
+## Scenario 1 Order model (5 Oct 2026)
+- A PROVISIONING row **with `Order__c`** is processed per Order × product line (`provision-order-ticket`): Order Products of the line via salesforce-sys-api, ticket from `mapping/setup-order-ticket.yaml` (summary = Account name, Modules = flagged products, Implementation Type rule table, Account country/NTEE/technical contact, partner block when present, additional users, labels `sf-setup-<OrderId>-<line>`, reporter from `provisioning.reporterAccountId`). A row without `Order__c` keeps the Phase 1 Opportunity model (`provision-opportunity-ticket`).
+- Guards: `APP:NO_SETUP_ITEMS` (no flagged Order Product on the line → Failed - Terminal, Mapping); an Order Product already keyed → Cancelled with that key; label search before creating (`provisioning.duplicateCheck`).
+- **Created-issue store** (`created_issues_store`, persistent, 30 days): every key Jira returns is remembered before the registry patch; a retry links it from the store first (`LINKED_EXISTING_TICKET`, "recovered from the created-issue store") — independent of labels and of Salesforce. Applies to setup and deactivation tickets.
+- Config: `provisioning.orderMappingFile`, `provisioning.duplicateCheck`, `provisioning.labelPrefix`, `provisioning.reporterAccountId`.

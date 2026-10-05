@@ -68,12 +68,72 @@ types:
           neonFundraise?: DeactivationOutcome
           artsPeople?: DeactivationOutcome
       primaryContact?: Contact
-      technicalContact?: Contact
+      technicalContact?:
+        type: Contact
+        description: The ACCOUNT's technical contact (Account.TechnicalContact__c) — requirements v3, Swati 5 Oct 2026.
+      opportunityTechnicalContact?:
+        type: Contact
+        description: The Opportunity's own TechnicalContact__c lookup, kept for reference; the ticket uses technicalContact.
+      partnerContact?:
+        type: Contact
+        description: Opportunity.Partner_Contact__c (partner-channel deals). Null when blank; the ticket hides the partner block then.
+      partnerAccount?:
+        properties:
+          id?: string
+          name?: string
+      partnerName?: string
+      nteeClassification?:
+        type: string
+        description: Opportunity.NTEE_Classification__c picklist (e.g. "A  Arts, Culture and Humanities").
       owner?: Contact
       salesRep?: Contact
       extra?:
         type: object
         description: Any additional Opportunity fields configured in sf.opportunity.extraFields, keyed by API name.
+
+  OrderItem:
+    description: One Order Product as the integration sees it (fields read through the Product).
+    properties:
+      id: string
+      orderItemNumber?: string
+      quantity?: number
+      productId?: string
+      productName?: string
+      productCode?: string
+      productLine?:
+        type: string
+        description: Product2.Product_Line__c of the product (Salesforce picklist value, e.g. Neon CRM).
+      syncJira: boolean
+      jiraSetupIssueKey?:
+        type: string
+        description: OrderItem.JIRA_SETUP_Issue__c — the setup ticket already recorded on this Order Product (idempotency guard). Null when blank.
+      jiraSetupError?: string
+      jiraSetupStatus?: string
+      instanceCreatedDate?: string
+
+  Order:
+    description: |
+      Setup view of one Order (Scenario 1, Order model): header, the Order Products selected through the Product
+      (filter echoed in `filter`), and the Account's Contacts flagged as additional users at time of setup.
+    properties:
+      id: string
+      orderNumber?: string
+      status?: string
+      type?: string
+      activatedDate?: datetime
+      opportunityId?: string
+      accountId?: string
+      account:
+        properties:
+          id?: string
+          name?: string
+          isTestAccount?: boolean
+      filter:
+        properties:
+          productLine?: string
+          syncOnly: boolean
+      items: OrderItem[]
+      additionalUsers: Contact[]
 
   DeactivationOutcome:
     properties:
@@ -122,13 +182,16 @@ types:
         enum: [Requested, Created, Failed - Terminal, Retrying, Cancelled]
       opportunityId?: string
       accountId?: string
+      orderId?:
+        type: string
+        description: Integration_Transaction__c.Order__c — set on PROVISIONING rows published per Order × product line (Order model); blank on Opportunity-model rows.
       sourceBusinessKey?: string
       productLine?:
         type: string
-        description: Product line this row is for (DEACTIVATION rows; one row per line). Salesforce picklist value, e.g. Neon CRM.
+        description: Product line this row is for (one row per line). Salesforce picklist value, e.g. Neon CRM.
       groupKey?:
         type: string
-        description: Idempotency key set by the publishing Flow, e.g. <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
+        description: Idempotency key set by the publishing Flow, e.g. <OrderId>:PROVISIONING:NEON_CRM or <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
       attempts?: number
       lastError?: string
       errorCategory?:
@@ -234,6 +297,26 @@ traits:
       responses:
         200:
           body: Opportunity
+
+/orders:
+  /{id}:
+    get:
+      is: [errorResponses]
+      description: |
+        Setup view of one Order (Scenario 1, Order model): the Order Products whose Product is flagged Sync_JIRA__c,
+        optionally narrowed to one product line, plus the Account's additional users. The selection is made in SOQL
+        through the Product, the same rule the publishing Flow applies via the OrderItem formula fields.
+      queryParameters:
+        productLine?:
+          type: string
+          description: Product2.Product_Line__c value to keep (e.g. Neon CRM). Omit for every line.
+        syncOnly?:
+          type: boolean
+          default: true
+          description: Keep only Order Products whose Product has Sync_JIRA__c = true.
+      responses:
+        200:
+          body: Order
 
 /integration-requests:
   get:

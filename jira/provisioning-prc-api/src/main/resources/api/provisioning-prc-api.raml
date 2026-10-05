@@ -36,8 +36,10 @@ types:
         type: string
         enum: [CREATED, LINKED_EXISTING_TICKET, SKIPPED_ALREADY_PROCESSED, SKIPPED_EXISTING_KEY, IGNORED_TYPE, IGNORED_UNKNOWN_REQUEST, TERMINAL_ERROR, RETRY_SCHEDULED, RETRIES_EXHAUSTED]
         description: |
-          LINKED_EXISTING_TICKET (deactivation only): Jira already held a ticket carrying this request's label, so it was
-          linked to the registry row instead of a duplicate being created.
+          LINKED_EXISTING_TICKET: the ticket already existed and was linked to the registry row instead of a duplicate
+          being created — either this app's own created-issue store remembered the key (a retry after the Salesforce
+          write-back failed), or Jira already held a ticket carrying this request's label (deactivation and Order-model
+          setup requests).
       issueKey?: string
       issueUrl?: string
       attempts?: number

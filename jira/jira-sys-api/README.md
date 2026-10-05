@@ -43,3 +43,7 @@ mvn clean deploy -DmuleDeploy -Pdev -Dsecure.key="$MULE_SECURE_KEY" -Dcloudhub.p
 ```
 
 Project knowledge base: `~/Desktop/NEONONE-KB`.
+
+## Requirements v3 fields (5 Oct 2026)
+- System Setup create payload now carries `implementationType` (option by value, customfield_15343), `operatingCountry` (15228), `nteeCode` (15364), `nteeDivision` (15365), `nteeCategory` (15314) and `additionalUsers` (15316) when the request supplies them; `jira.screens.SYSTEM_SETUP` lists them.
+- Reporter: the request's `reporterAccountId` wins; `jira.defaults.reporterAccountId` is **blank** in dev/uat/prod so deactivation tickets keep the API account as reporter while provisioning-prc-api sends Natalie Newendyke for System Setup tickets.

@@ -1,0 +1,108 @@
+# setup-order-ticket.yaml — how a Jira "System Setup" ticket is built for ONE product line of an activated Order
+# (Scenario 1, Order model — requirements v3 "Jira Requirements" of 1 Oct 2026 and Swati's answers of 5 Oct 2026).
+# The Opportunity-model mapping (Phase 1) stays in provisioning-ticket.yaml; the process API picks this file when the
+# registry row carries Order__c.
+#
+# This file IS the field mapping. Changing what goes on the ticket is a change here, never in a flow.
+# Leaf spec: exactly one of  source: "<path>" | template: "text with {path} tokens" | rule: "<name>" | value: <constant>
+# plus optional  default: <used when empty>  and  maxLength: <n>. Anything else is a group and is built recursively.
+# (The DataWeave YAML reader rejects trailing comments after inline mappings, so comments sit on their own lines.)
+#
+# Context paths:
+#   opp.*                 canonical Opportunity (salesforce-sys-api): account.{name,nteeCode,nteeDivision,billingCountry},
+#                         primaryContact, technicalContact (= the ACCOUNT's technical contact, Swati 5 Oct), partnerContact, description,
+#                         productionInstanceName, productRollup, opportunityNumber
+#   order.*               canonical Order: orderNumber, activatedDate, items[], additionalUsers[]
+#   items                 the flagged Order Products of this line (what the ticket covers)
+#   line.*                salesforceValue (Neon CRM), code (NEON_CRM), label, tags
+#   derived.partnerBlock  "Partner Contact / name / email" lines, or empty when the Opportunity has no Partner Contact
+#   env.jiraProject       NSSU in Dev/UAT, SETUP in Production (config jira.project)
+#   env.reporterAccountId Natalie Newendyke (config provisioning.reporterAccountId); empty -> Jira's default
+#   sfUrl                 link to the Opportunity record
+#
+# Rules referenced below live in modules/TicketMapping.dwl: orderModules, implementationType, additionalUsers.
+# Open with Neon One (C2 in KB 27): the exact Modules wording and the Implementation Type table — both are config here.
+version: 1
+
+# Implementation Type: first rule whose "contains" text appears (case-insensitive) in Opportunity.ProductRollup__c wins;
+# the document's table of 1 Oct 2026. Option values are exactly Jira's (customfield_15343).
+rules:
+  implementationType:
+    - contains:
+        - "standard data conversion"
+      value: "Standard Data Conversion"
+    - contains:
+        - "custom data conversion"
+        - "premium data conversion"
+      value: "Custom Data Conversion"
+    - contains:
+        - "assisted import"
+        - "guided data conversion"
+      value: "Assisted Self Import"
+    - contains:
+        - "configuration session"
+      value: "Configuration Only"
+  implementationTypeDefault: "N/A"
+
+fields:
+  project:   { source: "env.jiraProject" }
+  issueType: { value: "SYSTEM_SETUP" }
+
+  # Reporter (Swati, 5 Oct 2026): Natalie Newendyke for CRM SETUP tickets; per environment in config
+  reporterAccountId: { source: "env.reporterAccountId" }
+
+  # Summary = Account name (document: "Summary (Title): Account.Name")
+  summary:
+    source: "opp.account.name"
+    maxLength: 255
+
+  # Description layout per the document's screenshot (SETUP-11083): contacts, partner block only when present,
+  # Sales Notes, NTEE Code; plus the Order/Opportunity line and the Salesforce link for traceability.
+  # jira-sys-api turns every non-blank line into one paragraph.
+  description:
+    template: |
+      Primary Contact
+      {opp.primaryContact.name}
+      {opp.primaryContact.email}
+      Technical Contact
+      {opp.technicalContact.name}
+      {opp.technicalContact.email}
+      {derived.partnerBlock}
+      =========Sales Notes=========
+      {opp.description}
+      =========NTEE Code=========
+      {opp.account.nteeCode} {opp.account.nteeDivision}
+      =========Order=========
+      Order {order.orderNumber} / Opportunity {opp.name} ({opp.opportunityNumber})
+      Salesforce record: {sfUrl}
+
+  # Required on the System Setup screen
+  productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
+  # Modules = names of the flagged Order Products of this line (assumption pending Neon One, C2)
+  modules:            { rule: "orderModules", default: "TBC" }
+  webTemplateCopy:    { value: "NOT_PURCHASED" }
+
+  # Requirements v3 fields (ids in jira-sys-api config)
+  implementationType: { rule: "implementationType" }
+  operatingCountry:   { source: "opp.account.billingCountry" }
+  nteeCode:           { source: "opp.account.nteeCode" }
+  nteeDivision:       { source: "opp.account.nteeDivision" }
+  additionalUsers:    { rule: "additionalUsers" }
+
+  # Duplicate detection: the process API searches Jira for the first label before creating
+  labels: { source: "line.tags" }
+
+  # Correlation back to Salesforce (the feedback direction finds the row by key; these fields help humans)
+  sfOpportunityId:     { source: "opp.id" }
+  sfAccountId:         { source: "opp.account.id" }
+  sfOpportunityNumber: { source: "opp.opportunityNumber" }
+  organizationName:    { source: "opp.account.name" }
+
+  primaryContact:
+    name:  { source: "opp.primaryContact.name" }
+    email: { source: "opp.primaryContact.email" }
+  technicalContact:
+    name:  { source: "opp.technicalContact.name" }
+    email: { source: "opp.technicalContact.email" }
+
+  correlationId: { source: "req.requestId" }

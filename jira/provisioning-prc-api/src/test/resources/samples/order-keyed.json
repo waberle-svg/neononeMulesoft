@@ -1,0 +1,35 @@
+{
+  "id": "801Su000001OrdAIAS",
+  "orderNumber": "00000123",
+  "status": "Activated",
+  "activatedDate": "2026-10-05T14:02:11.000Z",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "account": { "id": "001Su00000tjc9VIAQ", "name": "Acme Nonprofit", "isTestAccount": false },
+  "filter": { "productLine": "Neon CRM", "syncOnly": true },
+  "items": [
+    {
+      "id": "802Su000001ItmAIAS",
+      "orderItemNumber": "0000000101",
+      "quantity": 1,
+      "productId": "01tSu000000CoreIAA",
+      "productName": "Core CRM Subscription Fee",
+      "productCode": "SS-01-CCSF",
+      "productLine": "Neon CRM",
+      "syncJira": true,
+      "jiraSetupIssueKey": "NSSU-77",
+      "jiraSetupStatus": "Open"
+    },
+    {
+      "id": "802Su000001ItmBIAS",
+      "orderItemNumber": "0000000102",
+      "quantity": 1,
+      "productId": "01tSu000000SimpIAA",
+      "productName": "Neon CRM SimpleStart",
+      "productCode": "SD-01-SS",
+      "productLine": "Neon CRM",
+      "syncJira": true
+    }
+  ],
+  "additionalUsers": []
+}

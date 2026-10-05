@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Integration_Product_Line__c</fullName>
+    <label>Integration Product Line</label>
+    <type>Text</type>
+    <formula>TEXT(Product2.Product_Line__c)</formula>
+    <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
+    <description>Product2.Product_Line__c as text, so record-triggered Flows can filter and group Order Products by product line (a Flow's Get Records cannot filter on a related object's field). Used by the Salesforce -&gt; Jira integration (Scenario 1, System Setup on Order activation) to decide which product line a setup request is for. Agreed with Swati Sharma, 5 Oct 2026. MuleSoft reads the same value through SOQL (Product2.Product_Line__c), never this field.</description>
+    <externalId>false</externalId>
+    <required>false</required>
+    <unique>false</unique>
+</CustomField>

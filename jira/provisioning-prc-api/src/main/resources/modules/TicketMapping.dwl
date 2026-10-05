@@ -1,5 +1,6 @@
 %dw 2.0
 import try from dw::Runtime
+import firstWith, some from dw::core::Arrays
 /**
  * TicketMapping.dwl — a tiny mapping engine: turns a mapping YAML (mapping/provisioning-ticket.yaml,
  * mapping/deactivation-ticket.yaml) plus a context { opp, req, registry, line?, env, sfUrl } into the canonical
@@ -41,6 +42,39 @@ fun applyRule(rule: String, ctx) =
             if (!isEmpty(fromModules)) fromModules replace "|" with ", "
             else if (!isEmpty(fromRollup)) fromRollup
             else null
+        }
+        // ---- Scenario 1, Order model (requirements v3) ----
+        // Modules = the names of the flagged Order Products of the line (ctx.items), comma-separated (assumption pending C2)
+        case "orderModules" -> do {
+            var names = (ctx.items default []) map ((i) -> trim((i.productName default "") as String)) filter ((n) -> !isEmpty(n))
+            ---
+            if (isEmpty(names)) null else ((names distinctBy $) joinBy ", ")
+        }
+        // Implementation Type: first matching rule over Opportunity.ProductRollup__c (case-insensitive substring),
+        // table in the mapping YAML (rules.implementationType), else rules.implementationTypeDefault
+        case "implementationType" -> do {
+            var rollup = lower((ctx.opp.productRollup default "") as String)
+            var rules  = (ctx.rules.implementationType default []) as Array
+            var hit    = rules firstWith ((r) -> ((r.contains default []) map lower($ as String)) some ((needle) -> rollup contains needle))
+            ---
+            if (hit != null) hit.value else ctx.rules.implementationTypeDefault
+        }
+        // "Additional User (at time of setup)" Contacts of the Account: First Last <email>, comma-separated
+        case "additionalUsers" -> do {
+            var users = (ctx.order.additionalUsers default []) map ((u) ->
+                            trim((u.name default "") as String) ++ (if (u.email == null) "" else " <" ++ (u.email as String) ++ ">"))
+                        filter ((s) -> !isEmpty(trim(s)))
+            ---
+            if (isEmpty(users)) null else (users joinBy ", ")
+        }
+        // Partner block of the description: only when the Opportunity has a Partner Contact ("otherwise hide header also")
+        case "partnerBlock" -> do {
+            var pc    = ctx.opp.partnerContact
+            var name  = trim((pc.name default "") as String)
+            var email = trim((pc.email default "") as String)
+            ---
+            if (pc == null or (isEmpty(name) and isEmpty(email))) null
+            else "Partner Contact\n" ++ (if (isEmpty(name)) "" else name ++ "\n") ++ (if (isEmpty(email)) "" else email ++ "\n")
         }
         else -> null
     }
@@ -92,8 +126,9 @@ fun classify(err) = do {
         else true
     var retryable = if (bodyRetryable is Boolean) bodyRetryable else byType
     var code = body.code default (errNs ++ ":" ++ id)
-    // Our own data guards (Scenario 2): the Salesforce record lacks what the ticket needs -> a data problem, category Mapping
-    var dataGuards = ["MISSING_INSTANCE_ID", "UNSUPPORTED_PRODUCT_LINE"]
+    // Our own data guards: the Salesforce record lacks what the ticket needs -> a data problem, category Mapping
+    //   Scenario 2: MISSING_INSTANCE_ID, UNSUPPORTED_PRODUCT_LINE · Scenario 1 Order model: NO_SETUP_ITEMS
+    var dataGuards = ["MISSING_INSTANCE_ID", "UNSUPPORTED_PRODUCT_LINE", "NO_SETUP_ITEMS"]
     var category =
         if (retryable) "Transient"
         else if ((["UNAUTHORIZED", "FORBIDDEN"] contains (body.code default "")) or (["UNAUTHORIZED", "FORBIDDEN"] contains id)) "Auth"

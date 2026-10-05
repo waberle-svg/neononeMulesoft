@@ -35,8 +35,14 @@ output text/plain
   ++ "AccountId, Account.Name, Account.Neon_CRM_Instance_Created_Date__c, Account.NCRM_Instance__c, "
   // Scenario 2: the Account carries one instance identifier per product line, plus the cancellation outcome set by Apex
   ++ "Account.RB_RB_ID__c, Account.Arts_People_Theatre_Id__c, Account.Deactivation_Date__c, Account.CancellationStatus__c, Account.IsTestAccount__c, "
+  // Scenario 1 (requirements v3, Swati 5 Oct 2026): technical contact comes from the Account; NTEE and country from the Account
+  ++ "Account.TechnicalContact__c, Account.TechnicalContact__r.Name, Account.TechnicalContact__r.Email, "
+  ++ "Account.NTEECode__c, Account.NTEE_Division__c, Account.BillingCountry, "
   ++ "PrimaryContact__c, PrimaryContact__r.Name, PrimaryContact__r.Email, "
   ++ "TechnicalContact__c, TechnicalContact__r.Name, TechnicalContact__r.Email, "
+  // Partner channel deals (Core without SimpleStart): the partner block on the ticket
+  ++ "Partner_Contact__c, Partner_Contact__r.Name, Partner_Contact__r.Email, PartnerAccount__c, PartnerAccount__r.Name, Partner_Name__c, "
+  ++ "NTEE_Classification__c, "
   ++ "OwnerId, Owner.Name, Owner.Email, SalesRep__c, SalesRep__r.Name, SalesRep__r.Email"
   ++ (if (isEmpty(vars.extraFields)) "" else ", " ++ (vars.extraFields joinBy ", "))
   ++ " FROM Opportunity WHERE Id = ':id'"]]></ee:set-variable>
@@ -97,8 +103,17 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
     artsPeopleTheatreId:        wholeNumberText(r.Account.Arts_People_Theatre_Id__c),
     deactivationDate:           dateOnly(r.Account.Deactivation_Date__c),
     cancellationStatus:         r.Account.CancellationStatus__c,
-    isTestAccount:              r.Account.IsTestAccount__c
+    isTestAccount:              r.Account.IsTestAccount__c,
+    // Scenario 1 ticket content (requirements v3): Operating Country, NTEE Code / Division
+    billingCountry:             blankAsNull(r.Account.BillingCountry),
+    nteeCode:                   blankAsNull(r.Account.NTEECode__c),
+    nteeDivision:               blankAsNull(r.Account.NTEE_Division__c),
+    technicalContact:           person(r.Account.TechnicalContact__c, r.Account.TechnicalContact__r)
   },
+  nteeClassification: r.NTEE_Classification__c,
+  partnerName:        blankAsNull(r.Partner_Name__c),
+  partnerAccount:     if (r.PartnerAccount__c == null) null else { id: r.PartnerAccount__c, name: r.PartnerAccount__r.Name },
+  partnerContact:     person(r.Partner_Contact__c, r.Partner_Contact__r),
   // Scenario 2 write-back fields, one pair per product line (set by the registry Flow, never by Mule)
   deactivation: {
     neonCrm:       { jiraKey: blankAsNull(r.Neon_CRM_Cancellation_JIRA__c),    error: r.Neon_CRM_Cancellation_Error__c },
@@ -106,7 +121,10 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
     artsPeople:    { jiraKey: blankAsNull(r.Arts_People_Cancellation_JIRA__c), error: r.Arts_People_Cancellation_Error__c }
   },
   primaryContact:   person(r.PrimaryContact__c, r.PrimaryContact__r),
-  technicalContact: person(r.TechnicalContact__c, r.TechnicalContact__r),
+  // Swati, 5 Oct 2026: "Technical contact should be from account only" — the Account's lookup wins; the Opportunity's own
+  // lookup is kept under its own name for reference
+  technicalContact:            person(r.Account.TechnicalContact__c, r.Account.TechnicalContact__r),
+  opportunityTechnicalContact: person(r.TechnicalContact__c, r.TechnicalContact__r),
   owner:            person(r.OwnerId, r.Owner),
   salesRep:         person(r.SalesRep__c, r.SalesRep__r),
   extra: if (isEmpty(vars.extraFields)) null

@@ -1,0 +1,19 @@
+{
+  "id": "a0BSu000001recallMAA",
+  "name": "INT-000013",
+  "targetSystem": "JIRA",
+  "requestType": "PROVISIONING",
+  "requestStatus": "Retrying",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "orderId": "801Su000001OrdAIAS",
+  "sourceBusinessKey": "00000123",
+  "productLine": "Neon CRM",
+  "groupKey": "801Su000001OrdAIAS:PROVISIONING:NEON_CRM",
+  "attempts": 1,
+  "lastError": "HTTP:CONNECTIVITY: salesforce-sys-api unreachable while patching the row",
+  "errorCategory": "Transient",
+  "external": {},
+  "createdDate": "2026-10-05T14:02:20.000Z",
+  "lastModifiedDate": "2026-10-05T14:03:20.000Z"
+}

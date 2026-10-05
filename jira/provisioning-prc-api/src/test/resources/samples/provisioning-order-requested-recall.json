@@ -1,0 +1,13 @@
+{
+  "requestId": "a0BSu000001recallMAA",
+  "targetSystem": "JIRA",
+  "requestType": "PROVISIONING",
+  "sourceObject": "Order",
+  "sourceRecordId": "801Su000001OrdAIAS",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceOrgId": "00DSu000008AXB0MAO",
+  "payload": { "productLine": "Neon CRM", "orderNumber": "00000123" },
+  "eventCreatedAt": "2026-10-05T14:02:21.000Z",
+  "replayId": 92,
+  "receivedAt": "2026-10-05T14:03:22.000Z"
+}

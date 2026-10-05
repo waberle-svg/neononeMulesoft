@@ -278,6 +278,95 @@
         <readable>true</readable>
         <editable>false</editable>
     </fieldPermissions>
+    <!-- Scenario 1 (Order model), 5 Oct 2026: the two OrderItem formula fields the setup publisher Flow filters on (agreed with Swati) -->
+    <fieldPermissions>
+        <field>OrderItem.Integration_Product_Line__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>OrderItem.Integration_Sync_JIRA__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <!-- Scenario 1 Order model, 5 Oct 2026: the row's Order lookup (read-only for Mule; the Flow fills it) and every field
+         salesforce-sys-api now SELECTs for the setup ticket (Order Products through the Product, Account contact/NTEE/country,
+         partner block, additional users) -->
+    <fieldPermissions>
+        <field>Integration_Transaction__c.Order__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>OrderItem.JIRA_SETUP_Issue__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>OrderItem.JIRA_SETUP_Error__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>OrderItem.JIRA_SETUP_Status__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>OrderItem.Neon_CRM_Instance_Created_Date__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Product2.Product_Line__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Product2.Sync_JIRA__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Account.TechnicalContact__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Account.NTEECode__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Account.NTEE_Division__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Opportunity.Partner_Contact__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Opportunity.PartnerAccount__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Opportunity.Partner_Name__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Opportunity.NTEE_Classification__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Contact.Orientation_Participant__c</field>
+        <readable>true</readable>
+        <editable>false</editable>
+    </fieldPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Jira Integration Access</label>
     <objectPermissions>
@@ -323,6 +412,43 @@
         <allowEdit>false</allowEdit>
         <allowDelete>false</allowDelete>
         <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <!-- Scenario 1 (Order model): MuleSoft reads the Order, its Order Products and their Products to build a setup ticket -->
+    <objectPermissions>
+        <object>OrderItem</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Order</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>true</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>Product2</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
+        <modifyAllRecords>false</modifyAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <object>PricebookEntry</object>
+        <allowCreate>false</allowCreate>
+        <allowRead>true</allowRead>
+        <allowEdit>false</allowEdit>
+        <allowDelete>false</allowDelete>
+        <viewAllRecords>false</viewAllRecords>
         <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <recordTypeVisibilities>

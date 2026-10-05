@@ -10,13 +10,24 @@
       xmlns:munit="http://www.mulesoft.org/schema/mule/munit"
       xmlns:munit-tools="http://www.mulesoft.org/schema/mule/munit-tools"
       xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="
         http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
         http://www.mulesoft.org/schema/mule/munit http://www.mulesoft.org/schema/mule/munit/current/mule-munit.xsd
         http://www.mulesoft.org/schema/mule/munit-tools http://www.mulesoft.org/schema/mule/munit-tools/current/mule-munit-tools.xsd">
 
     <munit:config name="provisioning-prc-api-test-suite.xml"/>
+
+        <!-- Every test runs against an empty created-issue store: the real os:store of the write-ahead record is mocked, so a
+         ticket created in one test cannot be "recalled" by the next (several samples share a request id). -->
+    <munit:before-test name="mock-created-issue-store-writes" description="created_issues_store writes are mocked">
+        <munit-tools:mock-when processor="os:store">
+            <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Remember created issue"/></munit-tools:with-attributes>
+            <munit-tools:then-return><munit-tools:payload value="#['']" mediaType="text/plain"/></munit-tools:then-return>
+        </munit-tools:mock-when>
+    </munit:before-test>
 
     <munit:test name="ping-returns-ok" description="GET /ping returns status ok">
         <munit:execution>
@@ -135,7 +146,7 @@
             <munit-tools:assert-that expression="#[vars.patch.external.status]" is="#[MunitTools::equalTo('Open')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.statusCategory]" is="#[MunitTools::equalTo('To Do')]"/>
             <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('Acme Nonprofit')]"/>
-            <munit-tools:verify-call processor="os:store" times="0"/>
+            <munit-tools:verify-call processor="os:store" times="0"><munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes></munit-tools:verify-call>
         </munit:validation>
     </munit:test>
 
@@ -228,7 +239,7 @@
             <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Mapping')]"/>
             <munit-tools:assert-that expression="#[vars.patch.attempts]" is="#[MunitTools::equalTo(1)]"/>
             <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('Acme Nonprofit')]"/>
-            <munit-tools:verify-call processor="os:store" times="0"/>
+            <munit-tools:verify-call processor="os:store" times="0"><munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes></munit-tools:verify-call>
         </munit:validation>
     </munit:test>
 
@@ -511,7 +522,7 @@
             <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
             <munit-tools:assert-that expression="#[vars.patch.external.'type']" is="#[MunitTools::equalTo('System Setup')]"/>
             <munit-tools:assert-that expression="#[vars.patch.requestPayload]" is="#[MunitTools::containsString('System shutdown for CRM /acmenonprofit/')]"/>
-            <munit-tools:verify-call processor="os:store" times="0"/>
+            <munit-tools:verify-call processor="os:store" times="0"><munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes></munit-tools:verify-call>
         </munit:validation>
     </munit:test>
 
@@ -565,7 +576,7 @@
             <munit-tools:verify-call processor="http:request" times="0">
                 <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
             </munit-tools:verify-call>
-            <munit-tools:verify-call processor="os:store" times="0"/>
+            <munit-tools:verify-call processor="os:store" times="0"><munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes></munit-tools:verify-call>
         </munit:validation>
     </munit:test>
 
@@ -725,6 +736,376 @@
             <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Mapping')]"/>
             <munit-tools:verify-call processor="http:request" times="0">
                 <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <!-- ===== Scenario 1, Order model (requirements v3 of 1 Oct 2026; Swati's answers 5 Oct 2026) ===== -->
+    <munit:test name="order-model-creates-setup-ticket-from-order-products"
+                description="Row with Order__c -> Order + Opportunity read -> label search empty -> System Setup ticket built from the flagged Order Products -> registry Created with the product line, key remembered in the store">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/order.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity-setup.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-search-empty.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-created.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-open.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="orderTicket"><munit-tools:value>#[vars.ticket]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="orderPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="orderQuery"><munit-tools:value>#[vars.line]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('CREATED')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:retrieve key="orderTicket" target="ticket"/>
+            <munit-tools:assert-that expression="#[vars.ticket.project]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.issueType]" is="#[MunitTools::equalTo('SYSTEM_SETUP')]"/>
+            <!-- summary = Account name (document) -->
+            <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
+            <!-- Modules = the flagged Order Products of the line; Implementation Type from the ProductRollup rule table -->
+            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.implementationType]" is="#[MunitTools::equalTo('Assisted Self Import')]"/>
+            <!-- requirements v3 sources: Account country + NTEE, additional users, the ACCOUNT's technical contact -->
+            <munit-tools:assert-that expression="#[vars.ticket.operatingCountry]" is="#[MunitTools::equalTo('United States')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.nteeCode]" is="#[MunitTools::equalTo('S22')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.additionalUsers]" is="#[MunitTools::equalTo('Ellen Clark &lt;ellen.clark@example.org&gt;, Ashley Peska &lt;ashley.peska@example.org&gt;')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.technicalContact.email]" is="#[MunitTools::equalTo('devonna.dionne@example.org')]"/>
+            <!-- no Partner Contact -> no partner block; the fixed headers are present -->
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Partner Contact'))]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('=========Sales Notes=========')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('S22 Community Improvement, Capacity Building')]"/>
+            <!-- reporter per environment (config-test: test-natalie-account-id) and the duplicate-detection labels -->
+            <munit-tools:assert-that expression="#[vars.ticket.reporterAccountId]" is="#[MunitTools::equalTo('test-natalie-account-id')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.correlationId]" is="#[MunitTools::equalTo('a0BSu000001orderMAA')]"/>
+            <!-- the Order was read narrowed to the row's line -->
+            <munit-tools:retrieve key="orderQuery" target="lineAtRead"/>
+            <munit-tools:assert-that expression="#[vars.lineAtRead.salesforceValue]" is="#[MunitTools::equalTo('Neon CRM')]"/>
+            <!-- registry: Created, line stamped, key -->
+            <munit-tools:retrieve key="orderPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-42')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.'type']" is="#[MunitTools::equalTo('System Setup')]"/>
+            <!-- write-ahead record written once; nothing parked for retry -->
+            <munit-tools:verify-call processor="os:store" times="1">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Remember created issue"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:verify-call processor="os:store" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Park in retry store"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="order-model-with-keyed-order-product-is-skipped"
+                description="An Order Product of the line already carries a setup key -> registry Cancelled with that key, no Jira call">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/order-keyed.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity-setup.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="keyedPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('SKIPPED_EXISTING_KEY')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-77')]"/>
+            <munit-tools:retrieve key="keyedPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Cancelled')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-77')]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="order-model-without-flagged-order-products-is-terminal"
+                description="The Order has no flagged Order Product on the row's line -> Failed - Terminal, category Mapping, NO_SETUP_ITEMS">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/order-empty.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity-setup.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="emptyPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('TERMINAL_ERROR')]"/>
+            <munit-tools:retrieve key="emptyPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Failed - Terminal')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Mapping')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.lastError]" is="#[MunitTools::containsString('NO_SETUP_ITEMS')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.lastError]" is="#[MunitTools::containsString('00000123')]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="order-model-links-a-ticket-jira-already-has-for-the-label"
+                description="Jira already holds a not-Done ticket carrying sf-setup-&lt;order&gt;-neon_crm -> linked, registry Created, no second ticket">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/order.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity-setup.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-search-found.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="linkedPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="searchLabel"><munit-tools:value>#[vars.searchLabel]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('LINKED_EXISTING_TICKET')]"/>
+            <munit-tools:retrieve key="searchLabel" target="label"/>
+            <munit-tools:assert-that expression="#[vars.label]" is="#[MunitTools::equalTo('sf-setup-801Su000001OrdAIAS-neon_crm')]"/>
+            <munit-tools:retrieve key="linkedPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.responsePayload]" is="#[MunitTools::containsString('linked')]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="request-whose-ticket-is-in-the-created-store-is-linked-without-jira"
+                description="Retry of a request whose Jira create succeeded earlier (key remembered in created_issues_store) -> linked from the store: no Order read, no label search, no create">
+        <munit:behavior>
+            <!-- seed the store as the first attempt would have, right after Jira returned the key -->
+            <os:store key="a0BSu000001recallMAA" objectStore="created_issues_store" doc:name="Seed created issue">
+                <os:value>#[output application/json --- { key: "NSSU-55", id: "246000", url: "https://neoncrm.atlassian.net/browse/NSSU-55", project: "NSSU", issueType: "SYSTEM_SETUP", labels: ["sf-setup-801Su000001OrdAIAS-neon_crm", "sf-setup"], createdAt: "2026-10-05T14:02:26Z" }]</os:value>
+            </os:store>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested-recall.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-open.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="recallPatch"><munit-tools:value>#[vars.registryPatch]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested-recall.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('LINKED_EXISTING_TICKET')]"/>
+            <munit-tools:assert-that expression="#[payload.issueKey]" is="#[MunitTools::equalTo('NSSU-55')]"/>
+            <munit-tools:assert-that expression="#[payload.message]" is="#[MunitTools::containsString('store')]"/>
+            <munit-tools:retrieve key="recallPatch" target="patch"/>
+            <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.key]" is="#[MunitTools::equalTo('NSSU-55')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.external.container]" is="#[MunitTools::equalTo('NSSU')]"/>
+            <munit-tools:assert-that expression="#[vars.patch.attempts]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+            </munit-tools:verify-call>
+            <munit-tools:verify-call processor="http:request" times="0">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
             </munit-tools:verify-call>
         </munit:validation>
     </munit:test>

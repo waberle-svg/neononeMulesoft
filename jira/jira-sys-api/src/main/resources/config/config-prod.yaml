@@ -26,7 +26,7 @@ jira:
     DEACTIVATE_INSTANCE: "11900"
   # Canonical fields each issue type's create screen accepts; the payload keeps only these (see config-dev.yaml)
   screens:
-    SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail"
+    SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail,implementationType,operatingCountry,nteeCode,nteeDivision,nteeCategory,additionalUsers"
     DEACTIVATE_INSTANCE: "summary,description,assignee,labels,dueDate,priority,productionInstance"   # live WORK: NO reporter on this screen (verified 28 Sep 2026)
   search:
     maxResults: "10"
@@ -43,6 +43,13 @@ jira:
     primaryContactEmail: "customfield_15225"
     technicalContactName: "customfield_15259"
     technicalContactEmail: "customfield_15260"
+    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens, 3 Oct 2026)
+    implementationType: "customfield_15343"
+    operatingCountry: "customfield_15228"
+    nteeCode: "customfield_15364"
+    nteeDivision: "customfield_15365"
+    nteeCategory: "customfield_15314"
+    additionalUsers: "customfield_15316"
   options:
     webTemplateCopy:
       NOT_PURCHASED: "Not Purchased"

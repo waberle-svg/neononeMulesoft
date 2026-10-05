@@ -72,6 +72,14 @@ output application/json
         <flow-ref name="sf-get-opportunity" doc:name="SF: get opportunity"/>
     </flow>
 
+    <!-- ===== GET /orders/{id}?productLine=&syncOnly= — Scenario 1 Order model (requirements v3, 5 Oct 2026) ===== -->
+    <flow name="get:\orders\(id):salesforce-sys-api-config" doc:name="GET /orders/{id}">
+        <set-variable variableName="orderId" value="#[attributes.uriParams.'id']" doc:name="orderId"/>
+        <set-variable variableName="productLine" value="#[attributes.queryParams.productLine]" doc:name="productLine"/>
+        <set-variable variableName="syncOnly" value="#[(attributes.queryParams.syncOnly default 'true') == 'true']" doc:name="syncOnly"/>
+        <flow-ref name="sf-get-order" doc:name="SF: get order"/>
+    </flow>
+
     <!-- ===== GET /integration-requests (sweep list) ===== -->
     <flow name="get:\integration-requests:salesforce-sys-api-config" doc:name="GET /integration-requests">
         <set-variable variableName="filters" value="#[attributes.queryParams]" doc:name="filters"/>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/orders.xml — read of one Salesforce Order with the Order Products that matter to the Jira integration
+  (Scenario 1, Order model, requirements v3 of 1 Oct 2026: a System Setup ticket is raised per activated Order and product line).
+
+  GET /orders/{id}?productLine=<Product2.Product_Line__c value>&syncOnly=true|false
+    - Order header (number, status, activation date, Opportunity, Account)
+    - items: the Order Products, filtered through the Product (Product2.Product_Line__c / Product2.Sync_JIRA__c).
+      SOQL can filter on related fields, which a Salesforce Flow cannot; the Flow uses the OrderItem formulas
+      Integration_Product_Line__c / Integration_Sync_JIRA__c for the same selection, so both sides agree.
+    - additionalUsers: the Account's Contacts flagged Orientation_Participant__c ("Additional User at time of setup").
+  Salesforce API names stop here: consumers get the canonical Order shape from the RAML.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== vars.orderId, vars.productLine (optional), vars.syncOnly (boolean) -> canonical Order ===== -->
+    <flow name="sf-get-order" doc:name="sf-get-order">
+        <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Order">
+            <salesforce:salesforce-query><![CDATA[SELECT Id, OrderNumber, Status, Type, ActivatedDate, OpportunityId, AccountId, Account.Name, Account.IsTestAccount__c
+FROM Order WHERE Id = ':id']]></salesforce:salesforce-query>
+            <salesforce:parameters>#[{ id: vars.orderId }]</salesforce:parameters>
+        </salesforce:query>
+        <set-variable variableName="orderRows" value="#[payload as Array]" doc:name="orderRows"/>
+        <choice doc:name="Found?">
+            <when expression="#[isEmpty(vars.orderRows)]">
+                <raise-error type="APP:NOT_FOUND" description="#['Order ' ++ vars.orderId ++ ' not found']" doc:name="404"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="order" value="#[vars.orderRows[0]]" doc:name="order"/>
+
+                <!-- Order Products, selected through the Product: the line filter and the sync flag live on Product2 -->
+                <ee:transform doc:name="SOQL Order Products">
+                    <ee:variables>
+                        <ee:set-variable variableName="itemsSoql"><![CDATA[%dw 2.0
+output text/plain
+---
+"SELECT Id, OrderItemNumber, Quantity, Product2Id, Product2.Name, Product2.ProductCode, Product2.Product_Line__c, Product2.Sync_JIRA__c, "
+  ++ "JIRA_SETUP_Issue__c, JIRA_SETUP_Error__c, JIRA_SETUP_Status__c, Neon_CRM_Instance_Created_Date__c "
+  ++ "FROM OrderItem WHERE OrderId = ':orderId'"
+  ++ (if ((vars.syncOnly default true) == true) " AND Product2.Sync_JIRA__c = true" else "")
+  ++ (if (isEmpty(vars.productLine default "")) "" else " AND Product2.Product_Line__c = ':line'")
+  ++ " ORDER BY OrderItemNumber"]]></ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+                <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Order Products">
+                    <salesforce:salesforce-query>#[vars.itemsSoql]</salesforce:salesforce-query>
+                    <salesforce:parameters>#[{ orderId: vars.orderId } ++ (if (isEmpty(vars.productLine default "")) {} else { line: vars.productLine })]</salesforce:parameters>
+                </salesforce:query>
+                <set-variable variableName="itemRows" value="#[payload as Array]" doc:name="itemRows"/>
+
+                <!-- "Additional User (at time of setup)": Contacts of the Account flagged Orientation_Participant__c (requirements v3) -->
+                <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Additional Users">
+                    <salesforce:salesforce-query><![CDATA[SELECT Id, Name, Email FROM Contact WHERE AccountId = ':accountId' AND Orientation_Participant__c = true ORDER BY Name]]></salesforce:salesforce-query>
+                    <salesforce:parameters>#[{ accountId: vars.order.AccountId }]</salesforce:parameters>
+                </salesforce:query>
+                <set-variable variableName="contactRows" value="#[payload as Array]" doc:name="contactRows"/>
+
+                <ee:transform doc:name="Rows -> canonical Order">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+var o = vars.order
+fun blankAsNull(v) = if (v == null or isEmpty(trim(v as String))) null else v
+fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyyy-MM-dd" })
+---
+{
+  id:            o.Id,
+  orderNumber:   o.OrderNumber,
+  status:        o.Status,
+  "type":        o.Type,
+  activatedDate: if (o.ActivatedDate == null) null else (o.ActivatedDate as DateTime),
+  opportunityId: o.OpportunityId,
+  accountId:     o.AccountId,
+  account: {
+    id:            o.AccountId,
+    name:          o.Account.Name,
+    isTestAccount: o.Account.IsTestAccount__c
+  },
+  filter: {
+    productLine: blankAsNull(vars.productLine),
+    syncOnly:    (vars.syncOnly default true) == true
+  },
+  items: vars.itemRows map ((i) -> {
+    id:                 i.Id,
+    orderItemNumber:    i.OrderItemNumber,
+    quantity:           if (i.Quantity == null) null else (i.Quantity as Number),
+    productId:          i.Product2Id,
+    productName:        i.Product2.Name,
+    productCode:        i.Product2.ProductCode,
+    productLine:        i.Product2.Product_Line__c,
+    syncJira:           i.Product2.Sync_JIRA__c == true,
+    jiraSetupIssueKey:  blankAsNull(i.JIRA_SETUP_Issue__c),
+    jiraSetupError:     i.JIRA_SETUP_Error__c,
+    jiraSetupStatus:    i.JIRA_SETUP_Status__c,
+    instanceCreatedDate: dateOnly(i.Neon_CRM_Instance_Created_Date__c)
+  }),
+  additionalUsers: vars.contactRows map ((c) -> { id: c.Id, name: c.Name, email: c.Email })
+}]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>

@@ -522,4 +522,59 @@
         </munit:validation>
     </munit:test>
 
+    <!-- ===== Requirements v3 (5 Oct 2026): System Setup ticket with the Order-model fields and a per-request reporter ===== -->
+    <munit:test name="create-system-setup-v3-sends-new-fields-and-request-reporter"
+                description="Implementation Type (option), Operating Country, NTEE, Additional Users and labels reach Jira under their field ids; the request's reporter wins over the environment default">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/jira-create-201.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: PUT /issue/{key}/assignee"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#['']" mediaType="text/plain"/>
+                    <munit-tools:attributes value="#[{ statusCode: 204, reasonPhrase: 'No Content', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="Jira: POST /issue"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="jiraPayloadV3"><munit-tools:value>#[payload]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/issue-create-request-setup-v3.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="jira-create-issue"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:retrieve key="jiraPayloadV3" target="sent"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.summary]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15343.value]" is="#[MunitTools::equalTo('Assisted Self Import')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15228]" is="#[MunitTools::equalTo('United States')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15364]" is="#[MunitTools::equalTo('S22')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15365]" is="#[MunitTools::equalTo('Community Improvement, Capacity Building')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316]" is="#[MunitTools::containsString('Ellen Clark &lt;ellen.clark@example.org&gt;')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15259]" is="#[MunitTools::equalTo('Devonna Dionne')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>
+            <!-- the request's reporter (Natalie) beats the environment default (test-reporter-account-id) -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('60a27983391e56006e52cca8')]"/>
+            <!-- no NTEE Category was supplied: the key is absent, not null -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15314?]" is="#[MunitTools::equalTo(false)]"/>
+        </munit:validation>
+    </munit:test>
+
 </mule>

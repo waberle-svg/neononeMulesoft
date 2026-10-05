@@ -80,7 +80,14 @@ var candidates = {
   primaryContactName:    { field: p('jira.fields.primaryContactName'),    value: req.primaryContact.name },
   primaryContactEmail:   { field: p('jira.fields.primaryContactEmail'),   value: req.primaryContact.email },
   technicalContactName:  { field: p('jira.fields.technicalContactName'),  value: req.technicalContact.name },
-  technicalContactEmail: { field: p('jira.fields.technicalContactEmail'), value: req.technicalContact.email }
+  technicalContactEmail: { field: p('jira.fields.technicalContactEmail'), value: req.technicalContact.email },
+  // Requirements v3 (1 Oct 2026) System Setup fields; ids read from the NSSU/SETUP create screen on 3 Oct 2026
+  implementationType:    { field: p('jira.fields.implementationType'),    value: if (req.implementationType == null) null else { value: req.implementationType } },
+  operatingCountry:      { field: p('jira.fields.operatingCountry'),      value: req.operatingCountry },
+  nteeCode:              { field: p('jira.fields.nteeCode'),              value: req.nteeCode },
+  nteeDivision:          { field: p('jira.fields.nteeDivision'),          value: req.nteeDivision },
+  nteeCategory:          { field: p('jira.fields.nteeCategory'),          value: req.nteeCategory },
+  additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: req.additionalUsers }
 }
 // The issue type's CREATE SCREEN decides which of them are sent: Jira answers 400 for a field that is not on the screen.
 // jira.screens.<TYPE> lists canonical names (config); no entry = send everything (the behaviour before Scenario 2).

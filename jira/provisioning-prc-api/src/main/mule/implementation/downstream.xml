@@ -30,6 +30,16 @@
         </try>
     </sub-flow>
 
+    <!-- vars.orderId, vars.line.salesforceValue -> vars.order (canonical Order: header + flagged Order Products of that line + additional users) -->
+    <sub-flow name="sys-sf-get-order">
+        <http:request config-ref="Sys_Sf_Request_Config" method="GET" path="/orders/{id}" sendCorrelationId="NEVER" doc:name="sys-sf: GET order">
+            <http:headers>#[{ "Accept": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret'), "X-Correlation-Id": vars.requestId }]</http:headers>
+            <http:uri-params>#[{ id: vars.orderId }]</http:uri-params>
+            <http:query-params>#[{ syncOnly: "true" } ++ (if (vars.line.salesforceValue == null or isEmpty(trim(vars.line.salesforceValue as String))) {} else { productLine: vars.line.salesforceValue })]</http:query-params>
+        </http:request>
+        <set-variable variableName="order" value="#[payload]" doc:name="order"/>
+    </sub-flow>
+
     <!-- vars.opportunityId -> vars.opp (canonical Opportunity) -->
     <sub-flow name="sys-sf-get-opportunity">
         <http:request config-ref="Sys_Sf_Request_Config" method="GET" path="/opportunities/{id}" sendCorrelationId="NEVER" doc:name="sys-sf: GET opportunity">

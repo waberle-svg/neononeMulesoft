@@ -58,7 +58,12 @@
             <munit-tools:assert-that expression="#[payload.opportunityNumber]" is="#[MunitTools::equalTo('O-0210538')]"/>
             <munit-tools:assert-that expression="#[payload.account.name]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
             <munit-tools:assert-that expression="#[payload.primaryContact.email]" is="#[MunitTools::equalTo('pat@example.org')]"/>
-            <munit-tools:assert-that expression="#[payload.technicalContact]" is="#[MunitTools::nullValue()]"/>
+            <!-- requirements v3 (Swati, 5 Oct 2026): the technical contact is the ACCOUNT's; the Opportunity's own lookup is blank here -->
+            <munit-tools:assert-that expression="#[payload.technicalContact.email]" is="#[MunitTools::equalTo('devonna.dionne@example.org')]"/>
+            <munit-tools:assert-that expression="#[payload.opportunityTechnicalContact]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.account.nteeCode]" is="#[MunitTools::equalTo('S22')]"/>
+            <munit-tools:assert-that expression="#[payload.account.billingCountry]" is="#[MunitTools::equalTo('United States')]"/>
+            <munit-tools:assert-that expression="#[payload.partnerContact]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[payload.includesWebTemplateCopy]" is="#[MunitTools::equalTo(1)]"/>
             <!-- config-test.yaml sets sf.opportunity.extraFields = BusinessUnit__c -->
             <munit-tools:assert-that expression="#[payload.extra.BusinessUnit__c]" is="#[MunitTools::equalTo('01 NeonCRM')]"/>
@@ -334,6 +339,97 @@
             <munit-tools:assert-that expression="#[vars.parkedId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
             <munit-tools:assert-that expression="#[vars.forwarded]" is="#[MunitTools::equalTo(false)]"/>
         </munit:validation>
+    </munit:test>
+
+    <!-- ===== Scenario 1, Order model (requirements v3, 5 Oct 2026): GET /orders/{id} ===== -->
+    <munit:test name="get-order-maps-rows-to-canonical"
+                description="Order header + Order Products selected through the Product + the Account's additional users become the canonical Order">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Order"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-order-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Order Products"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-order-item-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Additional Users"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[readUrl('classpath://samples/sf-contact-rows.json', 'application/json')]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Order Products"/>
+                </munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="itemsSoql"><munit-tools:value>#[vars.itemsSoql]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="orderId" value="801Su000001OrdAIAS"/>
+                    <munit:variable key="productLine" value="Neon CRM"/>
+                    <munit:variable key="syncOnly" value="#[true]"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="sf-get-order"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.id]" is="#[MunitTools::equalTo('801Su000001OrdAIAS')]"/>
+            <munit-tools:assert-that expression="#[payload.orderNumber]" is="#[MunitTools::equalTo('00000123')]"/>
+            <munit-tools:assert-that expression="#[payload.opportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
+            <munit-tools:assert-that expression="#[payload.account.name]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
+            <munit-tools:assert-that expression="#[payload.filter.productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload.items)]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:assert-that expression="#[payload.items[0].productName]" is="#[MunitTools::equalTo('Core CRM Subscription Fee')]"/>
+            <munit-tools:assert-that expression="#[payload.items[0].productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
+            <munit-tools:assert-that expression="#[payload.items[0].syncJira]" is="#[MunitTools::equalTo(true)]"/>
+            <!-- an empty-string key is "no key" for the idempotency guard -->
+            <munit-tools:assert-that expression="#[payload.items[1].jiraSetupIssueKey]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[sizeOf(payload.additionalUsers)]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:assert-that expression="#[payload.additionalUsers[0].email]" is="#[MunitTools::equalTo('ellen.clark@example.org')]"/>
+            <!-- the selection is made in SOQL through the Product, never on the Order Product's own twin field -->
+            <munit-tools:retrieve key="itemsSoql" target="soql"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::containsString('Product2.Sync_JIRA__c = true')]"/>
+            <munit-tools:assert-that expression="#[vars.soql]" is="#[MunitTools::containsString(&quot;Product2.Product_Line__c = ':line'&quot;)]"/>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="get-order-unknown-id-is-not-found"
+                description="An Order id Salesforce does not know ends in APP:NOT_FOUND (404)"
+                expectedErrorType="APP:NOT_FOUND">
+        <munit:behavior>
+            <munit-tools:mock-when processor="salesforce:query">
+                <munit-tools:with-attributes>
+                    <munit-tools:with-attribute attributeName="doc:name" whereValue="SF: query Order"/>
+                </munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[[]]" mediaType="application/java"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:variables>
+                    <munit:variable key="orderId" value="801Su000000000000AA"/>
+                </munit:variables>
+            </munit:set-event>
+            <flow-ref name="sf-get-order"/>
+        </munit:execution>
     </munit:test>
 
 </mule>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Integration_Sync_JIRA__c</fullName>
+    <label>Integration Sync JIRA</label>
+    <type>Checkbox</type>
+    <formula>Product2.Sync_JIRA__c</formula>
+    <description>Product2.Sync_JIRA__c read through to the product, so record-triggered Flows can select the Order Products that create a System Setup ticket. Exists because the Order Product's own Sync_JIRA__c (CPQ twin field) is not populated on most orders (false on 328 of 332 flagged Order Products of the last 90 days, checked 3 Oct 2026). Used by the Salesforce -&gt; Jira integration (Scenario 1). Agreed with Swati Sharma, 5 Oct 2026. MuleSoft reads Product2.Sync_JIRA__c through SOQL, never this field.</description>
+    <externalId>false</externalId>
+    <required>false</required>
+    <unique>false</unique>
+</CustomField>

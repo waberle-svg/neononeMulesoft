@@ -54,6 +54,25 @@ types:
       organizationName?: string | nil
       primaryContact?: Contact | nil
       technicalContact?: Contact | nil
+      reporterAccountId?:
+        type: string | nil
+        description: |
+          Jira accountId to set as reporter (needs Modify Reporter in the project). Omitted or empty -> the environment default
+          jira.defaults.reporterAccountId, and when that is blank too, Jira's own default (the API account).
+      assigneeAccountId?:
+        type: string | nil
+        description: Jira accountId to assign after creation (second call). Omitted -> jira.defaults.assigneeAccountId.
+      implementationType?:
+        type: string | nil
+        enum: [Standard Data Conversion, Custom Data Conversion, Assisted Self Import, Configuration Only, N/A]
+        description: System Setup "Implementation Type" option (requirements v3); sent by option value.
+      operatingCountry?: string | nil
+      nteeCode?: string | nil
+      nteeDivision?: string | nil
+      nteeCategory?: string | nil
+      additionalUsers?:
+        type: string | nil
+        description: Free text, e.g. "Ellen Clark <ellen@example.org>, Ashley Peska <ashley@example.org>" (requirements v3).
       correlationId?:
         type: string | nil
         description: Caller's correlation id (e.g. the Integration_Transaction__c record id). Echoed in logs.

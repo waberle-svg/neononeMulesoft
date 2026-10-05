@@ -16,6 +16,17 @@ provisioning:
     maxDelaySeconds: "4"
     schedulerFrequencyMinutes: "60"
   mappingFile: "mapping/provisioning-ticket.yaml"
+  # ---- Scenario 1, Order model (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026) ----
+  # A PROVISIONING row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
+  # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
+  orderMappingFile: "mapping/setup-order-ticket.yaml"
+  # Before creating, ask Jira for a ticket already carrying this request's label (same safety net as deactivation)
+  duplicateCheck: "true"
+  # Labels on every setup ticket: "<prefix>-<order id>-<line code>" and the bare prefix
+  labelPrefix: "sf-setup"
+  # Reporter of System Setup tickets: Natalie Newendyke (Swati, 5 Oct 2026; accountId resolved from nnewendyke@neonone.com).
+  # Needs Modify Reporter for the API account in the project. Empty = Jira's default (the API account).
+  reporterAccountId: "test-natalie-account-id"
 
 deactivation:
   mappingFile: "mapping/deactivation-ticket.yaml"
