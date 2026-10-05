@@ -244,7 +244,11 @@ var base = {
   sfUrl: p('sf.baseUrl') ++ "/" ++ (vars.opp.id default "")
 }
 // values that need logic AND appear inside a template (templates only resolve context paths)
-var ctx = base ++ { derived: { partnerBlock: applyRule("partnerBlock", base) } }
+var ctx = base ++ { derived: {
+  primaryContactBlock:   applyRule("primaryContactBlock", base),
+  technicalContactBlock: applyRule("technicalContactBlock", base),
+  partnerBlock:          applyRule("partnerBlock", base)
+} }
 ---
 buildTicket(mapping, ctx)]]></ee:set-variable>
             </ee:variables>

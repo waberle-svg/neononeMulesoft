@@ -836,6 +836,9 @@
             <munit-tools:assert-that expression="#[vars.ticket.technicalContact.email]" is="#[MunitTools::equalTo('devonna.dionne@example.org')]"/>
             <!-- no Partner Contact -> no partner block; the fixed headers are present -->
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Partner Contact'))]"/>
+            <!-- contact blocks appear with their header only when the contact exists (both do in this sample) -->
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Primary Contact\nPat Example\npat@example.org')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Technical Contact\nDevonna Dionne\ndevonna.dionne@example.org')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('=========Sales Notes=========')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('S22 Community Improvement, Capacity Building')]"/>
             <!-- reporter per environment (config-test: test-natalie-account-id) and the duplicate-detection labels -->

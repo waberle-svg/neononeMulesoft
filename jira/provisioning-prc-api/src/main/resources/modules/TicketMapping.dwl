@@ -67,17 +67,21 @@ fun applyRule(rule: String, ctx) =
             ---
             if (isEmpty(users)) null else (users joinBy ", ")
         }
-        // Partner block of the description: only when the Opportunity has a Partner Contact ("otherwise hide header also")
-        case "partnerBlock" -> do {
-            var pc    = ctx.opp.partnerContact
-            var name  = trim((pc.name default "") as String)
-            var email = trim((pc.email default "") as String)
-            ---
-            if (pc == null or (isEmpty(name) and isEmpty(email))) null
-            else "Partner Contact\n" ++ (if (isEmpty(name)) "" else name ++ "\n") ++ (if (isEmpty(email)) "" else email ++ "\n")
-        }
+        // Contact blocks of the description ("<Header>\n<name>\n<email>"); header hidden when the contact is blank
+        // (document: "only if it's not blank otherwise hide header also" — applied to all three contact blocks)
+        case "primaryContactBlock"   -> contactBlock("Primary Contact",   ctx.opp.primaryContact)
+        case "technicalContactBlock" -> contactBlock("Technical Contact", ctx.opp.technicalContact)
+        case "partnerBlock"          -> contactBlock("Partner Contact",   ctx.opp.partnerContact)
         else -> null
     }
+
+fun contactBlock(header: String, c) = do {
+    var name  = trim((c.name default "") as String)
+    var email = trim((c.email default "") as String)
+    ---
+    if (c == null or (isEmpty(name) and isEmpty(email))) null
+    else header ++ "\n" ++ (if (isEmpty(name)) "" else name ++ "\n") ++ (if (isEmpty(email)) "" else email ++ "\n")
+}
 
 fun evalSpec(spec, ctx) = do {
     var raw =

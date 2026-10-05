@@ -398,8 +398,10 @@
             <munit-tools:assert-that expression="#[payload.items[0].productName]" is="#[MunitTools::equalTo('Core CRM Subscription Fee')]"/>
             <munit-tools:assert-that expression="#[payload.items[0].productLine]" is="#[MunitTools::equalTo('Neon CRM')]"/>
             <munit-tools:assert-that expression="#[payload.items[0].syncJira]" is="#[MunitTools::equalTo(true)]"/>
-            <!-- an empty-string key is "no key" for the idempotency guard -->
+            <!-- an empty-string key is "no key" for the idempotency guard; a "true" string from the connector is a real boolean on the contract -->
             <munit-tools:assert-that expression="#[payload.items[1].jiraSetupIssueKey]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.items[1].syncJira]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.account.isTestAccount]" is="#[MunitTools::equalTo(false)]"/>
             <munit-tools:assert-that expression="#[sizeOf(payload.additionalUsers)]" is="#[MunitTools::equalTo(2)]"/>
             <munit-tools:assert-that expression="#[payload.additionalUsers[0].email]" is="#[MunitTools::equalTo('ellen.clark@example.org')]"/>
             <!-- the selection is made in SOQL through the Product, never on the Order Product's own twin field -->

@@ -15,7 +15,8 @@
 #   order.*               canonical Order: orderNumber, activatedDate, items[], additionalUsers[]
 #   items                 the flagged Order Products of this line (what the ticket covers)
 #   line.*                salesforceValue (Neon CRM), code (NEON_CRM), label, tags
-#   derived.partnerBlock  "Partner Contact / name / email" lines, or empty when the Opportunity has no Partner Contact
+#   derived.primaryContactBlock / technicalContactBlock / partnerBlock   "<Header> / name / email" lines, or empty when that
+#                         contact is blank (header hidden too — document rule for the partner block, applied to all three)
 #   env.jiraProject       NSSU in Dev/UAT, SETUP in Production (config jira.project)
 #   env.reporterAccountId Natalie Newendyke (config provisioning.reporterAccountId); empty -> Jira's default
 #   sfUrl                 link to the Opportunity record
@@ -61,12 +62,8 @@ fields:
   # jira-sys-api turns every non-blank line into one paragraph.
   description:
     template: |
-      Primary Contact
-      {opp.primaryContact.name}
-      {opp.primaryContact.email}
-      Technical Contact
-      {opp.technicalContact.name}
-      {opp.technicalContact.email}
+      {derived.primaryContactBlock}
+      {derived.technicalContactBlock}
       {derived.partnerBlock}
       =========Sales Notes=========
       {opp.description}

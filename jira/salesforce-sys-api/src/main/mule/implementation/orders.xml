@@ -70,6 +70,9 @@ output application/json skipNullOn="everywhere"
 var o = vars.order
 fun blankAsNull(v) = if (v == null or isEmpty(trim(v as String))) null else v
 fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyyy-MM-dd" })
+// Booleans on related records (Product2.*, Account.*) arrive from the Salesforce connector as the strings "true"/"false"
+// (seen live 5 Oct 2026 on CloudHub); the contract is a real boolean
+fun bool(v) = if (v == null) false else (lower(v as String) == "true")
 ---
 {
   id:            o.Id,
@@ -82,7 +85,7 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
   account: {
     id:            o.AccountId,
     name:          o.Account.Name,
-    isTestAccount: o.Account.IsTestAccount__c
+    isTestAccount: bool(o.Account.IsTestAccount__c)
   },
   filter: {
     productLine: blankAsNull(vars.productLine),
@@ -96,7 +99,7 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
     productName:        i.Product2.Name,
     productCode:        i.Product2.ProductCode,
     productLine:        i.Product2.Product_Line__c,
-    syncJira:           i.Product2.Sync_JIRA__c == true,
+    syncJira:           bool(i.Product2.Sync_JIRA__c),
     jiraSetupIssueKey:  blankAsNull(i.JIRA_SETUP_Issue__c),
     jiraSetupError:     i.JIRA_SETUP_Error__c,
     jiraSetupStatus:    i.JIRA_SETUP_Status__c,
