@@ -165,15 +165,18 @@ output application/json skipNullOn="everywhere"
     <sub-flow name="provision-order-ticket">
         <set-variable variableName="orderId" value="#[vars.registry.orderId]" doc:name="orderId"/>
         <flow-ref name="resolve-setup-line" doc:name="Resolve product line (setup)"/>
-        <flow-ref name="sys-sf-get-order" doc:name="SF: get order + flagged Order Products of the line"/>
+        <flow-ref name="sys-sf-get-order" doc:name="SF: get order + Order Products of the line"/>
+        <!-- The group a ticket covers = the Order Products of the line whose Product is flagged Sync_JIRA__c; the other items of
+             the line are add-ons that only contribute their Modules value -->
+        <set-variable variableName="flaggedItems" value="#[(vars.order.items default []) filter ((i) -> i.syncJira == true)]" doc:name="flaggedItems"/>
         <set-variable variableName="opportunityId" value="#[vars.registry.opportunityId default vars.order.opportunityId]" doc:name="opportunityId"/>
         <flow-ref name="sys-sf-get-opportunity" doc:name="SF: get opportunity"/>
         <logger level="INFO" doc:name="Log order"
-                message='#[output text/plain --- "Request " ++ vars.requestId ++ " order " ++ (vars.order.orderNumber default vars.orderId) ++ " line " ++ vars.line.code ++ ": " ++ (sizeOf(vars.order.items default []) as String) ++ " flagged Order Product(s)"]'/>
+                message='#[output text/plain --- "Request " ++ vars.requestId ++ " order " ++ (vars.order.orderNumber default vars.orderId) ++ " line " ++ vars.line.code ++ ": " ++ (sizeOf(vars.flaggedItems) as String) ++ " flagged Order Product(s) of " ++ (sizeOf(vars.order.items default []) as String) ++ " on the line"]'/>
 
         <!-- Guard A: nothing to set up (the Flow should not have published; terminal, category Mapping, visible on the row) -->
         <choice doc:name="A. Any flagged Order Product on this line?">
-            <when expression="#[isEmpty(vars.order.items default [])]">
+            <when expression="#[isEmpty(vars.flaggedItems)]">
                 <raise-error type="APP:NO_SETUP_ITEMS" doc:name="No setup items"
                              description="#['No Order Product flagged Sync_JIRA__c for product line \'' ++ vars.line.salesforceValue ++ '\' on Order ' ++ (vars.order.orderNumber default vars.orderId) ++ '. Nothing to set up.']"/>
             </when>
@@ -181,7 +184,7 @@ output application/json skipNullOn="everywhere"
 
         <!-- Guard C: an Order Product of the group already carries a setup key -> the Flow copies it to the others; no new ticket -->
         <set-variable variableName="existingKey" doc:name="existingKey (first keyed item)"
-                      value="#[((vars.order.items default []) filter ((i) -> i.jiraSetupIssueKey != null) map ((i) -> i.jiraSetupIssueKey))[0]]"/>
+                      value="#[(vars.flaggedItems filter ((i) -> i.jiraSetupIssueKey != null) map ((i) -> i.jiraSetupIssueKey))[0]]"/>
         <choice doc:name="C. Order Product already keyed for this line?">
             <when expression="#[vars.existingKey != null]">
                 <logger level="WARN" doc:name="Existing key"
@@ -261,7 +264,8 @@ var mapping = readUrl("classpath://" ++ p('provisioning.orderMappingFile'), "app
 var base = {
   opp: vars.opp,
   order: vars.order,
-  items: vars.order.items default [],
+  items: vars.flaggedItems default [],
+  allItems: vars.order.items default [],
   line: vars.line,
   req: vars.req,
   registry: vars.registry,

@@ -829,7 +829,9 @@
             <!-- summary = Account name (document) -->
             <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
             <!-- Modules = the flagged Order Products of the line; Implementation Type from the ProductRollup rule table -->
-            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
+            <!-- Modules built from Product2.Jira_Module_Value__c: Core first (even though an add-on is listed first), add-ons after,
+                 "Third Party Gateways" once; SimpleStart contributes nothing (no value) -->
+            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Custom Objects | File Manager | Fundraising | Donor Covered Fees | Texting | Events | Neon Events | Third Party Gateways')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.implementationType]" is="#[MunitTools::equalTo('Assisted Self Import')]"/>
             <!-- requirements v3 sources: Account country + NTEE, additional users, the ACCOUNT's technical contact -->
             <munit-tools:assert-that expression="#[vars.ticket.operatingCountry]" is="#[MunitTools::equalTo('United States')]"/>
@@ -1184,6 +1186,78 @@
             <munit-tools:verify-call processor="logger" times="0">
                 <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Deprecated type"/></munit-tools:with-attributes>
             </munit-tools:verify-call>
+        </munit:validation>
+    </munit:test>
+
+    <munit:test name="order-model-uses-the-modules-string-salesforce-built-when-present"
+                description="Order.NeonCRM_Modules__c filled by the Salesforce Flow wins over the string Mule would build from the product values">
+        <munit:behavior>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-order-requested.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET order"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/order-with-built-modules.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity-setup.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issues by label"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-search-empty.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-created.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-open.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:mock-when processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
+                <munit-tools:then-return>
+                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
+                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
+                </munit-tools:then-return>
+            </munit-tools:mock-when>
+            <munit-tools:spy processor="http:request">
+                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
+                <munit-tools:before-call>
+                    <munit-tools:store key="builtTicket"><munit-tools:value>#[vars.ticket]</munit-tools:value></munit-tools:store>
+                </munit-tools:before-call>
+            </munit-tools:spy>
+        </munit:behavior>
+        <munit:execution>
+            <munit:set-event>
+                <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-order-requested.json')]" mediaType="application/json"/>
+            </munit:set-event>
+            <flow-ref name="process-provisioning-request"/>
+        </munit:execution>
+        <munit:validation>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('CREATED')]"/>
+            <munit-tools:retrieve key="builtTicket" target="ticket"/>
+            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Custom Objects | Texting | Events | Neon Events | Membership')]"/>
         </munit:validation>
     </munit:test>
 

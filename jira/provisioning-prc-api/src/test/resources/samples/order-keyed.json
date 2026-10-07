@@ -5,8 +5,15 @@
   "activatedDate": "2026-10-05T14:02:11.000Z",
   "opportunityId": "006Su00000XPwLxIAL",
   "accountId": "001Su00000tjc9VIAQ",
-  "account": { "id": "001Su00000tjc9VIAQ", "name": "Acme Nonprofit", "isTestAccount": false },
-  "filter": { "productLine": "Neon CRM", "syncOnly": true },
+  "account": {
+    "id": "001Su00000tjc9VIAQ",
+    "name": "Acme Nonprofit",
+    "isTestAccount": false
+  },
+  "filter": {
+    "productLine": "Neon CRM",
+    "syncOnly": false
+  },
   "items": [
     {
       "id": "802Su000001ItmAIAS",
@@ -18,7 +25,9 @@
       "productLine": "Neon CRM",
       "syncJira": true,
       "jiraSetupIssueKey": "NSSU-77",
-      "jiraSetupStatus": "Open"
+      "jiraSetupStatus": "Open",
+      "jiraModuleValue": null,
+      "createSetupJira": false
     },
     {
       "id": "802Su000001ItmBIAS",
@@ -28,8 +37,11 @@
       "productName": "Neon CRM SimpleStart",
       "productCode": "SD-01-SS",
       "productLine": "Neon CRM",
-      "syncJira": true
+      "syncJira": true,
+      "jiraModuleValue": null,
+      "createSetupJira": false
     }
   ],
-  "additionalUsers": []
+  "additionalUsers": [],
+  "neonCrmModules": null
 }

@@ -401,6 +401,11 @@
             <!-- an empty-string key is "no key" for the idempotency guard; a "true" string from the connector is a real boolean on the contract -->
             <munit-tools:assert-that expression="#[payload.items[1].jiraSetupIssueKey]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[payload.items[1].syncJira]" is="#[MunitTools::equalTo(true)]"/>
+            <!-- requirements 7 Oct 2026: module value per product and the Flow's qualification flag travel with the item; the Order's built string when present -->
+            <munit-tools:assert-that expression="#[payload.items[0].jiraModuleValue]" is="#[MunitTools::equalTo('Custom Objects | File Manager | Fundraising')]"/>
+            <munit-tools:assert-that expression="#[payload.items[0].createSetupJira]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[payload.items[1].jiraModuleValue]" is="#[MunitTools::nullValue()]"/>
+            <munit-tools:assert-that expression="#[payload.neonCrmModules]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[payload.account.isTestAccount]" is="#[MunitTools::equalTo(false)]"/>
             <munit-tools:assert-that expression="#[sizeOf(payload.additionalUsers)]" is="#[MunitTools::equalTo(2)]"/>
             <munit-tools:assert-that expression="#[payload.additionalUsers[0].email]" is="#[MunitTools::equalTo('ellen.clark@example.org')]"/>

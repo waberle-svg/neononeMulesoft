@@ -13,7 +13,8 @@
 #                         primaryContact, technicalContact (= the ACCOUNT's technical contact, Swati 5 Oct), partnerContact, description,
 #                         productionInstanceName, productRollup, opportunityNumber
 #   order.*               canonical Order: orderNumber, activatedDate, items[], additionalUsers[]
-#   items                 the flagged Order Products of this line (what the ticket covers)
+#   items                 the FLAGGED Order Products of this line (what the ticket covers); allItems = every Order Product of the line
+#                         (add-ons contribute their Jira_Module_Value__c to Modules); order.neonCrmModules = the string Salesforce built, if any
 #   line.*                salesforceValue (Neon CRM), code (NEON_CRM), label, tags
 #   derived.primaryContactBlock / technicalContactBlock / partnerBlock   "<Header> / name / email" lines, or empty when that
 #                         contact is blank (header hidden too — document rule for the partner block, applied to all three)
@@ -22,7 +23,7 @@
 #   sfUrl                 link to the Opportunity record
 #
 # Rules referenced below live in modules/TicketMapping.dwl: orderModules, implementationType, additionalUsers.
-# Open with Neon One (C2 in KB 27): the exact Modules wording and the Implementation Type table — both are config here.
+# Open with Neon One (C2 in KB 27): confirm the product -> module values on Product2 and the Implementation Type table.
 version: 1
 
 # Implementation Type: first rule whose "contains" text appears (case-insensitive) in Opportunity.ProductRollup__c wins;
@@ -44,6 +45,9 @@ rules:
         - "configuration session"
       value: "Configuration Only"
   implementationTypeDefault: "N/A"
+  # Modules: products whose code is listed here are written first ("the CORE Subscription Fee value is always the start of the string")
+  coreProductCodes:
+    - "SS-01-CCSF"
 
 fields:
   project:   { source: "env.jiraProject" }
@@ -75,7 +79,8 @@ fields:
 
   # Required on the System Setup screen
   productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
-  # Modules = names of the flagged Order Products of this line (assumption pending Neon One, C2)
+  # Modules: Order.NeonCRM_Modules__c when Salesforce built it; else built from Product2.Jira_Module_Value__c of the line's
+  # Order Products (Core first, " | " separated, de-duplicated); else the flagged product names
   modules:            { rule: "orderModules", default: "TBC" }
   webTemplateCopy:    { value: "NOT_PURCHASED" }
 

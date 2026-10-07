@@ -44,11 +44,26 @@ fun applyRule(rule: String, ctx) =
             else null
         }
         // ---- Scenario 1, Order model (requirements v3) ----
-        // Modules = the names of the flagged Order Products of the line (ctx.items), comma-separated (assumption pending C2)
+        // Modules (requirements 7 Oct 2026), in order of preference:
+        //   1. Order.NeonCRM_Modules__c when Salesforce has built it (ctx.order.neonCrmModules) — used verbatim
+        //   2. built here from Product2.Jira_Module_Value__c of every Order Product of the line (ctx.allItems): Core products first
+        //      (ctx.rules.coreProductCodes), then the add-ons in Order Product order; each value split on " | ", de-duplicated, joined with " | "
+        //   3. fallback: the names of the flagged Order Products (ctx.items), joined with " | "
         case "orderModules" -> do {
+            var built = trim((ctx.order.neonCrmModules default "") as String)
+            var all   = (ctx.allItems default ctx.items default []) as Array
+            var coreCodes = ((ctx.rules.coreProductCodes default []) as Array) map upper(trim($ as String))
+            var core   = all filter ((i) -> coreCodes contains upper(trim((i.productCode default "") as String)))
+            var addons = all filter ((i) -> !(coreCodes contains upper(trim((i.productCode default "") as String))))
+            var values = ((core ++ addons) flatMap ((i) -> ((i.jiraModuleValue default "") as String) splitBy "|"))
+                             map trim($) filter ((v) -> !isEmpty(v))
+            var fromValues = (values distinctBy $) joinBy " | "
             var names = (ctx.items default []) map ((i) -> trim((i.productName default "") as String)) filter ((n) -> !isEmpty(n))
             ---
-            if (isEmpty(names)) null else ((names distinctBy $) joinBy ", ")
+            if (!isEmpty(built)) built
+            else if (!isEmpty(fromValues)) fromValues
+            else if (!isEmpty(names)) ((names distinctBy $) joinBy " | ")
+            else null
         }
         // Implementation Type: first matching rule over Opportunity.ProductRollup__c (case-insensitive substring),
         // table in the mapping YAML (rules.implementationType), else rules.implementationTypeDefault

@@ -104,6 +104,12 @@ types:
         type: string
         description: Product2.Product_Line__c of the product (Salesforce picklist value, e.g. Neon CRM).
       syncJira: boolean
+      jiraModuleValue?:
+        type: string
+        description: Product2.Jira_Module_Value__c — the text this product contributes to the ticket's Modules field (values separated by " | ").
+      createSetupJira?:
+        type: boolean
+        description: OrderItem.Create_SETUP_Jira__c — set by the publishing Flow when the line qualified for a setup ticket.
       jiraSetupIssueKey?:
         type: string
         description: OrderItem.JIRA_SETUP_Issue__c — the setup ticket already recorded on this Order Product (idempotency guard). Null when blank.
@@ -128,6 +134,10 @@ types:
           id?: string
           name?: string
           isTestAccount?: boolean
+      neonCrmModules?:
+        type: string
+        description: Order.NeonCRM_Modules__c — the Modules string when Salesforce has built it; null until then.
+      createSetupJira?: boolean
       filter:
         properties:
           productLine?: string
