@@ -18,7 +18,7 @@
 #   derived.primaryContactBlock / technicalContactBlock / partnerBlock   "<Header> / name / email" lines, or empty when that
 #                         contact is blank (header hidden too — document rule for the partner block, applied to all three)
 #   env.jiraProject       NSSU in Dev/UAT, SETUP in Production (config jira.project)
-#   env.reporterAccountId Natalie Newendyke (config provisioning.reporterAccountId); empty -> Jira's default
+#   env.reporterAccountId reporters.setup.lines.<CODE> -> reporters.setup.default (config); empty -> Jira's default (API account)
 #   sfUrl                 link to the Opportunity record
 #
 # Rules referenced below live in modules/TicketMapping.dwl: orderModules, implementationType, additionalUsers.
@@ -49,7 +49,7 @@ fields:
   project:   { source: "env.jiraProject" }
   issueType: { value: "SYSTEM_SETUP" }
 
-  # Reporter (Swati, 5 Oct 2026): Natalie Newendyke for CRM SETUP tickets; per environment in config
+  # Reporter: per environment and product line in config (reporters.setup.*); Dev = the API account, UAT/Prod = Natalie Newendyke for CRM
   reporterAccountId: { source: "env.reporterAccountId" }
 
   # Summary = Account name (document: "Summary (Title): Account.Name")

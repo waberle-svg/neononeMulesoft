@@ -28,9 +28,6 @@ provisioning:
   duplicateCheck: "true"
   # Labels on every setup ticket: "<prefix>-<order id>-<line code>" and the bare prefix
   labelPrefix: "sf-setup"
-  # Reporter of System Setup tickets: Natalie Newendyke (Swati, 5 Oct 2026; accountId resolved from nnewendyke@neonone.com).
-  # Needs Modify Reporter for the API account in the project. Empty = Jira's default (the API account).
-  reporterAccountId: "60a27983391e56006e52cca8"
 
 # Scenario 2 — see config-dev.yaml for the meaning of each key. UAT = project WOU "Work Orders - UAT" (Neon One's test
 # copy of WORK) with the real Deactivate Instance type, for all three lines (Swati, 1 Oct 2026).
@@ -64,6 +61,29 @@ deactivation:
       instanceLabel: "Theatre Id"
       summaryLabel: "Arts People"
       summarySubject: "accountName"
+
+
+# Jira reporters by scenario and product line (Atlassian accountIds; requirements of 7 Oct 2026).
+# Resolution per request: reporters.<scenario>.lines.<LINE_CODE> -> reporters.<scenario>.default -> none (Jira uses the API account).
+# Setting a reporter requires (a) the Reporter field on the issue type's CREATE SCREEN in that project — jira-sys-api drops the
+# field where the screen lacks it (today: WORK / Deactivate Instance) — and (b) "Modify Reporter" for the API account in the project.
+# Every value here can be overridden per environment as a Runtime Manager property (same key), no rebuild needed.
+reporters:
+  setup:
+    # System Setup tickets. UAT: NEON_CRM = Natalie Newendyke. Fundraise / Arts People setup reporters are not decided yet
+    # (candidate for Arts People per the 7 Oct document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
+    default: ""
+    lines:
+      NEON_CRM: "60a27983391e56006e52cca8"
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
+  deactivation:
+    # Deactivate Instance tickets, all product lines. UAT: Chelsea Diehl.
+    default: "613b80a0156ab30071a232b8"
+    lines:
+      NEON_CRM: ""
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
 
 jira:
   project: "NSSU"

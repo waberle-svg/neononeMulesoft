@@ -508,6 +508,8 @@
             <munit-tools:assert-that expression="#[vars.ticket.project]" is="#[MunitTools::equalTo('NSSU')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.issueType]" is="#[MunitTools::equalTo('SYSTEM_SETUP')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('System shutdown for CRM /acmenonprofit/')]"/>
+            <!-- reporter resolution: no line-specific entry -> reporters.deactivation.default (config-test: Chelsea stand-in) -->
+            <munit-tools:assert-that expression="#[vars.ticket.reporterAccountId]" is="#[MunitTools::equalTo('test-chelsea-account-id')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Please deactivate the following:')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('CRM Instance: acmenonprofit')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Deactivation date (last paid day): 2027-09-22')]"/>

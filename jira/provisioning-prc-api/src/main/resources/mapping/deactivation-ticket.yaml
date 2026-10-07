@@ -26,6 +26,10 @@ fields:
   project:   { source: "line.project" }
   issueType: { source: "line.issueType" }
 
+  # Reporter (7 Oct 2026): Chelsea Diehl for every deactivation line, from config reporters.deactivation.*; jira-sys-api sends it only
+  # where the create screen has the Reporter field (WOU yes, live WORK no — Neon One must add it) and the API account may modify it
+  reporterAccountId: { source: "line.reporterAccountId" }
+
   # Summary (Swati, 1 Oct 2026): "System shutdown for CRM /<instance id>/", "System shutdown for Fundraise /<Account name>/",
   # "System shutdown for Arts People /<Account name>/" — label and subject come from config deactivation.lines.<CODE>
   summary:

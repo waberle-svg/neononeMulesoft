@@ -221,11 +221,21 @@ output application/json skipNullOn="everywhere"
         <ee:transform doc:name="Setup line">
             <ee:variables>
                 <ee:set-variable variableName="line"><![CDATA[%dw 2.0
+import try from dw::Runtime
 output application/java
 var sfValue = ((vars.registry.productLine default vars.req.payload.productLine) default "Neon CRM") as String
 var code = upper(trim(sfValue) replace /[^A-Za-z0-9]+/ with "_")
 var label = p('provisioning.labelPrefix') ++ "-" ++ (vars.orderId default "") ++ "-" ++ lower(code)
-var reporter = trim((p('provisioning.reporterAccountId') default "") as String)
+// Reporter: reporters.<scenario>.lines.<CODE> -> reporters.<scenario>.default -> null (Jira uses the API account)
+fun reporterFor(scenario, code) = do {
+    var byLine = try(() -> p('reporters.' ++ scenario ++ '.lines.' ++ code))
+    var dflt   = try(() -> p('reporters.' ++ scenario ++ '.default'))
+    var v = if (byLine.success and !isEmpty(trim((byLine.result default "") as String))) byLine.result
+            else if (dflt.success and !isEmpty(trim((dflt.result default "") as String))) dflt.result
+            else null
+    ---
+    if (v == null) null else trim(v as String)
+}
 ---
 {
   salesforceValue:   sfValue,
@@ -234,7 +244,7 @@ var reporter = trim((p('provisioning.reporterAccountId') default "") as String)
   issueType:         "SYSTEM_SETUP",
   label:             label,
   tags:              [label, p('provisioning.labelPrefix')],
-  reporterAccountId: if (isEmpty(reporter)) null else reporter
+  reporterAccountId: reporterFor("setup", code)
 }]]></ee:set-variable>
             </ee:variables>
         </ee:transform>
@@ -403,6 +413,16 @@ var opportunityKey = cfg('opportunityKey')
 var instanceId = if (instanceField == null) null else vars.opp.account[instanceField]
 var label = p('deactivation.labelPrefix') ++ "-" ++ (vars.opportunityId default "") ++ "-" ++ lower(code)
 var deactivationDate = vars.opp.account.deactivationDate
+// Reporter: reporters.<scenario>.lines.<CODE> -> reporters.<scenario>.default -> null (Jira uses the API account)
+fun reporterFor(scenario, code) = do {
+    var byLine = try(() -> p('reporters.' ++ scenario ++ '.lines.' ++ code))
+    var dflt   = try(() -> p('reporters.' ++ scenario ++ '.default'))
+    var v = if (byLine.success and !isEmpty(trim((byLine.result default "") as String))) byLine.result
+            else if (dflt.success and !isEmpty(trim((dflt.result default "") as String))) dflt.result
+            else null
+    ---
+    if (v == null) null else trim(v as String)
+}
 ---
 {
   salesforceValue: sfValue,
@@ -416,6 +436,8 @@ var deactivationDate = vars.opp.account.deactivationDate
   existingKey:     if (opportunityKey == null) null else vars.opp.deactivation[opportunityKey].jiraKey,
   label:           label,
   tags:            [label, p('deactivation.labelPrefix')],
+  // Reporter of the deactivation ticket (requirements 7 Oct 2026: Chelsea Diehl for every line); null = API account
+  reporterAccountId: reporterFor("deactivation", code),
   // Summary rule (Swati, 1 Oct 2026): "System shutdown for <summaryLabel> /<summarySubject>/" — CRM shows the instance id,
   // Fundraise and Arts People show the Account name
   summaryLabel:    cfg('summaryLabel') default sfValue,
