@@ -9,7 +9,7 @@
            SETUP         -> provision-ticket   (Scenario 1: System Setup ticket; Order model or the Phase 1 Opportunity model)
            DEACTIVATION  -> deactivate-ticket  (Scenario 2: one deactivation ticket per product line of a churned Opportunity)
          The request type value was renamed PROVISIONING -> SETUP in Salesforce on 7 Oct 2026. Mule's canonical value is SETUP;
-         the old spelling is accepted only while listed in provisioning.legacyRequestTypes (logged at WARN, processed as SETUP).
+         PROVISIONING is NOT accepted (IGNORED_TYPE); provisioning.legacyRequestTypes is an emergency switch kept empty.
 
   provision-ticket / deactivate-ticket share the same shape:
       guard(s) that end the request without a ticket   -> registry Cancelled, SKIPPED_EXISTING_KEY                 (idempotency #2)
@@ -48,7 +48,7 @@
                 message='#[output text/plain --- "Integration request " ++ (vars.requestId default "?") ++ " type=" ++ (vars.req.requestType default "?") ++ " source=" ++ (vars.opportunityId default "?")]'/>
 
         <!-- Request types: provisioning.requestTypes (canonical: SETUP, DEACTIVATION) plus provisioning.legacyRequestTypes
-             (values still published by older Salesforce Flows, e.g. PROVISIONING until the Flows are changed; empty = none).
+             (emergency switch only — EMPTY in every environment by decision of 7 Oct 2026; the old spelling PROVISIONING is not accepted).
              A legacy value is processed exactly like SETUP but logged at WARN so the sender can be found and fixed. -->
         <set-variable variableName="acceptedTypes" doc:name="acceptedTypes"
                       value="#[((p('provisioning.requestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>

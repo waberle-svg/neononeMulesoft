@@ -11,9 +11,10 @@ http:
 provisioning:
   # Request types this process handles; anything else is acknowledged and ignored
   requestTypes: "SETUP,DEACTIVATION"
-  # Older request-type spellings still accepted (processed as SETUP, logged at WARN). Salesforce renamed the picklist value
-  # PROVISIONING -> SETUP on 7 Oct 2026. Dev: Pallavi's publisher v5 still writes PROVISIONING; keep the alias until her Flow is changed, then set it to "".
-  legacyRequestTypes: "PROVISIONING"
+  # Request types other than the ones above are IGNORED (outcome IGNORED_TYPE, INFO log; the row stays Requested).
+  # Decision 7 Oct 2026: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
+  # legacyRequestTypes exists only as an emergency switch (comma-separated spellings processed as SETUP with a WARN); keep it empty.
+  legacyRequestTypes: ""
   # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
   processableStatuses: "Requested,Retrying"
   # Transient failures: exponential backoff, then dead-letter on the registry row (Failed - Terminal, category Transient)

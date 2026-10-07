@@ -1113,52 +1113,9 @@
         </munit:validation>
     </munit:test>
 
-    <!-- ===== Request type rename (7 Oct 2026): SETUP is canonical; PROVISIONING survives only through provisioning.legacyRequestTypes ===== -->
-    <munit:test name="legacy-provisioning-request-type-is-processed-as-setup"
-                description="An event and row still typed PROVISIONING (older Flow) are processed as a setup request while PROVISIONING is listed in provisioning.legacyRequestTypes; the deprecation warning is logged">
-        <munit:behavior>
-            <munit-tools:mock-when processor="http:request">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/registry-requested-legacy.json')]" mediaType="application/json"/>
-                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-            <munit-tools:mock-when processor="http:request">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET opportunity"/></munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/opportunity.json')]" mediaType="application/json"/>
-                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-            <munit-tools:mock-when processor="http:request">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: POST issues"/></munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-created.json')]" mediaType="application/json"/>
-                    <munit-tools:attributes value="#[{ statusCode: 201, reasonPhrase: 'Created', headers: {} }]"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-            <munit-tools:mock-when processor="http:request">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-jira: GET issue"/></munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/issue-open.json')]" mediaType="application/json"/>
-                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-            <munit-tools:mock-when processor="http:request">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: PATCH integration-request"/></munit-tools:with-attributes>
-                <munit-tools:then-return>
-                    <munit-tools:payload value="#[MunitTools::getResourceAsString('samples/write-result.json')]" mediaType="application/json"/>
-                    <munit-tools:attributes value="#[{ statusCode: 200, reasonPhrase: 'OK', headers: {} }]"/>
-                </munit-tools:then-return>
-            </munit-tools:mock-when>
-            <munit-tools:spy processor="logger">
-                <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Deprecated type"/></munit-tools:with-attributes>
-                <munit-tools:before-call>
-                    <munit-tools:store key="legacyWarned"><munit-tools:value>#[true]</munit-tools:value></munit-tools:store>
-                </munit-tools:before-call>
-            </munit-tools:spy>
-        </munit:behavior>
+    <!-- ===== Request type rename (7 Oct 2026): SETUP is canonical; PROVISIONING is not accepted (legacyRequestTypes is empty) ===== -->
+    <munit:test name="legacy-provisioning-request-type-is-ignored"
+                description="An event still typed PROVISIONING (older Flow) is ignored: IGNORED_TYPE, no registry read, no Jira call, no warning path — PROVISIONING is not accepted anywhere by decision (7 Oct 2026)">
         <munit:execution>
             <munit:set-event>
                 <munit:payload value="#[MunitTools::getResourceAsString('samples/provisioning-requested-legacy.json')]" mediaType="application/json"/>
@@ -1166,11 +1123,10 @@
             <flow-ref name="process-provisioning-request"/>
         </munit:execution>
         <munit:validation>
-            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('CREATED')]"/>
+            <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('IGNORED_TYPE')]"/>
             <munit-tools:assert-that expression="#[payload.requestId]" is="#[MunitTools::equalTo('a0BSu000001legacMAA')]"/>
-            <munit-tools:retrieve key="legacyWarned" target="warned"/>
-            <munit-tools:assert-that expression="#[vars.warned]" is="#[MunitTools::equalTo(true)]"/>
-            <munit-tools:verify-call processor="logger" times="1">
+            <munit-tools:verify-call processor="http:request" times="0"/>
+            <munit-tools:verify-call processor="logger" times="0">
                 <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="Deprecated type"/></munit-tools:with-attributes>
             </munit-tools:verify-call>
         </munit:validation>

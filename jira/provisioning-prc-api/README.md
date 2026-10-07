@@ -77,4 +77,4 @@ Project knowledge base: `~/Desktop/NEONONE-KB`.
 - Config: `provisioning.orderMappingFile`, `provisioning.duplicateCheck`, `provisioning.labelPrefix`, `provisioning.reporterAccountId`.
 
 ## Request type rename (7 Oct 2026)
-Salesforce renamed the `Request_Type__c` value PROVISIONING → **SETUP**. Mule's canonical values are `SETUP` and `DEACTIVATION` (`provisioning.requestTypes`). Older spellings listed in `provisioning.legacyRequestTypes` (Dev/UAT: `PROVISIONING`; production: empty) are still processed as SETUP but logged at WARN ("uses deprecated request type … processed as SETUP") so the publishing Flow that still sends them can be found. Set the legacy list to `""` once every Flow writes SETUP.
+Salesforce renamed the `Request_Type__c` value PROVISIONING → **SETUP**. Mule accepts `SETUP` and `DEACTIVATION` only (`provisioning.requestTypes`); any other value, including the old PROVISIONING, ends as `IGNORED_TYPE` (INFO log, no ticket, the row stays Requested) until the publishing Flow is changed. `provisioning.legacyRequestTypes` is an emergency switch (spellings processed as SETUP with a WARN) and is empty in every environment by decision.
