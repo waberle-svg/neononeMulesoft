@@ -177,6 +177,9 @@ types:
       statusCategory?: StatusCategory | nil
       statusChangedAt?: datetime | nil
       lastSyncedAt?: datetime | nil
+      systemReadyAt?:
+        type: datetime | nil
+        description: Integration_Transaction__c.System_Ready_At__c — when the ticket first reached System Ready. Sent only on that transition, so later status changes never overwrite it.
 
   IntegrationRequest:
     description: One Integration_Transaction__c row.
@@ -204,6 +207,12 @@ types:
         type: string
         description: Idempotency key set by the publishing Flow, e.g. <OrderId>:SETUP:NEON_CRM or <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
       attempts?: number
+      lastAttemptAt?:
+        type: datetime
+        description: Integration_Transaction__c.Last_Attempt_At__c — when the process API last worked on this row (created, retried or failed).
+      nextRetryAt?:
+        type: datetime
+        description: Integration_Transaction__c.Next_Retry_At__c — when the next retry is due while the row is Retrying; blank otherwise.
       lastError?: string
       errorCategory?:
         type: string
@@ -223,6 +232,8 @@ types:
         type: string
         description: Product line the process API resolved for a DEACTIVATION row (Salesforce picklist value). Set, never cleared.
       attempts?: number | nil
+      lastAttemptAt?: datetime | nil
+      nextRetryAt?: datetime | nil
       lastError?: string | nil
       errorCategory?: ErrorCategory | nil
       muleCorrelationId?: string | nil

@@ -107,6 +107,21 @@
         <editable>true</editable>
     </fieldPermissions>
     <fieldPermissions>
+        <field>Integration_Transaction__c.System_Ready_At__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Integration_Transaction__c.Last_Attempt_At__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <field>Integration_Transaction__c.Next_Retry_At__c</field>
+        <readable>true</readable>
+        <editable>true</editable>
+    </fieldPermissions>
+    <fieldPermissions>
         <field>Integration_Transaction__c.Request_Payload__c</field>
         <readable>true</readable>
         <editable>true</editable>

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Mule_Correlation_Id__c</fullName>
-    <label>Mule Correlation Id</label>
-    <type>Text</type>
-    <description>Correlation id of this request in the integration platform's logs.</description>
-    <length>64</length>
+    <description>Correlation id of this request in the integration platform&apos;s logs.</description>
     <externalId>false</externalId>
+    <label>Mule Correlation Id</label>
+    <length>64</length>
     <required>false</required>
     <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
     <unique>false</unique>
 </CustomField>

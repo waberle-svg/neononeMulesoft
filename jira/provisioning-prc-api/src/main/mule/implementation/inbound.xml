@@ -27,6 +27,7 @@
                 <ee:set-variable variableName="externalUpdate"><![CDATA[%dw 2.0
 output application/java
 var ev = vars.event
+var isReady = (ev.status.id default "") == p('jira.instanceReadyStatusId')
 ---
 {
   external: {
@@ -36,7 +37,9 @@ var ev = vars.event
     statusId:        ev.status.id,
     statusCategory:  p('jira.statusCategoryMap.' ++ (ev.status.category default "undefined")),
     statusChangedAt: ev.changedAt default now(),
-    lastSyncedAt:    now()
+    lastSyncedAt:    now(),
+    // System_Ready_At__c is written only on the System Ready transition, so a later status never clears or moves it
+    (systemReadyAt:  ev.changedAt default now()) if (isReady)
   }
 }]]></ee:set-variable>
             </ee:variables>
@@ -113,7 +116,9 @@ var isReady = (iss.status.id default "") == p('jira.instanceReadyStatusId')
     statusId:        iss.status.id,
     statusCategory:  p('jira.statusCategoryMap.' ++ (iss.status.category default "undefined")),
     statusChangedAt: if (isReady and iss.systemReadyAt != null) iss.systemReadyAt else (iss.updated default now()),
-    lastSyncedAt:    now()
+    lastSyncedAt:    now(),
+    // written only when the ticket is System Ready now (transition time from the changelog when Jira has it)
+    (systemReadyAt:  iss.systemReadyAt default (iss.updated default now())) if (isReady)
   }
 }]]></ee:set-variable>
                             </ee:variables>

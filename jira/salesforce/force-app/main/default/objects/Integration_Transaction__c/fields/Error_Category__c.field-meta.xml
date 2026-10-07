@@ -1,19 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Error_Category__c</fullName>
-    <label>Error Category</label>
-    <type>Picklist</type>
     <description>Classification of the last error, set by the integration.</description>
+    <label>Error Category</label>
     <required>false</required>
-    <trackHistory>false</trackHistory>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
-                <value><fullName>Terminal</fullName><default>false</default><label>Terminal</label></value>
-                <value><fullName>Transient</fullName><default>false</default><label>Transient</label></value>
-                <value><fullName>Mapping</fullName><default>false</default><label>Mapping</label></value>
-                <value><fullName>Auth</fullName><default>false</default><label>Auth</label></value>
+            <value>
+                <fullName>Terminal</fullName>
+                <default>false</default>
+                <label>Terminal</label>
+            </value>
+            <value>
+                <fullName>Transient</fullName>
+                <default>false</default>
+                <label>Transient</label>
+            </value>
+            <value>
+                <fullName>Mapping</fullName>
+                <default>false</default>
+                <label>Mapping</label>
+            </value>
+            <value>
+                <fullName>Auth</fullName>
+                <default>false</default>
+                <label>Auth</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

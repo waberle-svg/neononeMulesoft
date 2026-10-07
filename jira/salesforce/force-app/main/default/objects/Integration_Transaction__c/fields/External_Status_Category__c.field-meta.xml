@@ -1,18 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>External_Status_Category__c</fullName>
+    <description>Status category of the external record&apos;s current status.</description>
     <label>External Status Category</label>
-    <type>Picklist</type>
-    <description>Status category of the external record's current status.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
     <valueSet>
         <restricted>true</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
-                <value><fullName>To Do</fullName><default>false</default><label>To Do</label></value>
-                <value><fullName>In Progress</fullName><default>false</default><label>In Progress</label></value>
-                <value><fullName>Done</fullName><default>false</default><label>Done</label></value>
+            <value>
+                <fullName>To Do</fullName>
+                <default>false</default>
+                <label>To Do</label>
+            </value>
+            <value>
+                <fullName>In Progress</fullName>
+                <default>false</default>
+                <label>In Progress</label>
+            </value>
+            <value>
+                <fullName>Done</fullName>
+                <default>false</default>
+                <label>Done</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

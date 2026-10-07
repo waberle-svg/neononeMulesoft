@@ -152,6 +152,9 @@
             <munit-tools:assert-that expression="#[vars.sent[0].fieldsToNull]" is="#[MunitTools::equalTo(['Last_Error__c', 'Last_Error_Short__c'])]"/>
             <!-- DateTime fields must reach the connector typed, not as strings (ERR-0011) -->
             <munit-tools:assert-that expression="#[vars.sent[0].Status_Changed_At__c is DateTime]" is="#[MunitTools::equalTo(true)]"/>
+            <!-- tracking timestamps map to their fields, typed -->
+            <munit-tools:assert-that expression="#[vars.sent[0].Last_Attempt_At__c is DateTime]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.sent[0].System_Ready_At__c is DateTime]" is="#[MunitTools::equalTo(true)]"/>
             <munit-tools:assert-that expression="#[vars.sent[0].notAWritableField]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[vars.writeResult.success]" is="#[MunitTools::equalTo(true)]"/>
         </munit:validation>

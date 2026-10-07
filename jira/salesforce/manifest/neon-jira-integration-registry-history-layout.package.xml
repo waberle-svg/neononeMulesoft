@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Registry history tracking and page layout:
+       - history tracking turned on for External_Status_Id__c, Status_Changed_At__c, Error_Category__c, Request_Type__c,
+         Order__c, Opportunity__c, Last_Error_Short__c and turned off for Last_Error__c (long text areas record no values)
+       - three new DateTime fields: System_Ready_At__c (tracked), Last_Attempt_At__c, Next_Retry_At__c
+       - the integration permission set with edit access to the three new fields
+       - the page layout regrouped into sections (Request, Salesforce Records, Jira Ticket, Errors, Payloads,
+         System Information) with the History related list
+     Deploy with: sf project deploy start - -test-level NoTestRun - -manifest <this file> -o <org alias>
+     (the object must already have history tracking enabled, which it has since the first deployment) -->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Integration_Transaction__c.Error_Category__c</members>
+        <members>Integration_Transaction__c.External_Status_Id__c</members>
+        <members>Integration_Transaction__c.Last_Attempt_At__c</members>
+        <members>Integration_Transaction__c.Last_Error_Short__c</members>
+        <members>Integration_Transaction__c.Last_Error__c</members>
+        <members>Integration_Transaction__c.Next_Retry_At__c</members>
+        <members>Integration_Transaction__c.Opportunity__c</members>
+        <members>Integration_Transaction__c.Order__c</members>
+        <members>Integration_Transaction__c.Request_Type__c</members>
+        <members>Integration_Transaction__c.Status_Changed_At__c</members>
+        <members>Integration_Transaction__c.System_Ready_At__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Integration_Transaction__c-Integration Transaction Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>Jira_Integration_Access</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>62.0</version>
+</Package>

@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>External_Key__c</fullName>
-    <label>External Key</label>
-    <type>Text</type>
-    <description>Human-readable key of the external record, for example a Jira issue key. Unique; the integration locates the record by it.</description>
-    <length>30</length>
-    <externalId>true</externalId>
-    <required>false</required>
     <caseSensitive>false</caseSensitive>
+    <description>Human-readable key of the external record, for example a Jira issue key. Unique; the integration locates the record by it.</description>
+    <externalId>true</externalId>
+    <label>External Key</label>
+    <length>30</length>
+    <required>false</required>
     <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
     <unique>true</unique>
 </CustomField>

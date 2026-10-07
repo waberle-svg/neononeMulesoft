@@ -13,6 +13,8 @@ var soqlFields = "Id, Name, Target_System__c, Request_Type__c, Request_Status__c
     "Attempts__c, Last_Error__c, Last_Error_Short__c, Error_Category__c, Mule_Correlation_Id__c, " ++
     "External_Key__c, External_Id__c, External_URL__c, External_Container__c, External_Type__c, " ++
     "External_Status__c, External_Status_Id__c, External_Status_Category__c, Status_Changed_At__c, Last_Synced_At__c, " ++
+    // Tracking timestamps: first System Ready (set once), last processing attempt, next scheduled retry
+    "System_Ready_At__c, Last_Attempt_At__c, Next_Retry_At__c, " ++
     "CreatedDate, LastModifiedDate"
 
 // Canonical (flattened, "external.x" for the nested group) -> Salesforce API name. Only these keys are writable.
@@ -22,6 +24,9 @@ var fieldMap = {
     // without it (e.g. by a publisher that carries the line only in the event payload). Never cleared by Mule.
     productLine:                "Product_Line__c",
     attempts:                   "Attempts__c",
+    // When the process API last worked on the row (every outcome) and when it will retry (Retrying only; cleared otherwise)
+    lastAttemptAt:              "Last_Attempt_At__c",
+    nextRetryAt:                "Next_Retry_At__c",
     lastError:                  "Last_Error__c",
     errorCategory:              "Error_Category__c",
     muleCorrelationId:          "Mule_Correlation_Id__c",
@@ -36,7 +41,9 @@ var fieldMap = {
     "external.statusId":        "External_Status_Id__c",
     "external.statusCategory":  "External_Status_Category__c",
     "external.statusChangedAt": "Status_Changed_At__c",
-    "external.lastSyncedAt":    "Last_Synced_At__c"
+    "external.lastSyncedAt":    "Last_Synced_At__c",
+    // First time the ticket reached System Ready; the process API sends it only on that transition, so it is never overwritten
+    "external.systemReadyAt":   "System_Ready_At__c"
 }
 
 // Long text areas are 32,768 chars in Salesforce; anything longer would be rejected (STRING_TOO_LONG)
@@ -45,7 +52,7 @@ var longTextMax = 32768
 
 // DateTime fields: the connector needs typed DateTime values, not ISO strings
 // (found live 19 Sep 2026: "Last Synced At: value not of required type", ERR-0011)
-var dateTimeFields = ["Status_Changed_At__c", "Last_Synced_At__c"]
+var dateTimeFields = ["Status_Changed_At__c", "Last_Synced_At__c", "System_Ready_At__c", "Last_Attempt_At__c", "Next_Retry_At__c"]
 var numberFields   = ["Attempts__c"]
 
 fun coerce(sfName: String, v) =
@@ -75,6 +82,8 @@ fun toCanonical(r) = {
     productLine:       r.Product_Line__c,
     groupKey:          r.Group_Key__c,
     attempts:          if (r.Attempts__c == null) null else (r.Attempts__c as Number),
+    lastAttemptAt:     r.Last_Attempt_At__c,
+    nextRetryAt:       r.Next_Retry_At__c,
     lastError:         r.Last_Error__c,
     lastErrorShort:    r.Last_Error_Short__c,
     errorCategory:     r.Error_Category__c,
@@ -89,7 +98,8 @@ fun toCanonical(r) = {
         statusId:        r.External_Status_Id__c,
         statusCategory:  r.External_Status_Category__c,
         statusChangedAt: r.Status_Changed_At__c,
-        lastSyncedAt:    r.Last_Synced_At__c
+        lastSyncedAt:    r.Last_Synced_At__c,
+        systemReadyAt:   r.System_Ready_At__c
     },
     createdDate:       r.CreatedDate,
     lastModifiedDate:  r.LastModifiedDate

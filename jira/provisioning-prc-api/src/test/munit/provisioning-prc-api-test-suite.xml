@@ -137,6 +137,9 @@
             <munit-tools:assert-that expression="#[vars.ticket.webTemplateCopy]" is="#[MunitTools::equalTo('NOT_PURCHASED')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.sfOpportunityId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
             <munit-tools:retrieve key="sentPatch" target="patch"/>
+            <!-- tracking timestamps: attempt time set, no retry pending -->
+            <munit-tools:assert-that expression="#[vars.patch.lastAttemptAt is DateTime]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.patch.nextRetryAt]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Created')]"/>
             <!-- Scenario 1 rows have no product line: the key must be absent, never null (null would clear the field) -->
             <munit-tools:assert-that expression="#[vars.patch.productLine?]" is="#[MunitTools::equalTo(false)]"/>
@@ -291,6 +294,9 @@
         <munit:validation>
             <munit-tools:assert-that expression="#[payload.outcome]" is="#[MunitTools::equalTo('RETRY_SCHEDULED')]"/>
             <munit-tools:retrieve key="sentPatch" target="patch"/>
+            <!-- tracking timestamps: the attempt time and the scheduled retry time -->
+            <munit-tools:assert-that expression="#[vars.patch.lastAttemptAt is DateTime]" is="#[MunitTools::equalTo(true)]"/>
+            <munit-tools:assert-that expression="#[vars.patch.nextRetryAt is DateTime]" is="#[MunitTools::equalTo(true)]"/>
             <munit-tools:assert-that expression="#[vars.patch.requestStatus]" is="#[MunitTools::equalTo('Retrying')]"/>
             <munit-tools:assert-that expression="#[vars.patch.errorCategory]" is="#[MunitTools::equalTo('Transient')]"/>
             <munit-tools:verify-call processor="os:store" times="1"/>
@@ -328,6 +334,8 @@
             <munit-tools:assert-that expression="#[vars.sent.external.status]" is="#[MunitTools::equalTo('System Ready')]"/>
             <munit-tools:assert-that expression="#[vars.sent.external.statusCategory]" is="#[MunitTools::equalTo('In Progress')]"/>
             <munit-tools:assert-that expression="#[vars.sent.external.statusChangedAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
+            <!-- the event is the System Ready transition -> System_Ready_At__c is written (and only then) -->
+            <munit-tools:assert-that expression="#[vars.sent.external.systemReadyAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
         </munit:validation>
     </munit:test>
 
@@ -393,6 +401,8 @@
             <munit-tools:retrieve key="sentUpdate" target="sent"/>
             <munit-tools:assert-that expression="#[vars.sent.external.statusId]" is="#[MunitTools::equalTo('10805')]"/>
             <munit-tools:assert-that expression="#[vars.sent.external.statusChangedAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
+            <!-- System Ready now -> System_Ready_At__c is written with the transition time -->
+            <munit-tools:assert-that expression="#[vars.sent.external.systemReadyAt as String]" is="#[MunitTools::startsWith('2026-09-20T09:30:00')]"/>
         </munit:validation>
     </munit:test>
 

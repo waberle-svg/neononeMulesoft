@@ -559,6 +559,9 @@ var typeName = do { var r = try(() -> p('jira.issueTypeNames.' ++ typeCode)) ---
 {
   requestStatus: "Created",
   attempts: vars.attempt,
+  // tracking timestamps: this attempt's time; no retry pending any more
+  lastAttemptAt: now(),
+  nextRetryAt: null,
   lastError: null,
   errorCategory: null,
   muleCorrelationId: correlationId,
@@ -587,7 +590,7 @@ var typeName = do { var r = try(() -> p('jira.issueTypeNames.' ++ typeCode)) ---
     <!-- vars.existingKey, vars.attempt -> registry Cancelled + outcome SKIPPED_EXISTING_KEY -->
     <sub-flow name="registry-mark-cancelled-existing-key">
         <set-variable variableName="registryPatch" doc:name="patch: Cancelled"
-                      value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastError: 'Opportunity already has Jira key ' ++ vars.existingKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null), external: { key: vars.existingKey } }]"/>
+                      value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: 'Opportunity already has Jira key ' ++ vars.existingKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null), external: { key: vars.existingKey } }]"/>
         <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Cancelled"/>
         <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_EXISTING_KEY', issueKey: vars.existingKey, attempts: vars.attempt }]" doc:name="SKIPPED_EXISTING_KEY"/>
     </sub-flow>
@@ -611,13 +614,13 @@ classify(error)]]></ee:set-variable>
             </when>
             <when expression="#[vars.failure.retryable]">
                 <set-variable variableName="registryPatch" doc:name="patch: exhausted"
-                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastError: 'Retries exhausted after ' ++ (vars.attempt as String) ++ ' attempts. Last error: ' ++ vars.failure.message, errorCategory: 'Transient', muleCorrelationId: correlationId, responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: 'Retries exhausted after ' ++ (vars.attempt as String) ++ ' attempts. Last error: ' ++ vars.failure.message, errorCategory: 'Transient', muleCorrelationId: correlationId, responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
                 <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal (exhausted)"/>
                 <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'RETRIES_EXHAUSTED', attempts: vars.attempt, message: vars.failure.message }]" doc:name="RETRIES_EXHAUSTED"/>
             </when>
             <otherwise>
                 <set-variable variableName="registryPatch" doc:name="patch: terminal"
-                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message, errorCategory: vars.failure.category, muleCorrelationId: correlationId, requestPayload: if (vars.ticket == null) null else write(vars.ticket, 'application/json'), responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: vars.failure.code ++ ': ' ++ vars.failure.message, errorCategory: vars.failure.category, muleCorrelationId: correlationId, requestPayload: if (vars.ticket == null) null else write(vars.ticket, 'application/json'), responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
                 <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal"/>
                 <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'TERMINAL_ERROR', attempts: vars.attempt, message: vars.failure.code ++ ': ' ++ vars.failure.message }]" doc:name="TERMINAL_ERROR"/>
             </otherwise>
@@ -636,7 +639,7 @@ now() + ("PT" ++ (backoffSeconds(vars.attempt, p('provisioning.retry.baseDelaySe
             </ee:variables>
         </ee:transform>
         <set-variable variableName="registryPatch" doc:name="patch: Retrying"
-                      value="#[output application/java --- { requestStatus: 'Retrying', attempts: vars.attempt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message ++ ' (next attempt ' ++ (vars.nextAttemptAt as String) ++ ')', errorCategory: 'Transient', muleCorrelationId: correlationId }]"/>
+                      value="#[output application/java --- { requestStatus: 'Retrying', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: vars.nextAttemptAt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message ++ ' (next attempt ' ++ (vars.nextAttemptAt as String) ++ ')', errorCategory: 'Transient', muleCorrelationId: correlationId }]"/>
         <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Retrying"/>
         <os:store key="#[vars.requestId]" objectStore="retry_store" doc:name="Park in retry store">
             <os:value>#[output application/json --- { requestId: vars.requestId, attempt: vars.attempt, nextAttemptAt: vars.nextAttemptAt, lastError: vars.failure.message, request: vars.req }]</os:value>
