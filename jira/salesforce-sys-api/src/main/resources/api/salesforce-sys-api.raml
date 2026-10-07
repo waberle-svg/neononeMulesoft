@@ -106,7 +106,7 @@ types:
       syncJira: boolean
       jiraModuleValue?:
         type: string
-        description: Product2.Jira_Module_Value__c — the text this product contributes to the ticket's Modules field (values separated by " | ").
+        description: Product2.Jira_Module_Value__c — the text the Salesforce Order Flow adds to Order.NeonCRM_Modules__c for this product (values separated by " | "). Informational; the process API takes Modules from the Order field only.
       createSetupJira?:
         type: boolean
         description: OrderItem.Create_SETUP_Jira__c — set by the publishing Flow when the line qualified for a setup ticket.

@@ -265,7 +265,6 @@ var base = {
   opp: vars.opp,
   order: vars.order,
   items: vars.flaggedItems default [],
-  allItems: vars.order.items default [],
   line: vars.line,
   req: vars.req,
   registry: vars.registry,

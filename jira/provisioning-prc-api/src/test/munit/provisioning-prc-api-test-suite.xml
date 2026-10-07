@@ -828,10 +828,9 @@
             <munit-tools:assert-that expression="#[vars.ticket.issueType]" is="#[MunitTools::equalTo('SYSTEM_SETUP')]"/>
             <!-- summary = Account name (document) -->
             <munit-tools:assert-that expression="#[vars.ticket.summary]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
-            <!-- Modules = the flagged Order Products of the line; Implementation Type from the ProductRollup rule table -->
-            <!-- Modules built from Product2.Jira_Module_Value__c: Core first (even though an add-on is listed first), add-ons after,
-                 "Third Party Gateways" once; SimpleStart contributes nothing (no value) -->
-            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('Custom Objects | File Manager | Fundraising | Donor Covered Fees | Texting | Events | Neon Events | Third Party Gateways')]"/>
+            <!-- Modules = "NA" because Order.NeonCRM_Modules__c is blank on this Order (Swati, 7 Oct 2026); the product values
+                 on the Order Products are NOT used by Mule. Implementation Type from the ProductRollup rule table -->
+            <munit-tools:assert-that expression="#[vars.ticket.modules]" is="#[MunitTools::equalTo('NA')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.implementationType]" is="#[MunitTools::equalTo('Assisted Self Import')]"/>
             <!-- requirements v3 sources: Account country + NTEE, additional users, the ACCOUNT's technical contact -->
             <munit-tools:assert-that expression="#[vars.ticket.operatingCountry]" is="#[MunitTools::equalTo('United States')]"/>
@@ -1190,7 +1189,7 @@
     </munit:test>
 
     <munit:test name="order-model-uses-the-modules-string-salesforce-built-when-present"
-                description="Order.NeonCRM_Modules__c filled by the Salesforce Flow wins over the string Mule would build from the product values">
+                description="Order.NeonCRM_Modules__c filled by the Salesforce Flow goes on the ticket verbatim (blank would give NA)">
         <munit:behavior>
             <munit-tools:mock-when processor="http:request">
                 <munit-tools:with-attributes><munit-tools:with-attribute attributeName="doc:name" whereValue="sys-sf: GET integration-request"/></munit-tools:with-attributes>

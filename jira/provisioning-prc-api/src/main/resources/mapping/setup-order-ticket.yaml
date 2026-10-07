@@ -12,9 +12,9 @@
 #   opp.*                 canonical Opportunity (salesforce-sys-api): account.{name,nteeCode,nteeDivision,billingCountry},
 #                         primaryContact, technicalContact (= the ACCOUNT's technical contact, Swati 5 Oct), partnerContact, description,
 #                         productionInstanceName, productRollup, opportunityNumber
-#   order.*               canonical Order: orderNumber, activatedDate, items[], additionalUsers[]
-#   items                 the FLAGGED Order Products of this line (what the ticket covers); allItems = every Order Product of the line
-#                         (add-ons contribute their Jira_Module_Value__c to Modules); order.neonCrmModules = the string Salesforce built, if any
+#   order.*               canonical Order: orderNumber, activatedDate, neonCrmModules (Order.NeonCRM_Modules__c, built by the
+#                         Salesforce Order Flow; null when blank), items[], additionalUsers[]
+#   items                 the FLAGGED Order Products of this line (what the ticket covers)
 #   line.*                salesforceValue (Neon CRM), code (NEON_CRM), label, tags
 #   derived.primaryContactBlock / technicalContactBlock / partnerBlock   "<Header> / name / email" lines, or empty when that
 #                         contact is blank (header hidden too — document rule for the partner block, applied to all three)
@@ -22,8 +22,8 @@
 #   env.reporterAccountId reporters.setup.lines.<CODE> -> reporters.setup.default (config); empty -> Jira's default (API account)
 #   sfUrl                 link to the Opportunity record
 #
-# Rules referenced below live in modules/TicketMapping.dwl: orderModules, implementationType, additionalUsers.
-# Open with Neon One (C2 in KB 27): confirm the product -> module values on Product2 and the Implementation Type table.
+# Rules referenced below live in modules/TicketMapping.dwl: implementationType, additionalUsers.
+# Open with Neon One (C2 in KB 27): confirm the Implementation Type table (the Modules values are Salesforce's concern now).
 version: 1
 
 # Implementation Type: first rule whose "contains" text appears (case-insensitive) in Opportunity.ProductRollup__c wins;
@@ -45,9 +45,6 @@ rules:
         - "configuration session"
       value: "Configuration Only"
   implementationTypeDefault: "N/A"
-  # Modules: products whose code is listed here are written first ("the CORE Subscription Fee value is always the start of the string")
-  coreProductCodes:
-    - "SS-01-CCSF"
 
 fields:
   project:   { source: "env.jiraProject" }
@@ -79,9 +76,9 @@ fields:
 
   # Required on the System Setup screen
   productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
-  # Modules: Order.NeonCRM_Modules__c when Salesforce built it; else built from Product2.Jira_Module_Value__c of the line's
-  # Order Products (Core first, " | " separated, de-duplicated); else the flagged product names
-  modules:            { rule: "orderModules", default: "TBC" }
+  # Modules: Order.NeonCRM_Modules__c verbatim (the Salesforce Order Flow builds it from Product2.Jira_Module_Value__c);
+  # "NA" when the field is blank (Swati, 7 Oct 2026). Mule does not derive it from the products.
+  modules:            { source: "order.neonCrmModules", default: "NA" }
   webTemplateCopy:    { value: "NOT_PURCHASED" }
 
   # Requirements v3 fields (ids in jira-sys-api config)
