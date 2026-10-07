@@ -8,13 +8,18 @@ MuleSoft app that creates a Rocketlane project whenever a `Project__c` record is
 Replay channel listener  (/data/Project__ChangeEvent, ONLY_NEW)
 └─ Choice
    ├─ When changeType == "CREATE"
-   │   └─ Query Project__c (Id, Name, Account__r.Name, Rocketlane_Id__c)
+   │   ├─ Request  GET /fields (single-choice)  → vars.rlSingleChoice
+   │   ├─ Request  GET /fields (multi-choice)   → vars.rlMultiChoice
+   │   └─ Query Project__c with its Account__r and Opportunity__r fields
    │         WHERE Id IN :ids AND Rocketlane_Id__c = null
    │       └─ For Each
-   │           ├─ Set Variable  sfId = payload.Id
-   │           ├─ Transform     → Rocketlane JSON body
+   │           ├─ Set Variable  accountWebsite, sfId
+   │           ├─ Transform     → Rocketlane JSON body (standard + custom fields)
    │           ├─ Request       POST /projects (Rocketlane_HTTP)
+   │           ├─ Set Variable  rlCompanyId = customer.companyId
    │           ├─ Update        Project__c.Rocketlane_Id__c = projectId
+   │           ├─ Choice        if the Account has a Website:
+   │           │                PUT /companies/{companyId} { companyUrl }
    │           └─ Logger
    └─ Default (UPDATE events are ignored)
 ```
@@ -22,16 +27,31 @@ Replay channel listener  (/data/Project__ChangeEvent, ONLY_NEW)
 - Salesforce login: OAuth JWT Bearer through an External Client App and an API-only integration user.
 - Rocketlane auth: `api-key` header, sent as a default header by `Rocketlane_HTTP`.
 - Duplicates are prevented by the `Rocketlane_Id__c = null` filter. The write-back causes an UPDATE event, which the Choice ignores.
+- Rocketlane custom fields are sent as `fields: [{ fieldId, fieldValue }]`. Choice fields are sent as Rocketlane option numbers, looked up by label at runtime from `GET /fields`, so option numbers never need to be configured.
+- Empty Salesforce values, and choice values with no matching Rocketlane option, are left out.
 
 ## Prerequisites
 
 - Anypoint Studio with Mule runtime 4.12 (Java 17).
-- Salesforce: Change Data Capture enabled for `Project__c`, field `Rocketlane_Id__c`, integration user with the Rocketlane Integration permission set, and an External Client App with JWT Bearer enabled.
+- Salesforce: Change Data Capture enabled for `Project__c`, field `Rocketlane_Id__c`, integration user with the Rocketlane Integration permission set (read access to the mapped Project, Account and Opportunity fields), and an External Client App with JWT Bearer enabled.
 - Rocketlane API key.
 
 ## Configuration
 
-`src/main/resources/config-secure.yaml` holds all settings. Secrets are encrypted (AES/CBC, random IVs) with the MuleSoft Secure Properties Tool and are read as `${secure::...}`.
+One config file per environment: `src/main/resources/config-${env}.yaml`. The app reads it through the Secure Properties config; `env` defaults to `dev` (global property) and is overridden at runtime with `-M-Denv=uat` or `-M-Denv=prod`.
+
+| File | Environment |
+|---|---|
+| `config-dev.yaml` | Salesforce sandbox + Rocketlane Dev/UAT workspace |
+| `config-uat.yaml` | to be added (same keys, UAT values) |
+| `config-prod.yaml` | to be added (same keys, production values) |
+
+Each file has the same keys:
+
+- `rocketlane.*` and `salesforce.*`: connection settings. Secrets are encrypted (AES/CBC, random IVs) with the MuleSoft Secure Properties Tool.
+- `rocketlaneFields.*`: Rocketlane custom field Ids (not secret). Dev and UAT share one Rocketlane workspace, so they share these Ids; production has its own.
+
+All values are read as `${secure::...}` or `p('secure::...')`. Each environment uses its own master key.
 
 Not in this repository, and never to be committed:
 
@@ -47,6 +67,11 @@ Not in this repository, and never to be committed:
    ```
    -M-Dsecure.key=<16-character master key>
    ```
+   Add `-M-Denv=uat` or `-M-Denv=prod` for another environment (default: `dev`).
 3. Run, wait for `DEPLOYED`, then create a Project in the Salesforce sandbox.
 
-The current config points at the Salesforce **sandbox** (`test.salesforce.com`) and the Rocketlane sandbox key. Production needs its own External Client App, keystore, Rocketlane key, master key and `login.salesforce.com` endpoints.
+## Not built yet
+
+- Project Notes and Additional Onboarding Notes (Rocketlane NOTE fields; API behaviour still to be checked).
+- Legacy Database (on hold until the picklist mapping is confirmed).
+- Two-way sync: Salesforce updates → Rocketlane, and Rocketlane changes → Salesforce (webhooks, needs a CloudHub deployment).
