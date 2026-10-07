@@ -3,7 +3,7 @@
     <fullName>Error_Category__c</fullName>
     <label>Error Category</label>
     <type>Picklist</type>
-    <description>Classification of the last error, set by MuleSoft.</description>
+    <description>Classification of the last error, set by the integration.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <valueSet>

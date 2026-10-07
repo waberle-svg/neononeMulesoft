@@ -3,7 +3,7 @@
     <fullName>Group_Key__c</fullName>
     <label>Group Key</label>
     <type>Text</type>
-    <description>Idempotency key of the request, set by the publishing Flow: &lt;source record Id&gt;:&lt;request type&gt;:&lt;product line code&gt;, e.g. 006...:DEACTIVATION:NEON_CRM. Unique, so a second row for the same record, type and line is impossible at the database level (the Flow checks first and swallows the fault). External Id for MuleSoft lookups.</description>
+    <description>Unique key of the business request: &lt;source record Id&gt;:&lt;request type&gt;:&lt;product line code&gt;. Prevents a second request for the same record, request type and product line.</description>
     <length>255</length>
     <externalId>true</externalId>
     <required>false</required>

@@ -7,7 +7,7 @@
     <relationshipLabel>Integration Transactions</relationshipLabel>
     <relationshipName>Integration_Transactions</relationshipName>
     <deleteConstraint>SetNull</deleteConstraint>
-    <description>Scenario 1 (Order model, requirements v3 of 1 Oct 2026; Swati 5 Oct 2026): the activated Order this setup request is for. Set by the publishing Flow on PROVISIONING rows (one row per Order and product line, Group_Key__c = &lt;OrderId&gt;:PROVISIONING:&lt;LINE_CODE&gt;). MuleSoft reads it to list the Order Products of the row's product line (modules on the ticket, duplicate label) and never writes it. Blank on Opportunity-model rows and on DEACTIVATION rows.</description>
+    <description>Activated Order a setup request is for; one request per Order and product line. Blank on Opportunity-based requests and on deactivation requests.</description>
     <externalId>false</externalId>
     <required>false</required>
     <trackTrending>false</trackTrending>

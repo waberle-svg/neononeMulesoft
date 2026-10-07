@@ -3,7 +3,7 @@
     <fullName>External_Status__c</fullName>
     <label>External Status</label>
     <type>Text</type>
-    <description>Current status name of the external record (e.g. System Ready).</description>
+    <description>Name of the external record's current status.</description>
     <length>60</length>
     <externalId>false</externalId>
     <required>false</required>

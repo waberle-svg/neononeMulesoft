@@ -3,7 +3,7 @@
     <fullName>Source_Business_Key__c</fullName>
     <label>Source Business Key</label>
     <type>Text</type>
-    <description>Human-readable key of the source record (Opportunity Number, e.g. O-0210538).</description>
+    <description>Human-readable key of the source record, for example the Order or Opportunity number.</description>
     <length>30</length>
     <externalId>false</externalId>
     <required>false</required>

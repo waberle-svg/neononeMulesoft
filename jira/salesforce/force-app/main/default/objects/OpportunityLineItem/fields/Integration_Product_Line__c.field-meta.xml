@@ -5,7 +5,7 @@
     <type>Text</type>
     <formula>TEXT(PricebookEntry.Product2.Product_Line__c)</formula>
     <formulaTreatBlanksAs>BlankAsZero</formulaTreatBlanksAs>
-    <description>Product2.Product_Line__c as text (via PricebookEntry, the only path formulas on this object can take to the product), so record-triggered Flows can filter Opportunity Products by product line. Used by the Salesforce -&gt; Jira integration (Scenario 2, cancellation) to decide which product lines a churned Opportunity carries. The older Product_Line__c formula on this object is CPQ-specific and blank for Revenue Cloud lines.</description>
+    <description>Product Line of the product as text (formula through the price book entry), so automation can filter Opportunity Products by product line.</description>
     <externalId>false</externalId>
     <required>false</required>
     <unique>false</unique>

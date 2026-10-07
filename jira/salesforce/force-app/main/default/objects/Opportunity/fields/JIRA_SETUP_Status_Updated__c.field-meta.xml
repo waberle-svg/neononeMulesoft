@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>JIRA_SETUP_Status_Updated__c</fullName>
     <label>JIRA SETUP Status Updated</label>
-    <description>When the Jira setup ticket entered its current status (copied from the Integration Transaction by Flow).</description>
+    <description>When the System Setup ticket entered its current status, maintained by automation.</description>
     <type>DateTime</type>
     <externalId>false</externalId>
     <required>false</required>

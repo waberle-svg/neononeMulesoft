@@ -3,7 +3,7 @@
     <fullName>JIRA_Issue</fullName>
     <active>true</active>
     <label>JIRA Issue</label>
-    <description>A Jira issue created or tracked by the MuleSoft integration.</description>
+    <description>A Jira issue created or tracked by the integration.</description>
     <picklistValues>
         <picklist>Target_System__c</picklist>
         <values><fullName>JIRA</fullName><default>true</default></values>

@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Payload_JSON__c</fullName>
     <label>Payload JSON</label>
-    <description>Optional JSON with request-specific extras. Prefer letting MuleSoft read the source record; use this only for values not on the record.</description>
+    <description>Optional JSON with request-specific values that are not available on the source record.</description>
     <type>LongTextArea</type>
     <length>32768</length>
     <visibleLines>3</visibleLines>

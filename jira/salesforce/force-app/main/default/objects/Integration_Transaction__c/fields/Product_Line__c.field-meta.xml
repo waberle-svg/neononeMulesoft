@@ -3,7 +3,7 @@
     <fullName>Product_Line__c</fullName>
     <label>Product Line</label>
     <type>Picklist</type>
-    <description>Product line this row is for (DEACTIVATION rows carry one row per line; PROVISIONING rows leave it blank today). Values mirror Product2.Product_Line__c for the lines that have a hosted instance. Set by the publishing Flow; read by MuleSoft to pick the Jira target and the Account instance id.</description>
+    <description>Product line the request is for; values mirror the Product's Product Line. Set by the publishing automation and used to route the request to the right Jira project and instance identifier.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <valueSet>

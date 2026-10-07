@@ -1,6 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
-    <description>Least-privilege access for the MuleSoft integration user: subscribe to Integration_Request__e, read/write Integration_Transaction__c, read Opportunities and Accounts. Opportunity/Account writes are performed by Flows, not by this user.</description>
+    <description>Integration user access: subscribe to Integration Request events, read and update Integration Transactions, read the Account, Contact, Opportunity, Order, Order Product and Product data tickets are built from. Business records are updated by automation.</description>
     <fieldPermissions>
         <field>Integration_Transaction__c.Target_System__c</field>
         <readable>true</readable>

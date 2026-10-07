@@ -3,7 +3,7 @@
     <fullName>Request_Payload__c</fullName>
     <label>Request Payload</label>
     <type>LongTextArea</type>
-    <description>Canonical request MuleSoft sent to the external system (no secrets).</description>
+    <description>Request the integration sent to the external system (no secrets).</description>
     <length>32768</length>
     <visibleLines>5</visibleLines>
     <trackHistory>false</trackHistory>

@@ -3,7 +3,7 @@
     <fullName>Response_Payload__c</fullName>
     <label>Response Payload</label>
     <type>LongTextArea</type>
-    <description>Trimmed response or error body from the external system.</description>
+    <description>Response or error returned by the external system (trimmed).</description>
     <length>32768</length>
     <visibleLines>5</visibleLines>
     <trackHistory>false</trackHistory>

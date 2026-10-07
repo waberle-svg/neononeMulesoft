@@ -3,7 +3,7 @@
     <fullName>Last_Error__c</fullName>
     <label>Last Error</label>
     <type>LongTextArea</type>
-    <description>Full text of the last error from MuleSoft or the external system. Flows copy a trimmed version to the Opportunity.</description>
+    <description>Full text of the last error from the integration or the external system.</description>
     <length>32768</length>
     <visibleLines>5</visibleLines>
     <trackHistory>true</trackHistory>

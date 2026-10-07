@@ -3,7 +3,7 @@
     <fullName>External_Type__c</fullName>
     <label>External Type</label>
     <type>Text</type>
-    <description>Type of the external record, e.g. Jira issue type name.</description>
+    <description>Type of the external record, for example the Jira issue type name.</description>
     <length>40</length>
     <externalId>false</externalId>
     <required>false</required>

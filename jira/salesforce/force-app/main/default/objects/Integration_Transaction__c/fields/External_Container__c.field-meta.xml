@@ -3,7 +3,7 @@
     <fullName>External_Container__c</fullName>
     <label>External Container</label>
     <type>Text</type>
-    <description>Container of the external record, e.g. Jira project key (NSSU, SETUP, WORK, FUND, ARTS).</description>
+    <description>Container of the external record, for example the Jira project key.</description>
     <length>20</length>
     <externalId>false</externalId>
     <required>false</required>

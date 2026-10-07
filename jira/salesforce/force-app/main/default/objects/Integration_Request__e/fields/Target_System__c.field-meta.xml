@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Target_System__c</fullName>
     <label>Target System</label>
-    <description>Target system code, e.g. JIRA.</description>
+    <description>Target system code, for example JIRA.</description>
     <type>Text</type>
     <length>20</length>
     <required>true</required>

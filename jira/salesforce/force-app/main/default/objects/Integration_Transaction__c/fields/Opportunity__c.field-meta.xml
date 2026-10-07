@@ -3,7 +3,7 @@
     <fullName>Opportunity__c</fullName>
     <label>Opportunity</label>
     <type>Lookup</type>
-    <description>Source Opportunity for this request.</description>
+    <description>Opportunity the request relates to.</description>
     <referenceTo>Opportunity</referenceTo>
     <relationshipLabel>Integration Transactions</relationshipLabel>
     <relationshipName>Integration_Transactions</relationshipName>

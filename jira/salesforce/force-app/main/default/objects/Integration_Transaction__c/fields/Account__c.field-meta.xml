@@ -3,7 +3,7 @@
     <fullName>Account__c</fullName>
     <label>Account</label>
     <type>Lookup</type>
-    <description>Account of the source Opportunity.</description>
+    <description>Account the request relates to.</description>
     <referenceTo>Account</referenceTo>
     <relationshipLabel>Integration Transactions</relationshipLabel>
     <relationshipName>Integration_Transactions</relationshipName>

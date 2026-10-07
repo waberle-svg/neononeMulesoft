@@ -3,7 +3,7 @@
     <fullName>Request_Type__c</fullName>
     <label>Request Type</label>
     <type>Picklist</type>
-    <description>Business request type. PROVISIONING = System Setup ticket; DEACTIVATION = deactivate-instance tickets; EXTERNAL = discovered via inbound event, not created by us.</description>
+    <description>Business request type: a System Setup ticket for a new instance, a Deactivate Instance ticket for a cancellation, or an external record discovered through an inbound event rather than created from Salesforce.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <valueSet>

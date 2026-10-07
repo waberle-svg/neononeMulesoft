@@ -3,7 +3,7 @@
     <fullName>Request_Status__c</fullName>
     <label>Request Status</label>
     <type>Picklist</type>
-    <description>Lifecycle of the outbound request. Requested (Flow created row + event) -> Created (external record exists) | Failed - Terminal (no retry) | Retrying (transient failure, retry pending) | Cancelled.</description>
+    <description>Lifecycle of the request: Requested, Created, Failed - Terminal, Retrying, Cancelled.</description>
     <required>false</required>
     <trackHistory>true</trackHistory>
     <valueSet>

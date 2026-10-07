@@ -3,7 +3,7 @@
     <fullName>Target_System__c</fullName>
     <label>Target System</label>
     <type>Picklist</type>
-    <description>External system this transaction targets.</description>
+    <description>External system this request targets.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <valueSet>

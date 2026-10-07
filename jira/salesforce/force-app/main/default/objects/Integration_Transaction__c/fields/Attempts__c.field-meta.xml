@@ -3,7 +3,7 @@
     <fullName>Attempts__c</fullName>
     <label>Attempts</label>
     <type>Number</type>
-    <description>Number of attempts MuleSoft made to create the external record.</description>
+    <description>Number of attempts the integration made to create the external record.</description>
     <precision>3</precision>
     <scale>0</scale>
     <externalId>false</externalId>

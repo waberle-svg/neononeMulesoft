@@ -2,7 +2,7 @@
 <CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
     <label>Integration Transaction</label>
     <pluralLabel>Integration Transactions</pluralLabel>
-    <description>Registry of integration requests and the external records they created (one row per external ticket/record). Written by MuleSoft via the integration user; Salesforce Flows react to changes. Record type per target system. Internal object: not exposed to sales profiles.</description>
+    <description>Registry of integration requests and the external records they produced, one record per external ticket. Created by Salesforce automation, updated by the integration; automation reacts to those updates. Internal object, not exposed to sales profiles.</description>
     <nameField>
         <label>Transaction Number</label>
         <type>AutoNumber</type>

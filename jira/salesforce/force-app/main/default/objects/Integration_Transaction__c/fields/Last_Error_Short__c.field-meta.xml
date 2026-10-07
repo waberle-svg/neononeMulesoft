@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Last_Error_Short__c</fullName>
-    <description>First 255 characters of Last Error, written by MuleSoft alongside it. Exists because Flow formulas cannot reference Long Text Area fields (ERR-0013); the registry Flow copies this value to Opportunity.JIRA_Error_Message__c.</description>
+    <description>First 255 characters of Last Error, for use in automation formulas and list views.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Short form of Last Error for Flows and list views.</inlineHelpText>
+    <inlineHelpText>Short form of Last Error for automation and list views.</inlineHelpText>
     <label>Last Error (short)</label>
     <length>255</length>
     <required>false</required>

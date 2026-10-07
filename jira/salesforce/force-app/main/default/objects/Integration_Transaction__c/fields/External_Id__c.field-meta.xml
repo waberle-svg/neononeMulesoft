@@ -3,7 +3,7 @@
     <fullName>External_Id__c</fullName>
     <label>External Id</label>
     <type>Text</type>
-    <description>Immutable id of the external record (Jira numeric issue id). Survives key changes when an issue is moved between projects.</description>
+    <description>Immutable id of the external record (Jira issue id); unchanged when an issue is moved between projects.</description>
     <length>20</length>
     <externalId>true</externalId>
     <required>false</required>

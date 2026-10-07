@@ -3,7 +3,7 @@
     <fullName>Mule_Correlation_Id__c</fullName>
     <label>Mule Correlation Id</label>
     <type>Text</type>
-    <description>Correlation id used in MuleSoft logs (Runtime Manager) for this request.</description>
+    <description>Correlation id of this request in the integration platform's logs.</description>
     <length>64</length>
     <externalId>false</externalId>
     <required>false</required>

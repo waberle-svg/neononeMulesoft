@@ -3,7 +3,7 @@
     <fullName>External_Status_Category__c</fullName>
     <label>External Status Category</label>
     <type>Picklist</type>
-    <description>Jira status category of the current status.</description>
+    <description>Status category of the external record's current status.</description>
     <required>false</required>
     <trackHistory>false</trackHistory>
     <valueSet>
