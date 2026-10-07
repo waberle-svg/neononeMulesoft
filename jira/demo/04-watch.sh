@@ -1,6 +1,6 @@
 #!/bin/zsh
 # Step 4 — watch the loop for the Opportunity in .last-demo.env (or the one given as $1):
-#   every registry row of the Opportunity (PROVISIONING and, since Scenario 2, one DEACTIVATION row per product line)
+#   every registry row of the Opportunity (SETUP and, since Scenario 2, one DEACTIVATION row per product line)
 #   → the Opportunity's Jira fields (System Setup key/status and the three cancellation key/error pairs)
 #   → the Jira ticket(s) through jira-sys-api (local by default; JIRA_SYS_URL=https://<host> for the CloudHub app, headers added when INTER_APP_SECRET is set)
 source "$(dirname "$0")/demo-env.sh"; [ -f "$(dirname "$0")/.last-demo.env" ] && source "$(dirname "$0")/.last-demo.env"

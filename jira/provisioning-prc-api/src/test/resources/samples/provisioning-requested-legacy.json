@@ -1,0 +1,13 @@
+{
+  "requestId": "a0BSu000001legacMAA",
+  "targetSystem": "JIRA",
+  "requestType": "PROVISIONING",
+  "sourceObject": "Opportunity",
+  "sourceRecordId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceOrgId": "00DSu000008AXB0MAO",
+  "payload": null,
+  "eventCreatedAt": "2026-09-19T12:00:05.000Z",
+  "replayId": 42,
+  "receivedAt": "2026-09-19T12:00:06.000Z"
+}

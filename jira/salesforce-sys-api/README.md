@@ -46,7 +46,7 @@ curl -s http://localhost:8081/api/v1/ping
 curl -s http://localhost:8081/api/v1/opportunities/006Su00000XPwLxIAL
 # simulate the platform event end to end (dev only)
 curl -s -X POST http://localhost:8081/api/v1/events/integration-requests -H 'Content-Type: application/json' \
-  -d '{"Target_System__c":"JIRA","Request_Type__c":"PROVISIONING","Request_Id__c":"a0B...","Source_Object__c":"Opportunity","Source_Record_Id__c":"006...","Account_Id__c":"001...","Source_Org_Id__c":"00D..."}'
+  -d '{"Target_System__c":"JIRA","Request_Type__c":"SETUP","Request_Id__c":"a0B...","Source_Object__c":"Opportunity","Source_Record_Id__c":"006...","Account_Id__c":"001...","Source_Org_Id__c":"00D..."}'
 ```
 
 ## Test

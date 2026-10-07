@@ -176,7 +176,8 @@ types:
       targetSystem?: string
       requestType?:
         type: string
-        enum: [PROVISIONING, DEACTIVATION, EXTERNAL]
+        enum: [SETUP, DEACTIVATION, EXTERNAL]
+        description: Business request type. Rows created before the 7 Oct 2026 rename may still read PROVISIONING until Salesforce replaces the value.
       requestStatus?:
         type: string
         enum: [Requested, Created, Failed - Terminal, Retrying, Cancelled]
@@ -184,14 +185,14 @@ types:
       accountId?: string
       orderId?:
         type: string
-        description: Integration_Transaction__c.Order__c — set on PROVISIONING rows published per Order × product line (Order model); blank on Opportunity-model rows.
+        description: Integration_Transaction__c.Order__c — set on SETUP rows published per Order × product line (Order model); blank on Opportunity-model rows.
       sourceBusinessKey?: string
       productLine?:
         type: string
         description: Product line this row is for (one row per line). Salesforce picklist value, e.g. Neon CRM.
       groupKey?:
         type: string
-        description: Idempotency key set by the publishing Flow, e.g. <OrderId>:PROVISIONING:NEON_CRM or <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
+        description: Idempotency key set by the publishing Flow, e.g. <OrderId>:SETUP:NEON_CRM or <OpportunityId>:DEACTIVATION:NEON_CRM. Unique in Salesforce.
       attempts?: number
       lastError?: string
       errorCategory?:

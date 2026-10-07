@@ -10,6 +10,8 @@
         <restricted>true</restricted>
         <valueSetDefinition>
             <sorted>false</sorted>
+                <value><fullName>SETUP</fullName><default>false</default><label>SETUP</label></value>
+                <!-- PROVISIONING: renamed to SETUP on 7 Oct 2026; kept here (active) until Salesforce replaces the value on existing rows and deactivates it -->
                 <value><fullName>PROVISIONING</fullName><default>false</default><label>PROVISIONING</label></value>
                 <value><fullName>DEACTIVATION</fullName><default>false</default><label>DEACTIVATION</label></value>
                 <value><fullName>EXTERNAL</fullName><default>false</default><label>EXTERNAL</label></value>

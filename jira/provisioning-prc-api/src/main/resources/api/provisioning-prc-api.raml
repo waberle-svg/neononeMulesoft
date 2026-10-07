@@ -137,7 +137,7 @@ traits:
     description: |
       Process one integration request end to end: idempotency check on the registry, read the Opportunity,
       build the ticket from the mapping, create it in Jira, write the outcome back to the registry.
-      Routed on the registry row's request type: PROVISIONING (System Setup ticket, Scenario 1) or
+      Routed on the registry row's request type: SETUP (System Setup ticket, Scenario 1; legacy spelling PROVISIONING accepted while configured) or
       DEACTIVATION (one deactivation ticket per product line of a churned Opportunity, Scenario 2).
       Always answers 200 with an outcome when the request could be handled (including terminal failures,
       which are recorded on the registry row). A 5xx means the registry itself could not be read or written;

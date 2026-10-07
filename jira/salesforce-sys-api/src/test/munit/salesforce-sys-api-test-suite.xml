@@ -276,7 +276,7 @@
             <munit-tools:retrieve key="forwardedRequest" target="sent"/>
             <munit-tools:assert-that expression="#[vars.sent.requestId]" is="#[MunitTools::equalTo('a0BSu000001abcdMAA')]"/>
             <munit-tools:assert-that expression="#[vars.sent.targetSystem]" is="#[MunitTools::equalTo('JIRA')]"/>
-            <munit-tools:assert-that expression="#[vars.sent.requestType]" is="#[MunitTools::equalTo('PROVISIONING')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.requestType]" is="#[MunitTools::equalTo('SETUP')]"/>
             <munit-tools:assert-that expression="#[vars.sent.sourceRecordId]" is="#[MunitTools::equalTo('006Su00000XPwLxIAL')]"/>
             <munit-tools:assert-that expression="#[vars.sent.replayId]" is="#[MunitTools::equalTo(42)]"/>
             <munit-tools:assert-that expression="#[vars.sent.payload.priority]" is="#[MunitTools::equalTo('normal')]"/>
@@ -289,7 +289,7 @@
                 description="Target_System__c not in sf.events.targetSystems -> nothing is forwarded or parked">
         <munit:execution>
             <munit:set-event>
-                <munit:payload value="#[{ payload: { Target_System__c: 'ROCKETLANE', Request_Type__c: 'PROVISIONING', Request_Id__c: 'a0BSu000001zzzzMAA' }, event: { replayId: 43 } }]" mediaType="application/java"/>
+                <munit:payload value="#[{ payload: { Target_System__c: 'ROCKETLANE', Request_Type__c: 'SETUP', Request_Id__c: 'a0BSu000001zzzzMAA' }, event: { replayId: 43 } }]" mediaType="application/java"/>
             </munit:set-event>
             <flow-ref name="handle-integration-request-event"/>
         </munit:execution>

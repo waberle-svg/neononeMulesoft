@@ -6,8 +6,10 @@
       1. request type we handle?                       else IGNORED_TYPE
       2. registry row exists and is processable?       else IGNORED_UNKNOWN_REQUEST / SKIPPED_ALREADY_PROCESSED   (idempotency #1)
       3. route on the row's Request_Type__c:
-           PROVISIONING  -> provision-ticket   (Scenario 1: System Setup ticket for a Closed Won Opportunity)
+           SETUP         -> provision-ticket   (Scenario 1: System Setup ticket; Order model or the Phase 1 Opportunity model)
            DEACTIVATION  -> deactivate-ticket  (Scenario 2: one deactivation ticket per product line of a churned Opportunity)
+         The request type value was renamed PROVISIONING -> SETUP in Salesforce on 7 Oct 2026. Mule's canonical value is SETUP;
+         the old spelling is accepted only while listed in provisioning.legacyRequestTypes (logged at WARN, processed as SETUP).
 
   provision-ticket / deactivate-ticket share the same shape:
       guard(s) that end the request without a ticket   -> registry Cancelled, SKIPPED_EXISTING_KEY                 (idempotency #2)
@@ -45,11 +47,24 @@
         <logger level="INFO" doc:name="Log start"
                 message='#[output text/plain --- "Integration request " ++ (vars.requestId default "?") ++ " type=" ++ (vars.req.requestType default "?") ++ " source=" ++ (vars.opportunityId default "?")]'/>
 
+        <!-- Request types: provisioning.requestTypes (canonical: SETUP, DEACTIVATION) plus provisioning.legacyRequestTypes
+             (values still published by older Salesforce Flows, e.g. PROVISIONING until the Flows are changed; empty = none).
+             A legacy value is processed exactly like SETUP but logged at WARN so the sender can be found and fixed. -->
+        <set-variable variableName="acceptedTypes" doc:name="acceptedTypes"
+                      value="#[((p('provisioning.requestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
+        <set-variable variableName="legacyTypes" doc:name="legacyTypes"
+                      value="#[((p('provisioning.legacyRequestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
         <choice doc:name="1. Request type handled?">
-            <when expression="#[!((p('provisioning.requestTypes') splitBy ',') map trim($) contains (vars.req.requestType default ''))]">
-                <logger level="INFO" doc:name="Ignore type" message='#[output text/plain --- "Ignoring request type " ++ (vars.req.requestType default "null")]'/>
+            <when expression="#[!((vars.acceptedTypes ++ vars.legacyTypes) contains (vars.req.requestType default ''))]">
+                <logger level="INFO" doc:name="Ignore type" message='#[output text/plain --- "Ignoring request type " ++ (vars.req.requestType default "null") ++ " (accepted: " ++ (vars.acceptedTypes joinBy ",") ++ (if (isEmpty(vars.legacyTypes)) "" else "; legacy: " ++ (vars.legacyTypes joinBy ",")) ++ ")"]'/>
             </when>
             <otherwise>
+                <choice doc:name="Legacy request type?">
+                    <when expression="#[vars.legacyTypes contains (vars.req.requestType default '')]">
+                        <logger level="WARN" doc:name="Deprecated type"
+                                message='#[output text/plain --- "Request " ++ (vars.requestId default "?") ++ " uses deprecated request type " ++ vars.req.requestType ++ "; processed as SETUP. Change the publishing Flow to SETUP (provisioning.legacyRequestTypes keeps this working meanwhile)."]'/>
+                    </when>
+                </choice>
                 <!-- 2. Registry row: exists? processable? -->
                 <flow-ref name="sys-sf-get-integration-request" doc:name="Registry: get row"/>
                 <choice doc:name="2. Registry row processable?">
@@ -63,13 +78,14 @@
                         <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_ALREADY_PROCESSED', issueKey: vars.registry.external.key, message: 'Registry status ' ++ (vars.registry.requestStatus default '') }]" doc:name="SKIPPED_ALREADY_PROCESSED"/>
                     </when>
                     <otherwise>
-                        <!-- 3. The registry row is authoritative for the type; the event only carried it -->
+                        <!-- 3. The registry row is authoritative for the type; the event only carried it.
+                             DEACTIVATION -> deactivation ticket; SETUP (and any configured legacy spelling) -> setup ticket -->
                         <choice doc:name="3. Route on request type">
                             <when expression="#[(vars.registry.requestType default vars.req.requestType) == 'DEACTIVATION']">
                                 <flow-ref name="deactivate-ticket" doc:name="Scenario 2: deactivation ticket"/>
                             </when>
                             <otherwise>
-                                <flow-ref name="provision-ticket" doc:name="Scenario 1: provisioning ticket"/>
+                                <flow-ref name="provision-ticket" doc:name="Scenario 1: setup ticket"/>
                             </otherwise>
                         </choice>
                     </otherwise>

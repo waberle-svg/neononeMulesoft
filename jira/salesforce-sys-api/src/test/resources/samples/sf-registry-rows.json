@@ -3,7 +3,7 @@
     "Id": "a0BSu000001abcdMAA",
     "Name": "INT-000001",
     "Target_System__c": "JIRA",
-    "Request_Type__c": "PROVISIONING",
+    "Request_Type__c": "SETUP",
     "Request_Status__c": "Requested",
     "Opportunity__c": "006Su00000XPwLxIAL",
     "Account__c": "001Su00000tjc9VIAQ",

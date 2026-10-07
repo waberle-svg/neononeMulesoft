@@ -1,7 +1,7 @@
 {
   "requestId": "a0BSu000001abcdMAA",
   "targetSystem": "JIRA",
-  "requestType": "PROVISIONING",
+  "requestType": "SETUP",
   "sourceObject": "Opportunity",
   "sourceRecordId": "006Su00000XPwLxIAL",
   "accountId": "001Su00000tjc9VIAQ",

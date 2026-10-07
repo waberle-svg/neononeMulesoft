@@ -8,7 +8,10 @@ http:
   port: "8081"
 
 provisioning:
-  requestTypes: "PROVISIONING,DEACTIVATION"
+  requestTypes: "SETUP,DEACTIVATION"
+  # Older request-type spellings still accepted (processed as SETUP, logged at WARN). Salesforce renamed the picklist value
+  # PROVISIONING -> SETUP on 7 Oct 2026. UAT: keep the alias until every publishing Flow writes SETUP, then set it to "".
+  legacyRequestTypes: "PROVISIONING"
   processableStatuses: "Requested,Retrying"
   retry:
     maxAttempts: "6"
@@ -17,7 +20,7 @@ provisioning:
     schedulerFrequencyMinutes: "1"
   mappingFile: "mapping/provisioning-ticket.yaml"
   # ---- Scenario 1, Order model (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026) ----
-  # A PROVISIONING row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
+  # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
   # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
   orderMappingFile: "mapping/setup-order-ticket.yaml"
   # Before creating, ask Jira for a ticket already carrying this request's label (same safety net as deactivation)

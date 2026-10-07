@@ -10,7 +10,7 @@ error handling with retry, inbound status events and the reconciliation sweep. T
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/ping` | Liveness |
-| POST | `/provisioning-requests` | One `ProvisioningRequested` (from salesforce-sys-api), routed on the registry row's request type (PROVISIONING → `provision-ticket`, DEACTIVATION → `deactivate-ticket`) → outcome `CREATED` / `LINKED_EXISTING_TICKET` / `SKIPPED_*` / `IGNORED_*` / `TERMINAL_ERROR` / `RETRY_SCHEDULED` / `RETRIES_EXHAUSTED` |
+| POST | `/provisioning-requests` | One `ProvisioningRequested` (from salesforce-sys-api), routed on the registry row's request type (SETUP → `provision-ticket`, DEACTIVATION → `deactivate-ticket`) → outcome `CREATED` / `LINKED_EXISTING_TICKET` / `SKIPPED_*` / `IGNORED_*` / `TERMINAL_ERROR` / `RETRY_SCHEDULED` / `RETRIES_EXHAUSTED` |
 | POST | `/issue-status-events` | One `IssueStatusChanged` (from jira-sys-api webhook) → registry row updated by ticket key |
 | POST | `/sweeps/instance-ready` | Run the reconciliation sweep now (also scheduled hourly) |
 | GET | `/retry-queue` | Requests parked after transient failures (operations view) |
@@ -71,7 +71,10 @@ mvn clean test        # MUnit (16 tests): both system APIs mocked; Scenario 2: c
 Project knowledge base: `~/Desktop/NEONONE-KB`.
 
 ## Scenario 1 Order model (5 Oct 2026)
-- A PROVISIONING row **with `Order__c`** is processed per Order × product line (`provision-order-ticket`): Order Products of the line via salesforce-sys-api, ticket from `mapping/setup-order-ticket.yaml` (summary = Account name, Modules = flagged products, Implementation Type rule table, Account country/NTEE/technical contact, partner block when present, additional users, labels `sf-setup-<OrderId>-<line>`, reporter from `provisioning.reporterAccountId`). A row without `Order__c` keeps the Phase 1 Opportunity model (`provision-opportunity-ticket`).
+- A SETUP row **with `Order__c`** is processed per Order × product line (`provision-order-ticket`): Order Products of the line via salesforce-sys-api, ticket from `mapping/setup-order-ticket.yaml` (summary = Account name, Modules = flagged products, Implementation Type rule table, Account country/NTEE/technical contact, partner block when present, additional users, labels `sf-setup-<OrderId>-<line>`, reporter from `provisioning.reporterAccountId`). A row without `Order__c` keeps the Phase 1 Opportunity model (`provision-opportunity-ticket`).
 - Guards: `APP:NO_SETUP_ITEMS` (no flagged Order Product on the line → Failed - Terminal, Mapping); an Order Product already keyed → Cancelled with that key; label search before creating (`provisioning.duplicateCheck`).
 - **Created-issue store** (`created_issues_store`, persistent, 30 days): every key Jira returns is remembered before the registry patch; a retry links it from the store first (`LINKED_EXISTING_TICKET`, "recovered from the created-issue store") — independent of labels and of Salesforce. Applies to setup and deactivation tickets.
 - Config: `provisioning.orderMappingFile`, `provisioning.duplicateCheck`, `provisioning.labelPrefix`, `provisioning.reporterAccountId`.
+
+## Request type rename (7 Oct 2026)
+Salesforce renamed the `Request_Type__c` value PROVISIONING → **SETUP**. Mule's canonical values are `SETUP` and `DEACTIVATION` (`provisioning.requestTypes`). Older spellings listed in `provisioning.legacyRequestTypes` (Dev/UAT: `PROVISIONING`; production: empty) are still processed as SETUP but logged at WARN ("uses deprecated request type … processed as SETUP") so the publishing Flow that still sends them can be found. Set the legacy list to `""` once every Flow writes SETUP.

@@ -2,7 +2,7 @@
   "id": "a0BSu000001abcdMAA",
   "name": "INT-000001",
   "targetSystem": "JIRA",
-  "requestType": "PROVISIONING",
+  "requestType": "SETUP",
   "requestStatus": "Requested",
   "opportunityId": "006Su00000XPwLxIAL",
   "accountId": "001Su00000tjc9VIAQ",

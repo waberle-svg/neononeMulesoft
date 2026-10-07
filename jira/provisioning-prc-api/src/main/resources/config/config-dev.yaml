@@ -10,7 +10,10 @@ http:
 # Business configuration
 provisioning:
   # Request types this process handles; anything else is acknowledged and ignored
-  requestTypes: "PROVISIONING,DEACTIVATION"
+  requestTypes: "SETUP,DEACTIVATION"
+  # Older request-type spellings still accepted (processed as SETUP, logged at WARN). Salesforce renamed the picklist value
+  # PROVISIONING -> SETUP on 7 Oct 2026. Dev: Pallavi's publisher v5 still writes PROVISIONING; keep the alias until her Flow is changed, then set it to "".
+  legacyRequestTypes: "PROVISIONING"
   # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
   processableStatuses: "Requested,Retrying"
   # Transient failures: exponential backoff, then dead-letter on the registry row (Failed - Terminal, category Transient)
@@ -22,7 +25,7 @@ provisioning:
   # Where the mapping lives (classpath). ADR-014: YAML now, Salesforce Custom Metadata later.
   mappingFile: "mapping/provisioning-ticket.yaml"
   # ---- Scenario 1, Order model (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026) ----
-  # A PROVISIONING row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
+  # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
   # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
   orderMappingFile: "mapping/setup-order-ticket.yaml"
   # Before creating, ask Jira for a ticket already carrying this request's label (same safety net as deactivation)
