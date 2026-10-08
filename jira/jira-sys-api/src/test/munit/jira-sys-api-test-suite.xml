@@ -566,7 +566,11 @@
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15228]" is="#[MunitTools::equalTo('United States')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15364]" is="#[MunitTools::equalTo('S22')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15365]" is="#[MunitTools::equalTo('Community Improvement, Capacity Building')]"/>
-            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316]" is="#[MunitTools::containsString('Ellen Clark &lt;ellen.clark@example.org&gt;')]"/>
+            <!-- Additional Users is a textarea field: sent as an ADF document, one paragraph per line (ERR-0024) -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316.'type']" is="#[MunitTools::equalTo('doc')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.customfield_15316.content)]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316.content[0].content[0].text]" is="#[MunitTools::containsString('Ellen Clark &lt;ellen.clark@example.org&gt;')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316.content[1].content[0].text]" is="#[MunitTools::containsString('Ashley Peska')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15259]" is="#[MunitTools::equalTo('Devonna Dionne')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>

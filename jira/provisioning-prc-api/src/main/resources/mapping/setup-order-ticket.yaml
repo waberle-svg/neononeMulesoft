@@ -86,6 +86,7 @@ fields:
   operatingCountry:   { source: "opp.account.billingCountry" }
   nteeCode:           { source: "opp.account.nteeCode" }
   nteeDivision:       { source: "opp.account.nteeDivision" }
+  # Additional Users: one "Name <email>" per line; jira-sys-api sends the multi-line field as ADF paragraphs
   additionalUsers:    { rule: "additionalUsers" }
 
   # Duplicate detection: the process API searches Jira for the first label before creating

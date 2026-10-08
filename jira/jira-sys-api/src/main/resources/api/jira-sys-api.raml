@@ -72,7 +72,7 @@ types:
       nteeCategory?: string | nil
       additionalUsers?:
         type: string | nil
-        description: Free text, e.g. "Ellen Clark <ellen@example.org>, Ashley Peska <ashley@example.org>" (requirements v3).
+        description: Free text, one user per line, e.g. "Ellen Clark <ellen@example.org>\nAshley Peska <ashley@example.org>" (requirements v3). The target field is a multi-line text field, so this API sends it as an Atlassian Document Format document with one paragraph per line.
       correlationId?:
         type: string | nil
         description: Caller's correlation id (e.g. the Integration_Transaction__c record id). Echoed in logs.

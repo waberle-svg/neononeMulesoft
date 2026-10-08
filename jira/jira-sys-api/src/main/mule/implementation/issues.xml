@@ -87,7 +87,9 @@ var candidates = {
   nteeCode:              { field: p('jira.fields.nteeCode'),              value: req.nteeCode },
   nteeDivision:          { field: p('jira.fields.nteeDivision'),          value: req.nteeDivision },
   nteeCategory:          { field: p('jira.fields.nteeCategory'),          value: req.nteeCategory },
-  additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: req.additionalUsers }
+  // Additional Users is a MULTI-LINE text field (schema textarea): Jira Cloud v3 takes ADF, not a string (ERR-0024, 8 Oct 2026).
+  // One paragraph per line of the request value; absent when the request carries none.
+  additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: if (req.additionalUsers == null) null else adf(req.additionalUsers) }
 }
 // The issue type's CREATE SCREEN decides which of them are sent: Jira answers 400 for a field that is not on the screen.
 // jira.screens.<TYPE> lists canonical names (config); no entry = send everything (the behaviour before Scenario 2).

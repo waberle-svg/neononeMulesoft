@@ -55,13 +55,14 @@ fun applyRule(rule: String, ctx) =
             ---
             if (hit != null) hit.value else ctx.rules.implementationTypeDefault
         }
-        // "Additional User (at time of setup)" Contacts of the Account: First Last <email>, comma-separated
+        // "Additional User (at time of setup)" Contacts of the Account: First Last <email>, ONE PER LINE —
+        // the Jira field is a multi-line text field and jira-sys-api turns each line into an ADF paragraph (ERR-0024)
         case "additionalUsers" -> do {
             var users = (ctx.order.additionalUsers default []) map ((u) ->
                             trim((u.name default "") as String) ++ (if (u.email == null) "" else " <" ++ (u.email as String) ++ ">"))
                         filter ((s) -> !isEmpty(trim(s)))
             ---
-            if (isEmpty(users)) null else (users joinBy ", ")
+            if (isEmpty(users)) null else (users joinBy "\n")
         }
         // Contact blocks of the description ("<Header>\n<name>\n<email>"); header hidden when the contact is blank
         // (document: "only if it's not blank otherwise hide header also" — applied to all three contact blocks)

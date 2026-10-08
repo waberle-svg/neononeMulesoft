@@ -845,7 +845,8 @@
             <!-- requirements v3 sources: Account country + NTEE, additional users, the ACCOUNT's technical contact -->
             <munit-tools:assert-that expression="#[vars.ticket.operatingCountry]" is="#[MunitTools::equalTo('United States')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.nteeCode]" is="#[MunitTools::equalTo('S22')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.additionalUsers]" is="#[MunitTools::equalTo('Ellen Clark &lt;ellen.clark@example.org&gt;, Ashley Peska &lt;ashley.peska@example.org&gt;')]"/>
+            <!-- one user per line: the Jira field is multi-line text, jira-sys-api makes one ADF paragraph per line (ERR-0024) -->
+            <munit-tools:assert-that expression="#[vars.ticket.additionalUsers]" is="#[MunitTools::equalTo('Ellen Clark &lt;ellen.clark@example.org&gt;\nAshley Peska &lt;ashley.peska@example.org&gt;')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.technicalContact.email]" is="#[MunitTools::equalTo('devonna.dionne@example.org')]"/>
             <!-- no Partner Contact -> no partner block; the fixed headers are present -->
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Partner Contact'))]"/>
