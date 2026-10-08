@@ -851,10 +851,15 @@
             <!-- no Partner Contact -> no partner block; the fixed headers are present -->
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Partner Contact'))]"/>
             <!-- contact blocks appear with their header only when the contact exists (both do in this sample) -->
-            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Primary Contact\nPat Example\npat@example.org')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Technical Contact\nDevonna Dionne\ndevonna.dionne@example.org')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('=========Sales Notes=========')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('S22 Community Improvement, Capacity Building')]"/>
+            <!-- description markup (rendered by jira-sys-api): bold labels, underlined names, e-mail on its own paragraph,
+                 Sales Notes as bullets, bold section headers, Order section = the Salesforce Order Id only (Swati, 8 Oct 2026) -->
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**Primary Contact**\n__Pat Example__\n\npat@example.org')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**Technical Contact**\n__Devonna Dionne__\n\ndevonna.dionne@example.org')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========Sales Notes==========**\n\n- We received an email from Acme Nonprofit')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========NTEE Code==========**\nS22 Community Improvement, Capacity Building')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========Order==========**\nSalesforce Order Id - 801Su000001OrdAIAS')]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Salesforce record:'))]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Opportunity:'))]"/>
             <!-- reporter per environment (config-test: test-natalie-account-id) and the duplicate-detection labels -->
             <munit-tools:assert-that expression="#[vars.ticket.reporterAccountId]" is="#[MunitTools::equalTo('test-natalie-account-id')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>

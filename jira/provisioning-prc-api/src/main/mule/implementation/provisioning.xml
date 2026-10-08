@@ -276,7 +276,8 @@ var base = {
 var ctx = base ++ { derived: {
   primaryContactBlock:   applyRule("primaryContactBlock", base),
   technicalContactBlock: applyRule("technicalContactBlock", base),
-  partnerBlock:          applyRule("partnerBlock", base)
+  partnerBlock:          applyRule("partnerBlock", base),
+  salesNotes:            applyRule("salesNotes", base)
 } }
 ---
 buildTicket(mapping, ctx)]]></ee:set-variable>

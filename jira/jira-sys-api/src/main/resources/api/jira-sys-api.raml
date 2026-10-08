@@ -33,7 +33,11 @@ types:
       summary: string
       description?:
         type: string | nil
-        description: Plain text; each line becomes one paragraph of the Jira description.
+        description: |
+          Text with a small markup, rendered to Atlassian Document Format: a blank line starts a new paragraph;
+          a single newline is a line break inside the paragraph; a line starting with "- " is a bullet (a block whose
+          lines are all bullets becomes one bullet list); **text** is bold; __text__ is underlined; a line that is
+          only an e-mail address becomes a mailto link. Anything else is plain text.
       labels?:
         type: string[] | nil
         description: Jira labels (no spaces). The process API uses them to detect a ticket it already created.

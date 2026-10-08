@@ -29,13 +29,20 @@ fields:
     maxLength: 255
 
   description:
+    # (one blank line between lines: jira-sys-api renders a blank line as a paragraph break, a newline as a line break)
     template: |
       Provisioning request from Salesforce (MuleSoft integration).
+
       Opportunity: {opp.name} ({opp.opportunityNumber})
+
       Account: {opp.account.name}
+
       Production instance: {opp.productionInstanceName}
+
       Business unit: {opp.businessUnit}
+
       Sales notes: {opp.description}
+
       Salesforce record: {sfUrl}
 
   # Required by Jira on a System Setup ticket

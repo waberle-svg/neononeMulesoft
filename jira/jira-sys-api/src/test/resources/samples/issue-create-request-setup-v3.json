@@ -2,9 +2,12 @@
   "project": "NSSU",
   "issueType": "SYSTEM_SETUP",
   "summary": "Acme Nonprofit",
-  "description": "Primary Contact\nPat Example\npat@example.org\nTechnical Contact\nDevonna Dionne\ndevonna.dionne@example.org\n=========Sales Notes=========\nSales notes for the setup team\n=========NTEE Code=========\nS22 Community Improvement, Capacity Building",
+  "description": "**Primary Contact**\n__Pat Example__\n\npat@example.org\n\n**Technical Contact**\n__Devonna Dionne__\n\ndevonna.dionne@example.org\n\n**==========Sales Notes==========**\n\n- We received an email from Acme Nonprofit expressing renewed interest.\n- Their first fundraiser is complete.\n\n**==========NTEE Code==========**\nS22 Community Improvement, Capacity Building\n\n**==========Order==========**\nSalesforce Order Id - 801Su000001OrdAIAS\n",
   "reporterAccountId": "60a27983391e56006e52cca8",
-  "labels": ["sf-setup-801Su000001OrdAIAS-neon_crm", "sf-setup"],
+  "labels": [
+    "sf-setup-801Su000001OrdAIAS-neon_crm",
+    "sf-setup"
+  ],
   "productionInstance": "acmenonprofit",
   "modules": "Core CRM Subscription Fee, Neon CRM SimpleStart",
   "implementationType": "Assisted Self Import",
@@ -17,7 +20,13 @@
   "sfAccountId": "001Su00000tjc9VIAQ",
   "sfOpportunityNumber": "O-0210538",
   "organizationName": "Acme Nonprofit",
-  "primaryContact": { "name": "Pat Example", "email": "pat@example.org" },
-  "technicalContact": { "name": "Devonna Dionne", "email": "devonna.dionne@example.org" },
+  "primaryContact": {
+    "name": "Pat Example",
+    "email": "pat@example.org"
+  },
+  "technicalContact": {
+    "name": "Devonna Dionne",
+    "email": "devonna.dionne@example.org"
+  },
   "correlationId": "a0BSu000001orderMAA"
 }

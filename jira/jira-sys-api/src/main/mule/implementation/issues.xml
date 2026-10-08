@@ -45,6 +45,7 @@ output application/json skipNullOn="everywhere"
             <ee:message>
                 <ee:set-payload><![CDATA[%dw 2.0
 import try from dw::Runtime
+import * from modules::Adf
 output application/json skipNullOn="everywhere"
 
 var req = vars.request
@@ -55,18 +56,13 @@ var webTemplateCopyValue = p('jira.options.webTemplateCopy.' ++ (req.webTemplate
 // Ticket owner: request may override, else the environment default; empty -> Jira decides (token user / project default)
 var reporterAccountId = (req.reporterAccountId default p('jira.defaults.reporterAccountId')) default ""
 
-// Jira Cloud requires rich-text fields in Atlassian Document Format; one paragraph per line of the canonical description
-fun paragraph(text) = { "type": "paragraph", content: [{ "type": "text", text: text }] }
-fun adf(text) = do {
-  var lines = (((text default "") as String) splitBy "\n") filter ((l) -> !isEmpty(trim(l)))
-  ---
-  { "type": "doc", version: 1, content: if (isEmpty(lines)) [paragraph(" ")] else (lines map paragraph($)) }
-}
+// Jira Cloud requires rich-text fields in Atlassian Document Format: modules::Adf renders the description markup
+// (bold / underline / bullets / line breaks / mailto, see the RAML) and the one-per-line Additional Users.
 
 // Every field this API knows how to send, by canonical name -> { Jira field, value }
 var candidates = {
   summary:               { field: "summary",     value: req.summary },
-  description:           { field: "description", value: adf(req.description) },
+  description:           { field: "description", value: toAdf(req.description) },
   reporter:              { field: "reporter",    value: if (isEmpty(reporterAccountId)) null else { accountId: reporterAccountId } },
   labels:                { field: "labels",      value: req.labels },
   dueDate:               { field: "duedate",     value: req.dueDate },
@@ -89,7 +85,7 @@ var candidates = {
   nteeCategory:          { field: p('jira.fields.nteeCategory'),          value: req.nteeCategory },
   // Additional Users is a MULTI-LINE text field (schema textarea): Jira Cloud v3 takes ADF, not a string (ERR-0024, 8 Oct 2026).
   // One paragraph per line of the request value; absent when the request carries none.
-  additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: if (req.additionalUsers == null) null else adf(req.additionalUsers) }
+  additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: if (req.additionalUsers == null) null else adfLines(req.additionalUsers) }
 }
 // The issue type's CREATE SCREEN decides which of them are sent: Jira answers 400 for a field that is not on the screen.
 // jira.screens.<TYPE> lists canonical names (config); no entry = send everything (the behaviour before Scenario 2).

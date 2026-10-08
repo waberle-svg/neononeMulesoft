@@ -38,15 +38,24 @@ fields:
 
   # First line as in the document; the rest gives the receiving team the "when" and the "why" (agreed with Swati 29 Sep 2026)
   description:
+    # (one blank line between lines: jira-sys-api renders a blank line as a paragraph break, a newline as a line break)
     template: |
       Please deactivate the following:
+
       {line.instanceLabel}: {line.instanceId}
+
       Product line: {line.salesforceValue}
+
       Deactivation date (last paid day): {line.deactivationDateText}
+
       Cancellation status: {opp.account.cancellationStatus}
+
       Account: {opp.account.name}
+
       Opportunity: {opp.name} ({opp.opportunityNumber})
+
       Salesforce record: {sfUrl}
+
       Created by the Salesforce -> Jira integration (MuleSoft). Do not shut down before the deactivation date.
 
   # Jira "Due date" = the day the instance may be switched off (Account.Deactivation_Date__c)

@@ -58,21 +58,25 @@ fields:
     source: "opp.account.name"
     maxLength: 255
 
-  # Description layout per the document's screenshot (SETUP-11083): contacts, partner block only when present,
-  # Sales Notes, NTEE Code; plus the Order/Opportunity line and the Salesforce link for traceability.
-  # jira-sys-api turns every non-blank line into one paragraph.
+  # Description laid out like the setup team's hand-written tickets (SETUP-11083; Swati, 8 Oct 2026):
+  #   bold labels, underlined contact names, e-mail on its own line, Sales Notes as bullets, bold section
+  #   headers with the value on the next line, and an Order section holding ONLY the Salesforce Order Id.
+  # Markup rendered by jira-sys-api: blank line = new paragraph, newline = line break, "- " = bullet,
+  # **bold**, __underline__, a bare e-mail = mailto link.
   description:
     template: |
       {derived.primaryContactBlock}
       {derived.technicalContactBlock}
       {derived.partnerBlock}
-      =========Sales Notes=========
-      {opp.description}
-      =========NTEE Code=========
+      **==========Sales Notes==========**
+
+      {derived.salesNotes}
+
+      **==========NTEE Code==========**
       {opp.account.nteeCode} {opp.account.nteeDivision}
-      =========Order=========
-      Order {order.orderNumber} / Opportunity {opp.name} ({opp.opportunityNumber})
-      Salesforce record: {sfUrl}
+
+      **==========Order==========**
+      Salesforce Order Id - {order.id}
 
   # Required on the System Setup screen
   productionInstance: { source: "opp.productionInstanceName", default: "Pending" }

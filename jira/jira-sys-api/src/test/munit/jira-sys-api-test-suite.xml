@@ -571,6 +571,18 @@
             <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.customfield_15316.content)]" is="#[MunitTools::equalTo(2)]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316.content[0].content[0].text]" is="#[MunitTools::containsString('Ellen Clark &lt;ellen.clark@example.org&gt;')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15316.content[1].content[0].text]" is="#[MunitTools::containsString('Ashley Peska')]"/>
+            <!-- description markup -> ADF (modules::Adf): bold label + line break + underlined name in one paragraph,
+                 e-mail as a mailto paragraph, the Sales Notes block as a bullet list, bold section header + value -->
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[0].content[0].text]" is="#[MunitTools::equalTo('Primary Contact')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[0].content[0].marks[0].'type']" is="#[MunitTools::equalTo('strong')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[0].content[1].'type']" is="#[MunitTools::equalTo('hardBreak')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[0].content[2].text]" is="#[MunitTools::equalTo('Pat Example')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[0].content[2].marks[0].'type']" is="#[MunitTools::equalTo('underline')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[1].content[0].marks[0].attrs.href]" is="#[MunitTools::equalTo('mailto:pat@example.org')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[5].'type']" is="#[MunitTools::equalTo('bulletList')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.description.content[5].content)]" is="#[MunitTools::equalTo(2)]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[6].content[2].text]" is="#[MunitTools::equalTo('S22 Community Improvement, Capacity Building')]"/>
+            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[7].content[2].text]" is="#[MunitTools::equalTo('Salesforce Order Id - 801Su000001OrdAIAS')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15259]" is="#[MunitTools::equalTo('Devonna Dionne')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>

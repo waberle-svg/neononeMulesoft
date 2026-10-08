@@ -69,15 +69,32 @@ fun applyRule(rule: String, ctx) =
         case "primaryContactBlock"   -> contactBlock("Primary Contact",   ctx.opp.primaryContact)
         case "technicalContactBlock" -> contactBlock("Technical Contact", ctx.opp.technicalContact)
         case "partnerBlock"          -> contactBlock("Partner Contact",   ctx.opp.partnerContact)
+        case "salesNotes"            -> salesNotes(ctx.opp.description)
         else -> null
     }
 
+/**
+ * Contact block in the description markup jira-sys-api renders (modelled on SETUP-11083, 8 Oct 2026):
+ *   **Header**            bold label, then a line break and the
+ *   __Name__              underlined name in the same paragraph,
+ *   (blank line)
+ *   email                 the e-mail as its own paragraph (jira-sys-api turns a bare address into a mailto link)
+ * Header hidden when the contact is blank (document rule).
+ */
 fun contactBlock(header: String, c) = do {
     var name  = trim((c.name default "") as String)
     var email = trim((c.email default "") as String)
+    var head  = "**" ++ header ++ "**" ++ (if (isEmpty(name)) "" else "\n__" ++ name ++ "__")
     ---
     if (c == null or (isEmpty(name) and isEmpty(email))) null
-    else header ++ "\n" ++ (if (isEmpty(name)) "" else name ++ "\n") ++ (if (isEmpty(email)) "" else email ++ "\n")
+    else head ++ "\n\n" ++ (if (isEmpty(email)) "" else email ++ "\n\n")
+}
+
+/** Sales notes (Opportunity.Description): one bullet per non-blank line, for the "Sales Notes" section */
+fun salesNotes(text) = do {
+    var lines = (((text default "") as String) splitBy "\n") map trim($) filter ((l) -> !isEmpty(l))
+    ---
+    if (isEmpty(lines)) null else ((lines map ((l) -> "- " ++ l)) joinBy "\n")
 }
 
 fun evalSpec(spec, ctx) = do {

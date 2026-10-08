@@ -2,11 +2,14 @@
   "project": "NSSU",
   "issueType": "SYSTEM_SETUP",
   "summary": "System shutdown for /acmenonprofit/",
-  "description": "Please deactivate the following:\nCRM Instance: acmenonprofit\nDeactivation date (last paid day): 2027-09-22",
+  "description": "Please deactivate the following:\n\nCRM Instance: acmenonprofit\n\nDeactivation date (last paid day): 2027-09-22",
   "productionInstance": "acmenonprofit",
   "modules": "N/A - deactivation",
   "webTemplateCopy": "NOT_PURCHASED",
-  "labels": ["sf-deact-006Su00000Xd0ehIAB-neon_crm", "sf-deact"],
+  "labels": [
+    "sf-deact-006Su00000Xd0ehIAB-neon_crm",
+    "sf-deact"
+  ],
   "dueDate": "2027-09-22",
   "sfOpportunityId": "006Su00000Xd0ehIAB",
   "sfAccountId": "001Su00000tjc9VIAQ",
