@@ -21,62 +21,10 @@ http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/
 		</http:default-headers>
 	</http:request-config>
 	<global-property doc:name="Global Property" doc:id="2407a259-518e-46fb-910a-e191d41e45dc" name="env" value="dev" />
-	<flow name="project-created-to-rocketlane" doc:id="79f5ba93-ffc2-4e1d-ba72-9e185f10f811" >
-		<salesforce:replay-channel-listener doc:name="Replay channel listener" doc:id="d77671ee-5467-46d0-8305-812f5eb983fc" config-ref="Salesforce_Config" streamingChannel="/data/Project__ChangeEvent" replayOption="ONLY_NEW"/>
-		<choice doc:name="Choice" doc:id="9a8d60cb-3d26-4d1d-852a-40da278b6435" >
-			<when expression='#[payload.data.payload.ChangeEventHeader.changeType == "CREATE"]'>
-				<http:request method="GET" doc:name="single-choice fields" doc:id="41bbf632-f6ed-4575-9d6a-1fd892fc5308" config-ref="Rocketlane_HTTP" path="/fields" target="rlSingleChoice">
-					<http:query-params ><![CDATA[#[output application/java
----
-{
-	"objectType.eq" : "PROJECT",
-	"pageSize" : "100",
-	"fieldType.eq" : "SINGLE_CHOICE",
-	"includeFields" : "options"
-}]]]></http:query-params>
-				</http:request>
-				<http:request method="GET" doc:name="multi-choice fields" doc:id="feb712b6-21fc-44ef-ac44-1da4a408e4a6" config-ref="Rocketlane_HTTP" path="/fields" target="rlMultiChoice">
-					<http:query-params ><![CDATA[#[output application/java
----
-{
-	"objectType.eq" : "PROJECT",
-	"pageSize" : "100",
-	"fieldType.eq" : "MULTIPLE_CHOICE",
-	"includeFields" : "options"
-}]]]></http:query-params>
-				</http:request>
-				<salesforce:query doc:name="Query" doc:id="d0601d18-3fb3-45cf-bd1a-8e639a8e6918" config-ref="Salesforce_Config" >
-					<salesforce:salesforce-query ><![CDATA[SELECT Id, Name, Rocketlane_Id__c, StartDate__c, CloseDate__c, BusinessUnit__c, ImplementationTimelineDeadline__c, IsTestAccount__c, TemplateCopyURL__c, Implementation_Products__c, Implementation_Type__c, Neon_CRM_Instance_Created_Date__c, CreatedDate, ProductionInstanceName__c, ProjectType__c, Instance_Login__c,
-       Account__r.Name, Account__r.Federated_Partner_Spoke__c, Account__r.Purchased_Website_Build__c, Account__r.Website_Build_Status__c,
-       Account__r.Account_Product__c, Account__r.x18__c, Account__r.PrimaryContactName__c, Account__r.Primary_Contact_Email__c,
-       Account__r.TechnicalContactName__c, Account__r.TechnicalContactEmail__c, Account__r.Purchased_NCRM_Implementation__c, Account__r.Neon_Websites_Package__c,
-       Account__r.Website_Launch_Date__c, Account__r.Website_Abandoned_Date__c, Account__r.Account_Owner_Text__c, Account__r.Timezone__c,
-       Account__r.BillingStreet, Account__r.BillingCity, Account__r.BillingState, Account__r.BillingPostalCode,
-       Account__r.BillingCountry, Account__r.BillingCountryCode, Account__r.BillingStateCode, Account__r.Website,
-       Account__r.NCRM_Implementation_Complete_Date__c, Account__r.NCRM_Implementation_Status__c, Account__r.NCRM_Implementation_Incomplete_Date__c, Account__r.Arts_People_Implementation_Incomplete_Da__c,
-       Account__r.Rallybound_Implementation_Incomplete_Dat__c, Account__r.Arts_People_Implementation_Status__c, Account__r.Arts_People_Implementation_Complete_Date__c, Account__r.Purchased_Rallybound_Implementation__c,
-       Account__r.Rallybound_Implementation_Complete_Date__c, Account__r.Rallybound_Implementation_Status__c,
-       Opportunity__r.Other_Legacy_Database__c, Opportunity__r.ImplementationTimeDeadlines__c, Opportunity__r.LeadSource, Opportunity__r.Implementation_Priority__c,
-       Opportunity__r.Priorities_for_Initial_Set_Up__c, Opportunity__r.NeonCRM_Modules__c, Opportunity__r.Level_of_Priority__c, Opportunity__r.Current_Accounting_System__c,
-       Opportunity__r.Special_Pricing_or_Add_On_Notes__c, Opportunity__r.Estimated_Launch_Date__c, Opportunity__r.TrialURL__c, Opportunity__r.CloseDate,
-       Opportunity__r.Neon_Pay_Processor__c, Opportunity__r.External_Consultant__c, Opportunity__r.PartnerAccount__r.Name, Opportunity__r.Partner_Name__c,
-       Opportunity__r.Partner_Email__c, Opportunity__r.Partner_Phone_Number__c, Opportunity__r.Website__c, Opportunity__r.ProductRollup__c,
-       Opportunity__r.In_Person_Payments_Interest__c
-FROM Project__c
-WHERE Id IN :ids AND Rocketlane_Id__c = null
-]]></salesforce:salesforce-query>
-					<salesforce:parameters ><![CDATA[#[output application/java
----
-{
-    ids: "('" ++ (payload.data.payload.ChangeEventHeader.recordIds joinBy "','") ++ "')"
-}]]]></salesforce:parameters>
-				</salesforce:query>
-				<foreach doc:name="For Each" doc:id="5965fcf3-4040-419c-a7ad-0289626da326" collection="#[payload]">
-					<set-variable value="#[payload.Account__r.Website]" doc:name="Set Variable" doc:id="c66ee2a2-576c-41e0-bec2-d380f2d9f662" variableName="accountWebsite"/>
-					<set-variable value="#[payload.Id]" doc:name="Set Variable" doc:id="940e9764-3058-4a2d-8f64-07cbae3e78cc" variableName="sfId"/>
-					<ee:transform doc:name="Transform Message" doc:id="7cbe5124-ea68-4982-8219-72b4953feb59" >
-						<ee:message >
-							<ee:set-payload ><![CDATA[%dw 2.0
+	<sub-flow name="build-rocketlane-body" doc:id="b1843588-11bc-4fb0-b61b-a44f7720bdc5" >
+		<ee:transform doc:name="Transform Message" doc:id="7cbe5124-ea68-4982-8219-72b4953feb59">
+						<ee:message>
+							<ee:set-payload><![CDATA[%dw 2.0
 import firstWith from dw::core::Arrays
 output application/json
 
@@ -182,24 +130,174 @@ fun rlField(name, value) = if (value == null or value == []) null else { fieldId
 ]]></ee:set-payload>
 						</ee:message>
 					</ee:transform>
-					<http:request method="POST" doc:name="Request" doc:id="322c2a1e-93f6-44f8-9066-20890079b4e7" config-ref="Rocketlane_HTTP" path="/projects"/>
-					<set-variable value="#[payload.customer.companyId]" doc:name="Set Variable" doc:id="17514d9d-58bd-4c46-91c3-74d3b0137166" variableName="rlCompanyId"/>
-					<salesforce:update type="Project__c" doc:name="Update" doc:id="36ed15b2-725d-4ec1-b842-d8ac97cd44a2" config-ref="Salesforce_Config">
-						<salesforce:records ><![CDATA[#[[{ Id: vars.sfId, Rocketlane_Id__c: payload.projectId as String }]]]]></salesforce:records>
+	</sub-flow>
+	<flow name="project-created-to-rocketlane" doc:id="79f5ba93-ffc2-4e1d-ba72-9e185f10f811" maxConcurrency="1">
+		<salesforce:replay-channel-listener doc:name="Replay channel listener" doc:id="d77671ee-5467-46d0-8305-812f5eb983fc" config-ref="Salesforce_Config" streamingChannel="/data/Project__ChangeEvent" replayOption="ALL" autoReplay="true"/>
+		<choice doc:name="Choice" doc:id="9a8d60cb-3d26-4d1d-852a-40da278b6435" >
+			<when expression='#[payload.data.payload.ChangeEventHeader.changeType == "CREATE"]'>
+				<until-successful maxRetries="3" doc:name="Until Successful" doc:id="7af3a9e5-e38e-4f54-843f-a95a011aa44e" millisBetweenRetries="15000">
+					<http:request method="GET" doc:name="single-choice fields" doc:id="41bbf632-f6ed-4575-9d6a-1fd892fc5308" config-ref="Rocketlane_HTTP" path="/fields" target="rlSingleChoice">
+					<http:query-params><![CDATA[#[output application/java
+---
+{
+	"objectType.eq" : "PROJECT",
+	"pageSize" : "100",
+	"fieldType.eq" : "SINGLE_CHOICE",
+	"includeFields" : "options"
+}]]]></http:query-params>
+				</http:request>
+					<http:request method="GET" doc:name="multi-choice fields" doc:id="feb712b6-21fc-44ef-ac44-1da4a408e4a6" config-ref="Rocketlane_HTTP" path="/fields" target="rlMultiChoice">
+					<http:query-params><![CDATA[#[output application/java
+---
+{
+	"objectType.eq" : "PROJECT",
+	"pageSize" : "100",
+	"fieldType.eq" : "MULTIPLE_CHOICE",
+	"includeFields" : "options"
+}]]]></http:query-params>
+				</http:request>
+				</until-successful>
+				<salesforce:query doc:name="Query" doc:id="d0601d18-3fb3-45cf-bd1a-8e639a8e6918" config-ref="Salesforce_Config" >
+					<salesforce:salesforce-query ><![CDATA[SELECT Id, Name, Rocketlane_Id__c, StartDate__c, CloseDate__c, BusinessUnit__c, ImplementationTimelineDeadline__c, IsTestAccount__c, TemplateCopyURL__c, Implementation_Products__c, Implementation_Type__c, Neon_CRM_Instance_Created_Date__c, CreatedDate, ProductionInstanceName__c, ProjectType__c, Instance_Login__c,
+       Account__r.Name, Account__r.Federated_Partner_Spoke__c, Account__r.Purchased_Website_Build__c, Account__r.Website_Build_Status__c,
+       Account__r.Account_Product__c, Account__r.x18__c, Account__r.PrimaryContactName__c, Account__r.Primary_Contact_Email__c,
+       Account__r.TechnicalContactName__c, Account__r.TechnicalContactEmail__c, Account__r.Purchased_NCRM_Implementation__c, Account__r.Neon_Websites_Package__c,
+       Account__r.Website_Launch_Date__c, Account__r.Website_Abandoned_Date__c, Account__r.Account_Owner_Text__c, Account__r.Timezone__c,
+       Account__r.BillingStreet, Account__r.BillingCity, Account__r.BillingState, Account__r.BillingPostalCode,
+       Account__r.BillingCountry, Account__r.BillingCountryCode, Account__r.BillingStateCode, Account__r.Website,
+       Account__r.NCRM_Implementation_Complete_Date__c, Account__r.NCRM_Implementation_Status__c, Account__r.NCRM_Implementation_Incomplete_Date__c, Account__r.Arts_People_Implementation_Incomplete_Da__c,
+       Account__r.Rallybound_Implementation_Incomplete_Dat__c, Account__r.Arts_People_Implementation_Status__c, Account__r.Arts_People_Implementation_Complete_Date__c, Account__r.Purchased_Rallybound_Implementation__c,
+       Account__r.Rallybound_Implementation_Complete_Date__c, Account__r.Rallybound_Implementation_Status__c,
+       Opportunity__r.Other_Legacy_Database__c, Opportunity__r.ImplementationTimeDeadlines__c, Opportunity__r.LeadSource, Opportunity__r.Implementation_Priority__c,
+       Opportunity__r.Priorities_for_Initial_Set_Up__c, Opportunity__r.NeonCRM_Modules__c, Opportunity__r.Level_of_Priority__c, Opportunity__r.Current_Accounting_System__c,
+       Opportunity__r.Special_Pricing_or_Add_On_Notes__c, Opportunity__r.Estimated_Launch_Date__c, Opportunity__r.TrialURL__c, Opportunity__r.CloseDate,
+       Opportunity__r.Neon_Pay_Processor__c, Opportunity__r.External_Consultant__c, Opportunity__r.PartnerAccount__r.Name, Opportunity__r.Partner_Name__c,
+       Opportunity__r.Partner_Email__c, Opportunity__r.Partner_Phone_Number__c, Opportunity__r.Website__c, Opportunity__r.ProductRollup__c,
+       Opportunity__r.In_Person_Payments_Interest__c
+FROM Project__c
+WHERE Id IN :ids AND Rocketlane_Id__c = null
+]]></salesforce:salesforce-query>
+					<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+    ids: "('" ++ (payload.data.payload.ChangeEventHeader.recordIds joinBy "','") ++ "')"
+}]]]></salesforce:parameters>
+				</salesforce:query>
+				<foreach doc:name="For Each" doc:id="5965fcf3-4040-419c-a7ad-0289626da326" collection="#[payload]">
+					<try doc:name="Try" doc:id="44fa2ec2-b717-4573-91d9-c5a881fe3acf" >
+						<set-variable value="#[payload.Account__r.Website]" doc:name="Set Variable" doc:id="c66ee2a2-576c-41e0-bec2-d380f2d9f662" variableName="accountWebsite" />
+						<set-variable value="#[payload.Id]" doc:name="Set Variable" doc:id="940e9764-3058-4a2d-8f64-07cbae3e78cc" variableName="sfId" />
+						<flow-ref doc:name="Flow Reference" doc:id="26932895-457c-4e9b-9139-73677896a8a3" name="build-rocketlane-body" />
+						<until-successful maxRetries="3" doc:name="Until Successful" doc:id="8a6fc454-1ebb-499d-bf3e-4f87f5f1cc5e" millisBetweenRetries="15000">
+						<http:request method="POST" doc:name="Request" doc:id="322c2a1e-93f6-44f8-9066-20890079b4e7" config-ref="Rocketlane_HTTP" path="/projects" />
+					</until-successful>
+						<set-variable value="#[payload.customer.companyId]" doc:name="Set Variable" doc:id="17514d9d-58bd-4c46-91c3-74d3b0137166" variableName="rlCompanyId" />
+						<salesforce:update type="Project__c" doc:name="Update" doc:id="36ed15b2-725d-4ec1-b842-d8ac97cd44a2" config-ref="Salesforce_Config">
+						<salesforce:records><![CDATA[#[[{ Id: vars.sfId, Rocketlane_Id__c: payload.projectId as String }]]]]></salesforce:records>
 					</salesforce:update>
-					<choice doc:name="Choice" doc:id="7860acbc-e754-4c0e-bb9d-cea628f5cc5e" >
+						<choice doc:name="Choice" doc:id="7860acbc-e754-4c0e-bb9d-cea628f5cc5e">
 						<when expression="#[not isEmpty(vars.accountWebsite)]">
-							<http:request method="PUT" doc:name="Request" doc:id="a3b3597a-eaca-4514-be7d-2e4fb53b2d58" config-ref="Rocketlane_HTTP" path="/companies/{companyId}" target="rlCompanyUpdate">
-								<http:body ><![CDATA[#[output application/json --- { companyUrl: vars.accountWebsite }]]]></http:body>
-								<http:uri-params ><![CDATA[#[output application/java
+							<until-successful maxRetries="3" doc:name="Until Successful" doc:id="0e7d26a8-0238-4d62-9b83-ea4b7deb84dc" millisBetweenRetries="15000">
+								<http:request method="PUT" doc:name="Request" doc:id="a3b3597a-eaca-4514-be7d-2e4fb53b2d58" config-ref="Rocketlane_HTTP" path="/companies/{companyId}" target="rlCompanyUpdate">
+								<http:body><![CDATA[#[output application/json --- { companyUrl: vars.accountWebsite }]]]></http:body>
+								<http:uri-params><![CDATA[#[output application/java
 ---
 {
     companyId: vars.rlCompanyId
 }]]]></http:uri-params>
 							</http:request>
+							</until-successful>
 						</when>
 					</choice>
-					<logger level="INFO" doc:name="Logger" doc:id="d113ad59-bcff-493c-9c91-cba3fd8f7c85" message="#[payload]" />
+						<logger level="INFO" doc:name="Logger" doc:id="494a9bcc-b43d-4b16-9bfe-57168ab9063e" message='#[output text/plain --- "Project " ++ (vars.sfId default "?") ++ " synced to Rocketlane company " ++ ((vars.rlCompanyId default "?") as String)]'/>
+						<error-handler >
+							<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="1a95d36f-3b92-4147-a037-e4365481123a" >
+								<logger level="ERROR" doc:name="Logger" doc:id="d113ad59-bcff-493c-9c91-cba3fd8f7c85" message='#[output text/plain --- "Rocketlane sync FAILED for Project " ++ (vars.sfId default "?") ++ ": " ++ (error.description default "") ++ " | Rocketlane response: " ++ write((error.childErrors[0].errorMessage.payload default error.errorMessage.payload) default "", "application/json") ++ " | Sent body: " ++ write(payload, "application/json")]' />
+							</on-error-continue>
+						</error-handler>
+					</try>
+				</foreach>
+			</when>
+			<when expression='#[payload.data.payload.ChangeEventHeader.changeType == "UPDATE" and sizeOf((payload.data.payload.ChangeEventHeader.changedFields default []) filter (["Account__c","BusinessUnit__c","CloseDate__c","CreatedDate","ImplementationTimelineDeadline__c","Implementation_Products__c","Implementation_Type__c","Instance_Login__c","IsTestAccount__c","Neon_CRM_Instance_Created_Date__c","Opportunity__c","ProductionInstanceName__c","ProjectType__c","StartDate__c","TemplateCopyURL__c","sysImplementationType__c"] contains $)) &gt; 0]'>
+				<logger level="INFO" doc:name="Logger" doc:id="037da2f6-d2c9-4ad6-80c2-4385df2072d1" message='#[output text/plain --- "UPDATE detected for Project " ++ (payload.data.payload.ChangeEventHeader.recordIds joinBy ",") ++ " | changed: " ++ (payload.data.payload.ChangeEventHeader.changedFields joinBy ",")]' />
+				<until-successful maxRetries="3" doc:name="Until Successful" doc:id="0ba5a1d3-a9a3-4133-b4e2-974462f9878a" millisBetweenRetries="15000" >
+					<http:request method="GET" doc:name="single-choice fields" doc:id="3a0f6f8a-b1fd-4376-b82f-54c9afec39b5" config-ref="Rocketlane_HTTP" path="/fields" target="rlSingleChoice" >
+						<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"objectType.eq" : "PROJECT",
+	"pageSize" : "100",
+	"fieldType.eq" : "SINGLE_CHOICE",
+	"includeFields" : "options"
+}]]]></http:query-params>
+					</http:request>
+					<http:request method="GET" doc:name="multi-choice fields" doc:id="d1e25766-5ef4-4dcf-ae29-e652a55f891a" config-ref="Rocketlane_HTTP" path="/fields" target="rlMultiChoice" >
+						<http:query-params ><![CDATA[#[output application/java
+---
+{
+	"objectType.eq" : "PROJECT",
+	"pageSize" : "100",
+	"fieldType.eq" : "MULTIPLE_CHOICE",
+	"includeFields" : "options"
+}]]]></http:query-params>
+					</http:request>
+				</until-successful>
+				<salesforce:query doc:name="Query" doc:id="0b9d4bf8-248c-4e12-af00-364915f97678" config-ref="Salesforce_Config" >
+					<salesforce:salesforce-query ><![CDATA[SELECT Id, Name, Rocketlane_Id__c, StartDate__c, CloseDate__c, BusinessUnit__c, ImplementationTimelineDeadline__c, IsTestAccount__c, TemplateCopyURL__c, Implementation_Products__c, Implementation_Type__c, Neon_CRM_Instance_Created_Date__c, CreatedDate, ProductionInstanceName__c, ProjectType__c, Instance_Login__c,
+       Account__r.Name, Account__r.Federated_Partner_Spoke__c, Account__r.Purchased_Website_Build__c, Account__r.Website_Build_Status__c,
+       Account__r.Account_Product__c, Account__r.x18__c, Account__r.PrimaryContactName__c, Account__r.Primary_Contact_Email__c,
+       Account__r.TechnicalContactName__c, Account__r.TechnicalContactEmail__c, Account__r.Purchased_NCRM_Implementation__c, Account__r.Neon_Websites_Package__c,
+       Account__r.Website_Launch_Date__c, Account__r.Website_Abandoned_Date__c, Account__r.Account_Owner_Text__c, Account__r.Timezone__c,
+       Account__r.BillingStreet, Account__r.BillingCity, Account__r.BillingState, Account__r.BillingPostalCode,
+       Account__r.BillingCountry, Account__r.BillingCountryCode, Account__r.BillingStateCode, Account__r.Website,
+       Account__r.NCRM_Implementation_Complete_Date__c, Account__r.NCRM_Implementation_Status__c, Account__r.NCRM_Implementation_Incomplete_Date__c, Account__r.Arts_People_Implementation_Incomplete_Da__c,
+       Account__r.Rallybound_Implementation_Incomplete_Dat__c, Account__r.Arts_People_Implementation_Status__c, Account__r.Arts_People_Implementation_Complete_Date__c, Account__r.Purchased_Rallybound_Implementation__c,
+       Account__r.Rallybound_Implementation_Complete_Date__c, Account__r.Rallybound_Implementation_Status__c,
+       Opportunity__r.Other_Legacy_Database__c, Opportunity__r.ImplementationTimeDeadlines__c, Opportunity__r.LeadSource, Opportunity__r.Implementation_Priority__c,
+       Opportunity__r.Priorities_for_Initial_Set_Up__c, Opportunity__r.NeonCRM_Modules__c, Opportunity__r.Level_of_Priority__c, Opportunity__r.Current_Accounting_System__c,
+       Opportunity__r.Special_Pricing_or_Add_On_Notes__c, Opportunity__r.Estimated_Launch_Date__c, Opportunity__r.TrialURL__c, Opportunity__r.CloseDate,
+       Opportunity__r.Neon_Pay_Processor__c, Opportunity__r.External_Consultant__c, Opportunity__r.PartnerAccount__r.Name, Opportunity__r.Partner_Name__c,
+       Opportunity__r.Partner_Email__c, Opportunity__r.Partner_Phone_Number__c, Opportunity__r.Website__c, Opportunity__r.ProductRollup__c,
+       Opportunity__r.In_Person_Payments_Interest__c
+FROM Project__c
+WHERE Id IN :ids AND Rocketlane_Id__c != null
+]]></salesforce:salesforce-query>
+					<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+    ids: "('" ++ (payload.data.payload.ChangeEventHeader.recordIds joinBy "','") ++ "')"
+}]]]></salesforce:parameters>
+				</salesforce:query>
+				<foreach doc:name="For Each" doc:id="ca7a00f3-04d9-401d-aaf6-24dd341d875f" collection="#[payload]">
+					<try doc:name="Try" doc:id="4bf0cfab-f771-4474-b79d-c544daf77278" >
+						<set-variable value="#[payload.Id]" doc:name="Set Variable" doc:id="c64e8263-7532-45ce-af20-fd2910394b99" variableName="sfId"/>
+						<set-variable value="#[payload.Rocketlane_Id__c]" doc:name="Set Variable" doc:id="ccffb628-b3ce-4d22-bae6-7ddec0cf831b" variableName="rlProjectId"/>
+						<flow-ref doc:name="Flow Reference" doc:id="7d01e892-e754-45eb-b5fa-fb26576f5e65" name="build-rocketlane-body"/>
+						<ee:transform doc:name="Transform Message" doc:id="9e3ada21-83f1-48bc-931d-54dd1a8a5676" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload filterObject ((value, key) -> ["startDate", "fields"] contains (key as String))
+]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<until-successful maxRetries="3" doc:name="Until Successful" doc:id="d4f8eaad-d6de-4ea8-af12-27ed5d975a56" millisBetweenRetries="15000">
+							<http:request method="PUT" doc:name="Request" doc:id="38a913a1-b759-4d27-90c6-e817010d8d68" config-ref="Rocketlane_HTTP" path="/projects/{projectId}">
+								<http:uri-params ><![CDATA[#[output application/java
+---
+{
+    projectId: vars.rlProjectId
+}]]]></http:uri-params>
+							</http:request>
+						</until-successful>
+						<logger level="INFO" doc:name="Logger" doc:id="70bca668-deeb-4061-b24e-5a3df12d6568" message='#[output text/plain --- "Project " ++ (vars.sfId default "?") ++ " updated in Rocketlane project " ++ ((vars.rlProjectId default "?") as String)]'/>
+						<error-handler >
+							<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="f29ac4b1-2bb7-42a9-ae3a-51227c6f0cb1" >
+								<logger level="ERROR" doc:name="Logger" doc:id="87334e86-a40d-449c-91f9-85fd04709706" message='#[output text/plain --- "Rocketlane sync FAILED for Project " ++ (vars.sfId default "?") ++ ": " ++ (error.description default "") ++ " | Rocketlane response: " ++ write((error.childErrors[0].errorMessage.payload default error.errorMessage.payload) default "", "application/json") ++ " | Sent body: " ++ write(payload, "application/json")]' />
+							</on-error-continue>
+						</error-handler>
+					</try>
 				</foreach>
 			</when>
 		</choice>

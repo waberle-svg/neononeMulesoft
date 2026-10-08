@@ -1,28 +1,42 @@
 # sf-to-rocketlane
 
-MuleSoft app that creates a Rocketlane project whenever a `Project__c` record is created in Salesforce, then writes the Rocketlane project Id back to the Salesforce record.
+MuleSoft app that creates a Rocketlane project whenever a `Project__c` record is created in Salesforce, writes the Rocketlane project Id back to the Salesforce record, and updates the Rocketlane project when one of its tracked Project fields changes.
 
 ## How it works
 
 ```
-Replay channel listener  (/data/Project__ChangeEvent, ONLY_NEW)
-└─ Choice
+Replay channel listener  (/data/Project__ChangeEvent, replay ALL + resume from last replay id)
+└─ Choice                (flow maxConcurrency = 1: one event at a time)
    ├─ When changeType == "CREATE"
-   │   ├─ Request  GET /fields (single-choice)  → vars.rlSingleChoice
-   │   ├─ Request  GET /fields (multi-choice)   → vars.rlMultiChoice
+   │   ├─ Until Successful [GET /fields single-choice → vars.rlSingleChoice,
+   │   │                    GET /fields multi-choice  → vars.rlMultiChoice]
    │   └─ Query Project__c with its Account__r and Opportunity__r fields
    │         WHERE Id IN :ids AND Rocketlane_Id__c = null
-   │       └─ For Each
-   │           ├─ Set Variable  accountWebsite, sfId
-   │           ├─ Transform     → Rocketlane JSON body (standard + custom fields)
-   │           ├─ Request       POST /projects (Rocketlane_HTTP)
-   │           ├─ Set Variable  rlCompanyId = customer.companyId
-   │           ├─ Update        Project__c.Rocketlane_Id__c = projectId
-   │           ├─ Choice        if the Account has a Website:
-   │           │                PUT /companies/{companyId} { companyUrl }
-   │           └─ Logger
-   └─ Default (UPDATE events are ignored)
+   │       └─ For Each → Try
+   │           ├─ Set Variable   accountWebsite, sfId
+   │           ├─ Flow Reference build-rocketlane-body (shared Transform)
+   │           ├─ Until Successful [POST /projects]
+   │           ├─ Set Variable   rlCompanyId = customer.companyId
+   │           ├─ Update         Project__c.Rocketlane_Id__c = projectId
+   │           ├─ Choice         if the Account has a Website:
+   │           │                 Until Successful [PUT /companies/{companyId} { companyUrl }]
+   │           ├─ Logger
+   │           └─ On Error Continue → ERROR Logger (Rocketlane response + sent body)
+   ├─ When changeType == "UPDATE" and a tracked field changed (see below)
+   │   ├─ Logger "UPDATE detected"
+   │   ├─ Until Successful [GET /fields single-choice, multi-choice]
+   │   └─ Query (same fields) WHERE Id IN :ids AND Rocketlane_Id__c != null
+   │       └─ For Each → Try
+   │           ├─ Set Variable   sfId, rlProjectId
+   │           ├─ Flow Reference build-rocketlane-body
+   │           ├─ Transform      keep only startDate + fields
+   │           ├─ Until Successful [PUT /projects/{projectId}]
+   │           ├─ Logger
+   │           └─ On Error Continue → ERROR Logger
+   └─ Default (all other events are ignored)
 ```
+
+Tracked Project fields for updates: `Account__c`, `BusinessUnit__c`, `CloseDate__c`, `CreatedDate`, `ImplementationTimelineDeadline__c`, `Implementation_Products__c`, `Implementation_Type__c`, `Instance_Login__c`, `IsTestAccount__c`, `Neon_CRM_Instance_Created_Date__c`, `Opportunity__c`, `ProductionInstanceName__c`, `ProjectType__c`, `StartDate__c`, `TemplateCopyURL__c`, `sysImplementationType__c`. Changes to the Account or Opportunity alone do not trigger an update; their current values are sent whenever a tracked Project field changes.
 
 - Salesforce login: OAuth JWT Bearer through an External Client App and an API-only integration user.
 - Rocketlane auth: `api-key` header, sent as a default header by `Rocketlane_HTTP`.
@@ -70,8 +84,17 @@ Not in this repository, and never to be committed:
    Add `-M-Denv=uat` or `-M-Denv=prod` for another environment (default: `dev`).
 3. Run, wait for `DEPLOYED`, then create a Project in the Salesforce sandbox.
 
+## Deployment (CloudHub 2.0)
+
+Sandbox: `sf-to-rocketlane-dev`, Neon One LLC → Sandbox, Shared Space US East (Ohio), Edge 4.13.0, Java 17.
+
+- **1 replica** and deployment model **Recreate**: two running copies would both process every event and create duplicates.
+- Properties: `env` = `dev`, `secure.key` = master key (declared in `mule-artifact.json` as a secure property, so it is masked).
+- New version: export the deployable jar from Studio (without project sources, with dependencies) → Runtime Manager → app → Settings → Choose file → Apply Changes.
+- Never run the app in Studio while the CloudHub app is running. Stop the CloudHub app first.
+
 ## Not built yet
 
-- Project Notes and Additional Onboarding Notes (Rocketlane NOTE fields; API behaviour still to be checked).
+- Project Notes and Additional Onboarding Notes (Rocketlane NOTE fields; the API returned 404 for them).
 - Legacy Database (on hold until the picklist mapping is confirmed).
-- Two-way sync: Salesforce updates → Rocketlane, and Rocketlane changes → Salesforce (webhooks, needs a CloudHub deployment).
+- Rocketlane → Salesforce sync (webhooks).
