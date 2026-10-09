@@ -56,8 +56,6 @@ fields:
 
       Salesforce record: {sfUrl}
 
-      Created by the Salesforce -> Jira integration (MuleSoft). Do not shut down before the deactivation date.
-
   # Jira "Due date" = the day the instance may be switched off (Account.Deactivation_Date__c)
   dueDate: { source: "opp.account.deactivationDate" }
 

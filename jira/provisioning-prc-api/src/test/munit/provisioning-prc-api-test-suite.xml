@@ -523,6 +523,8 @@
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Please deactivate the following:')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('CRM Instance: acmenonprofit')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('Deactivation date (last paid day): 2027-09-22')]"/>
+            <!-- the integration footer was removed from deactivation tickets (client, 9 Oct 2026) -->
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Do not shut down before the deactivation date'))]"/>
             <munit-tools:assert-that expression="#[vars.ticket.dueDate as String]" is="#[MunitTools::equalTo('2027-09-22')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.labels]" is="#[MunitTools::equalTo(['sf-deact-006Su00000XPwLxIAL-neon_crm', 'sf-deact'])]"/>
             <munit-tools:assert-that expression="#[vars.ticket.productionInstance]" is="#[MunitTools::equalTo('acmenonprofit')]"/>
@@ -857,7 +859,9 @@
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**Technical Contact**\n__Devonna Dionne__\n\ndevonna.dionne@example.org')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========Sales Notes==========**\n\n- We received an email from Acme Nonprofit')]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========NTEE Code==========**\nS22 Community Improvement, Capacity Building')]"/>
-            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::containsString('**==========Order==========**\nSalesforce Order Id - 801Su000001OrdAIAS')]"/>
+            <!-- no Order section any more (client, 9 Oct 2026) -->
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('==========Order=========='))]"/>
+            <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Salesforce Order Id'))]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Salesforce record:'))]"/>
             <munit-tools:assert-that expression="#[vars.ticket.description]" is="#[MunitTools::not(MunitTools::containsString('Opportunity:'))]"/>
             <!-- reporter per environment (config-test: test-natalie-account-id) and the duplicate-detection labels -->

@@ -2,7 +2,7 @@
   "project": "NSSU",
   "issueType": "SYSTEM_SETUP",
   "summary": "Acme Nonprofit",
-  "description": "**Primary Contact**\n__Pat Example__\n\npat@example.org\n\n**Technical Contact**\n__Devonna Dionne__\n\ndevonna.dionne@example.org\n\n**==========Sales Notes==========**\n\n- We received an email from Acme Nonprofit expressing renewed interest.\n- Their first fundraiser is complete.\n\n**==========NTEE Code==========**\nS22 Community Improvement, Capacity Building\n\n**==========Order==========**\nSalesforce Order Id - 801Su000001OrdAIAS\n",
+  "description": "**Primary Contact**\n__Pat Example__\n\npat@example.org\n\n**Technical Contact**\n__Devonna Dionne__\n\ndevonna.dionne@example.org\n\n**==========Sales Notes==========**\n\n- We received an email from Acme Nonprofit expressing renewed interest.\n- Their first fundraiser is complete.\n\n**==========NTEE Code==========**\nS22 Community Improvement, Capacity Building\n",
   "reporterAccountId": "60a27983391e56006e52cca8",
   "labels": [
     "sf-setup-801Su000001OrdAIAS-neon_crm",

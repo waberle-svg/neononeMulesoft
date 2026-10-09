@@ -60,7 +60,7 @@ fields:
 
   # Description laid out like the setup team's hand-written tickets (SETUP-11083; Swati, 8 Oct 2026):
   #   bold labels, underlined contact names, e-mail on its own line, Sales Notes as bullets, bold section
-  #   headers with the value on the next line, and an Order section holding ONLY the Salesforce Order Id.
+  #   headers with the value on the next line. No Order section (client, 9 Oct 2026: a dedicated field may follow).
   # Markup rendered by jira-sys-api: blank line = new paragraph, newline = line break, "- " = bullet,
   # **bold**, __underline__, a bare e-mail = mailto link.
   description:
@@ -74,9 +74,6 @@ fields:
 
       **==========NTEE Code==========**
       {opp.account.nteeCode} {opp.account.nteeDivision}
-
-      **==========Order==========**
-      Salesforce Order Id - {order.id}
 
   # Required on the System Setup screen
   productionInstance: { source: "opp.productionInstanceName", default: "Pending" }

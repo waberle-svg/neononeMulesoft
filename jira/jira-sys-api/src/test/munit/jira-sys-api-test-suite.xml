@@ -582,7 +582,7 @@
             <munit-tools:assert-that expression="#[vars.sent.fields.description.content[5].'type']" is="#[MunitTools::equalTo('bulletList')]"/>
             <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.description.content[5].content)]" is="#[MunitTools::equalTo(2)]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.description.content[6].content[2].text]" is="#[MunitTools::equalTo('S22 Community Improvement, Capacity Building')]"/>
-            <munit-tools:assert-that expression="#[vars.sent.fields.description.content[7].content[2].text]" is="#[MunitTools::equalTo('Salesforce Order Id - 801Su000001OrdAIAS')]"/>
+            <munit-tools:assert-that expression="#[sizeOf(vars.sent.fields.description.content)]" is="#[MunitTools::equalTo(7)]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15259]" is="#[MunitTools::equalTo('Devonna Dionne')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>
