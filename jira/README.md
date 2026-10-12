@@ -8,7 +8,16 @@ Three Mule 4 applications (API-led) that replace Neon One's Talend jobs:
 | `jira-sys-api` | system | 8082 | Jira Cloud REST v3, field-id mapping, webhook receiver |
 | `provisioning-prc-api` | process | 8083 | Business rules: idempotency, ticket mapping, retry, inbound status events, reconciliation sweep |
 
-Runtime **Mule 4.12.3 / Java 17**, built with Maven, tested with MUnit, deployed to **CloudHub 2.0** (private space *Bluvium*, Anypoint org *Neon One*).
+Runtime **Mule 4.12.3 / Java 17**, built with Maven, tested with MUnit, deployed to **CloudHub 2.0** (Shared Space, Anypoint org *Neon One*, environment *Sandbox*).
+
+## Getting started
+```bash
+git clone git@github.com:ayushbluvium/Mulesoft-N-One.git        # SSH (or: git clone https://github.com/ayushbluvium/Mulesoft-N-One.git)
+cd Mulesoft-N-One
+```
+The repository is private: ask Ayush Upadhyaya for collaborator access first. Two kinds of work live here, with different tools:
+- **Mule apps** (`jira-sys-api/`, `salesforce-sys-api/`, `provisioning-prc-api/`): JDK 17 + Maven + MUnit — set up per [docs/SETUP.md](docs/SETUP.md), rules in [docs/BRANCHING.md](docs/BRANCHING.md), secrets in [docs/SECRETS.md](docs/SECRETS.md).
+- **Salesforce metadata** (`salesforce/`): the Salesforce CLI (`sf`) and `jq` only — no Maven needed. How to validate and deploy to an org, UAT included: [salesforce/README.md](salesforce/README.md).
 
 - New here? Read [docs/SETUP.md](docs/SETUP.md) first, then [docs/BRANCHING.md](docs/BRANCHING.md).
 - Open the **workspace file** `Mulesoft-N-One.code-workspace` in VS Code, not the folder (the MuleSoft extension needs each app at a workspace root).
