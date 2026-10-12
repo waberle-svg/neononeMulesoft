@@ -36,6 +36,11 @@
                 <default>false</default>
                 <label>Cancelled</label>
             </value>
+            <value>
+                <fullName>Not Eligible</fullName>
+                <default>false</default>
+                <label>Not Eligible</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

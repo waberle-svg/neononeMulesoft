@@ -68,6 +68,10 @@
             <default>false</default>
         </values>
         <values>
+            <fullName>Not Eligible</fullName>
+            <default>false</default>
+        </values>
+        <values>
             <fullName>Requested</fullName>
             <default>true</default>
         </values>

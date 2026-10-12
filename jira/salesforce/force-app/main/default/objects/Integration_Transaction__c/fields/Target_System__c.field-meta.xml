@@ -16,6 +16,11 @@
                 <default>false</default>
                 <label>JIRA</label>
             </value>
+            <value>
+                <fullName>ROCKETLANE</fullName>
+                <default>false</default>
+                <label>ROCKETLANE</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

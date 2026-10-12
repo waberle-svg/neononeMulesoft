@@ -1,491 +1,472 @@
-<?xml version='1.0' encoding='UTF-8'?>
+<?xml version="1.0" encoding="UTF-8"?>
 <PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
     <description>Integration user access: subscribe to Integration Request events, read and update Integration Transactions, read the Account, Contact, Opportunity, Order, Order Product and Product data tickets are built from. Business records are updated by automation.</description>
     <fieldPermissions>
-        <field>Integration_Transaction__c.Target_System__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Request_Type__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Request_Status__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Error_Category__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Status_Category__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Opportunity__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Account__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Source_Business_Key__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Attempts__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Last_Error__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Last_Error_Short__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Mule_Correlation_Id__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Key__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Id__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_URL__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Container__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Type__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Status__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.External_Status_Id__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Status_Changed_At__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Last_Synced_At__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.System_Ready_At__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Last_Attempt_At__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Next_Retry_At__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Request_Payload__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Response_Payload__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.ProductionInstanceName__c</field>
-        <readable>true</readable>
         <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.NeonCRM_Modules__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.ProductRollup__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.OpportunityNumber__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.PrimaryContact__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.TechnicalContact__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.JIRA_SETUP_Issue__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.JIRA_Error_Message__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.JIRA_SETUP_Status__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.JIRA_SETUP_Status_Updated__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Project_Requirement_Met__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Account.Neon_CRM_Instance_Created_Date__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Account.NCRM_Instance__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <!-- Scenario 2 (cancellation / deactivation), 29 Sep 2026 -->
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Product_Line__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Group_Key__c</field>
-        <readable>true</readable>
-        <editable>true</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Risk_Stage__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Forecast_Opportunity__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Neon_CRM_Cancellation_JIRA__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Neon_CRM_Cancellation_Error__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Fundraise_Cancellation_JIRA__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Fundraise_Cancellation_Error__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Arts_People_Cancellation_JIRA__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.Arts_People_Cancellation_Error__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Account.RB_RB_ID__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
         <field>Account.Arts_People_Theatre_Id__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Account.Deactivation_Date__c</field>
-        <readable>true</readable>
         <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
         <field>Account.CancellationStatus__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>Account.Deactivation_Date__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>Account.IsTestAccount__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
-    <!-- Fields salesforce-sys-api has always SELECTed but that were missing here (masked so far by the admin principal) -->
     <fieldPermissions>
-        <field>Opportunity.Is_Test_Account_Opportunity__c</field>
+        <editable>false</editable>
+        <field>Account.NCRM_Instance__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Opportunity.Includes_Web_Template_Copy__c</field>
-        <readable>true</readable>
         <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.BusinessUnit__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Opportunity.SalesRep__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <!-- Scenario 1 (Order model), 5 Oct 2026: the two OrderItem formula fields the setup publisher Flow filters on (agreed with Swati) -->
-    <fieldPermissions>
-        <field>OrderItem.Integration_Product_Line__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>OrderItem.Integration_Sync_JIRA__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <!-- Scenario 1 Order model, 5 Oct 2026: the row's Order lookup (read-only for Mule; the Flow fills it) and every field
-         salesforce-sys-api now SELECTs for the setup ticket (Order Products through the Product, Account contact/NTEE/country,
-         partner block, additional users) -->
-    <fieldPermissions>
-        <field>Integration_Transaction__c.Order__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>OrderItem.JIRA_SETUP_Issue__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>OrderItem.JIRA_SETUP_Error__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>OrderItem.JIRA_SETUP_Status__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>OrderItem.Neon_CRM_Instance_Created_Date__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Product2.Product_Line__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Product2.Sync_JIRA__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
-        <field>Account.TechnicalContact__c</field>
-        <readable>true</readable>
-        <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
         <field>Account.NTEECode__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
         <field>Account.NTEE_Division__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Opportunity.Partner_Contact__c</field>
+        <editable>false</editable>
+        <field>Account.Neon_CRM_Instance_Created_Date__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Opportunity.PartnerAccount__c</field>
+        <editable>false</editable>
+        <field>Account.RB_RB_ID__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Opportunity.Partner_Name__c</field>
+        <editable>false</editable>
+        <field>Account.TechnicalContact__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Opportunity.NTEE_Classification__c</field>
-        <readable>true</readable>
         <editable>false</editable>
-    </fieldPermissions>
-    <fieldPermissions>
         <field>Contact.Orientation_Participant__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
-    <!-- Modules (7 Oct 2026): the product's Jira module value, the Order's built Modules string, and the Flow's qualification flags -->
     <fieldPermissions>
-        <field>Product2.Jira_Module_Value__c</field>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Account__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
-        <field>Order.NeonCRM_Modules__c</field>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Attempts__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Error_Category__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Container__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Key__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Status_Category__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Status_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.External_URL__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Group_Key__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Last_Attempt_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Last_Error_Short__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Last_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Last_Synced_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Mule_Correlation_Id__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Next_Retry_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Opportunity__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Integration_Transaction__c.Order__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Product_Line__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Request_Payload__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Request_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Request_Type__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Response_Payload__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Source_Business_Key__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Status_Changed_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.System_Ready_At__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>true</editable>
+        <field>Integration_Transaction__c.Target_System__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Arts_People_Cancellation_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Arts_People_Cancellation_JIRA__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.BusinessUnit__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Forecast_Opportunity__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Fundraise_Cancellation_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Fundraise_Cancellation_JIRA__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Includes_Web_Template_Copy__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Is_Test_Account_Opportunity__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.JIRA_Error_Message__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.JIRA_SETUP_Issue__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.JIRA_SETUP_Status_Updated__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.JIRA_SETUP_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.NTEE_Classification__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.NeonCRM_Modules__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Neon_CRM_Cancellation_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Neon_CRM_Cancellation_JIRA__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.OpportunityNumber__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.PartnerAccount__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Partner_Contact__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Partner_Name__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.PrimaryContact__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.ProductRollup__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.ProductionInstanceName__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Project_Requirement_Met__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.Risk_Stage__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.SalesRep__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Opportunity.TechnicalContact__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>Order.Create_SETUP_Jira__c</field>
         <readable>true</readable>
-        <editable>false</editable>
     </fieldPermissions>
     <fieldPermissions>
+        <editable>false</editable>
+        <field>Order.NeonCRM_Modules__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>OrderItem.Create_SETUP_Jira__c</field>
         <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
         <editable>false</editable>
+        <field>OrderItem.Integration_Product_Line__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>OrderItem.Integration_Sync_JIRA__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>OrderItem.JIRA_SETUP_Error__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>OrderItem.JIRA_SETUP_Issue__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>OrderItem.JIRA_SETUP_Status__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>OrderItem.Neon_CRM_Instance_Created_Date__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Product2.Jira_Module_Value__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Product2.Product_Line__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
+        <field>Product2.Sync_JIRA__c</field>
+        <readable>true</readable>
     </fieldPermissions>
     <hasActivationRequired>false</hasActivationRequired>
     <label>Jira Integration Access</label>
     <objectPermissions>
-        <object>Integration_Transaction__c</object>
-        <allowCreate>true</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>true</allowEdit>
-        <allowDelete>false</allowDelete>
-        <viewAllRecords>true</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <object>Integration_Request__e</object>
         <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
         <allowDelete>false</allowDelete>
-        <viewAllRecords>false</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <object>Opportunity</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
         <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
-        <viewAllRecords>true</viewAllRecords>
+        <allowRead>true</allowRead>
         <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-    <objectPermissions>
         <object>Account</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>true</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
         <object>Contact</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>true</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-    <!-- Scenario 1 (Order model): MuleSoft reads the Order, its Order Products and their Products to build a setup ticket -->
-    <objectPermissions>
-        <object>OrderItem</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
-        <viewAllRecords>true</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Integration_Request__e</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>false</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>true</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>true</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Integration_Transaction__c</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
+        <object>Opportunity</object>
+        <viewAllFields>false</viewAllFields>
+        <viewAllRecords>true</viewAllRecords>
+    </objectPermissions>
+    <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
         <object>Order</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>true</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <objectPermissions>
+        <allowCreate>false</allowCreate>
+        <allowDelete>false</allowDelete>
+        <allowEdit>false</allowEdit>
+        <allowRead>true</allowRead>
+        <modifyAllRecords>false</modifyAllRecords>
         <object>Product2</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
+        <viewAllFields>false</viewAllFields>
         <viewAllRecords>false</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
-    </objectPermissions>
-    <objectPermissions>
-        <object>PricebookEntry</object>
-        <allowCreate>false</allowCreate>
-        <allowRead>true</allowRead>
-        <allowEdit>false</allowEdit>
-        <allowDelete>false</allowDelete>
-        <viewAllRecords>false</viewAllRecords>
-        <modifyAllRecords>false</modifyAllRecords>
     </objectPermissions>
     <recordTypeVisibilities>
         <recordType>Integration_Transaction__c.JIRA_Issue</recordType>

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- UAT package 1 of 2 — data model and security (everything Bluvium owns except the External Client App).
+     Deploy first. Check-only run first:
+       sf project deploy start --dry-run --test-level NoTestRun --manifest manifest/uat-1-data-model-and-security.package.xml -o <uat alias>
+     then the same command without - -dry-run. Never use "sf project deploy validate" (runs every Apex test in the org).
+     Prerequisite: the Salesforce team's fields the permission set grants (Product2, Order, OrderItem, Account, Opportunity,
+     Contact) must already exist in UAT, or the PermissionSet component fails. -->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Integration_Transaction__c</members>
+        <members>Integration_Request__e</members>
+        <name>CustomObject</name>
+    </types>
+    <types>
+        <members>Integration_Transaction__c.Account__c</members>
+        <members>Integration_Transaction__c.Attempts__c</members>
+        <members>Integration_Transaction__c.Error_Category__c</members>
+        <members>Integration_Transaction__c.External_Container__c</members>
+        <members>Integration_Transaction__c.External_Id__c</members>
+        <members>Integration_Transaction__c.External_Key__c</members>
+        <members>Integration_Transaction__c.External_Status_Category__c</members>
+        <members>Integration_Transaction__c.External_Status_Id__c</members>
+        <members>Integration_Transaction__c.External_Status__c</members>
+        <members>Integration_Transaction__c.External_Type__c</members>
+        <members>Integration_Transaction__c.External_URL__c</members>
+        <members>Integration_Transaction__c.Group_Key__c</members>
+        <members>Integration_Transaction__c.Last_Attempt_At__c</members>
+        <members>Integration_Transaction__c.Last_Error_Short__c</members>
+        <members>Integration_Transaction__c.Last_Error__c</members>
+        <members>Integration_Transaction__c.Last_Synced_At__c</members>
+        <members>Integration_Transaction__c.Mule_Correlation_Id__c</members>
+        <members>Integration_Transaction__c.Next_Retry_At__c</members>
+        <members>Integration_Transaction__c.Opportunity__c</members>
+        <members>Integration_Transaction__c.Order__c</members>
+        <members>Integration_Transaction__c.Product_Line__c</members>
+        <members>Integration_Transaction__c.Request_Payload__c</members>
+        <members>Integration_Transaction__c.Request_Status__c</members>
+        <members>Integration_Transaction__c.Request_Type__c</members>
+        <members>Integration_Transaction__c.Response_Payload__c</members>
+        <members>Integration_Transaction__c.Source_Business_Key__c</members>
+        <members>Integration_Transaction__c.Status_Changed_At__c</members>
+        <members>Integration_Transaction__c.System_Ready_At__c</members>
+        <members>Integration_Transaction__c.Target_System__c</members>
+        <members>Integration_Request__e.Account_Id__c</members>
+        <members>Integration_Request__e.Payload_JSON__c</members>
+        <members>Integration_Request__e.Request_Id__c</members>
+        <members>Integration_Request__e.Request_Type__c</members>
+        <members>Integration_Request__e.Source_Object__c</members>
+        <members>Integration_Request__e.Source_Org_Id__c</members>
+        <members>Integration_Request__e.Source_Record_Id__c</members>
+        <members>Integration_Request__e.Target_System__c</members>
+        <members>Opportunity.JIRA_SETUP_Status__c</members>
+        <members>Opportunity.JIRA_SETUP_Status_Updated__c</members>
+        <members>OrderItem.Integration_Product_Line__c</members>
+        <members>OrderItem.Integration_Sync_JIRA__c</members>
+        <members>OpportunityLineItem.Integration_Product_Line__c</members>
+        <name>CustomField</name>
+    </types>
+    <types>
+        <members>Integration_Transaction__c.JIRA_Issue</members>
+        <name>RecordType</name>
+    </types>
+    <types>
+        <members>Integration_Transaction__c-Integration Transaction Layout</members>
+        <name>Layout</name>
+    </types>
+    <types>
+        <members>Jira_Integration_Access</members>
+        <name>PermissionSet</name>
+    </types>
+    <version>68.0</version>
+</Package>
