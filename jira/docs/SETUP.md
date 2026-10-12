@@ -3,7 +3,7 @@
 For Bluvium developers joining the Neon One Salesforce ↔ Jira integration. Assumes a blank laptop (macOS; Windows notes at the end) and no MuleSoft experience. Follow it top to bottom; every step ends with a check. Expect about two hours including downloads. This file is also committed to the repository as `docs/SETUP.md`.
 
 ## 0. What you are setting up
-Three Mule 4 applications (`salesforce-sys-api`, `jira-sys-api`, `provisioning-prc-api`) that run on Mule runtime **4.12.3 / Java 17**, are built with **Maven**, tested with **MUnit**, and deployed to **CloudHub 2.0** (private space *Bluvium*, Anypoint organisation *Neon One*). Configuration is per environment in YAML; secrets are AES-encrypted in the repo and decrypted at runtime with a key you receive out of band. Architecture and decisions: knowledge base `NEONONE-KB` (ask Ayush for access), especially `02-PROJECT-NEONONE-SF-JIRA/02-architecture.md` and `03-architecture-decisions.md`.
+Three Mule 4 applications (`salesforce-sys-api`, `jira-sys-api`, `provisioning-prc-api`) that run on Mule runtime **4.12.3 / Java 17**, are built with **Maven**, tested with **MUnit**, and deployed to **CloudHub 2.0** (Shared Space, Anypoint organisation *Neon One*; environments, builds and promotion in `docs/DEPLOY.md`). Configuration is per environment in YAML; secrets are AES-encrypted in the repo and decrypted at runtime with a key you receive out of band. Architecture and decisions: knowledge base `NEONONE-KB` (ask Ayush for access), especially `02-PROJECT-NEONONE-SF-JIRA/02-architecture.md` and `03-architecture-decisions.md`.
 
 ## 1. Accounts and access to request on day one
 | What | From whom | Needed for |
@@ -123,7 +123,7 @@ Ports: 8081 salesforce-sys-api, 8082 jira-sys-api, 8083 provisioning-prc-api. Ch
 - Never commit to `main`. Branch `feature/<ticket-or-topic>` → PR → one review → squash-merge.
 - Before opening a PR: `mvn clean test` green in every app you touched; no secret values, keystores or `target/` in the diff (`git status` should never show `.secrets`, `*.env`, `*.jks`).
 - Commit messages: `<app>: <what changed, imperative>` — e.g. `jira-sys-api: add caller check to main flow`.
-- Deployments to CloudHub are done from `main` only, and announced in the team channel before and after.
+- Deployments to CloudHub are done from a tagged commit of `main` only (`docs/DEPLOY.md`), and announced in the team channel before and after.
 - Record what you learned: errors and fixes go to the knowledge base (`03-RUNBOOK/ERRORS-AND-FIXES.md`), decisions to the ADR log.
 
 ## 9. Verify you are done

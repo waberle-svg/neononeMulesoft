@@ -8,7 +8,7 @@ committed; the key, the keystores and `.mule-local.env` are not (see `.gitignore
 | What | Where |
 |---|---|
 | Encrypted values per environment | `<app>/src/main/resources/config/secure-dev.yaml` (`secure-uat.yaml`, `secure-prod.yaml` when those environments exist) |
-| The key, locally | `.mule-local.env` at the repo root as `MULE_SECURE_KEY` (copy from the team vault; never commit, never paste in chat) |
+| The key, locally | `.mule-local.env` (Dev) or `.mule-local-<env>.env` (UAT, Preprod, Production) at the repo root as `MULE_SECURE_KEY`, next to `INTER_APP_SECRET` (copy from the team vault; never commit, never paste in chat). `tools/env-check.sh <env>` proves every value of `secure-<env>.yaml` decrypts under it without printing anything. |
 | The key, on CloudHub | Runtime Manager property `secure.key`, marked **Protected** |
 | How the app uses it | `global.xml` → `<secure-properties:config file="config/secure-${mule.env}.yaml" key="${secure.key}">`; values are referenced as `${secure::jira.token}` / `p('secure::api.clientSecret')` |
 | The tool | `tools/secure-properties-tool.jar` (MuleSoft Secure Properties Tool), run with the JDK 17 bundled with the MuleSoft VS Code extension |
@@ -21,6 +21,11 @@ JAVA="$HOME/.vscode/extensions/salesforce.mule-dx-dependencies-1.7.1-darwin-arm6
 
 "$JAVA" -cp tools/secure-properties-tool.jar com.mulesoft.tools.SecurePropertiesTool \
     string encrypt AES CBC "$MULE_SECURE_KEY" "<the plain value>"
+```
+A value typed on the command line lands in the shell history. For a token or a password, read it from the keyboard instead:
+```bash
+enc() { "$JAVA" -cp tools/secure-properties-tool.jar com.mulesoft.tools.SecurePropertiesTool string encrypt AES CBC "$MULE_SECURE_KEY" "$1"; }
+read -rs V && enc "$V"; unset V      # paste the value, Enter: the ciphertext prints and the value never enters the history
 ```
 The output is the ciphertext. Put it into the YAML **wrapped in `![...]`**:
 ```yaml
@@ -48,4 +53,4 @@ Check a value decrypts (prints the plain value — only in a private shell, neve
 - MUnit uses `src/test/resources/config/secure-test.yaml` with fake values and its own key set by the Maven plugin;
   nothing from a real environment is needed to run the tests.
 
-Related: `docs/SETUP.md` §4 (getting the key and keystore from the vault), KB `01-MULESOFT/03-commands-cheatsheet.md` §3.
+Related: `docs/SETUP.md` §4 (getting the key and keystore from the vault), `docs/DEPLOY.md` §3 (every secret of a new environment, end to end), KB `01-MULESOFT/03-commands-cheatsheet.md` §3.
