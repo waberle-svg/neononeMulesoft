@@ -2,6 +2,7 @@ rocketlane:
   host: "api.rocketlane.com"
   basePath: "/api/1.0"
   apiKey: "![kRtEdtslmGZPtOTr2FKhoOAgNzMFqM8fLRq0dyA1gBxJFmjTpM68w42vHHjKGaU3Gb0RbZJyQ0VSnlL2it/fUA==]"
+  apiUserId: "5000000166989"   # Rocketlane user behind our API key; its changes are ignored (no loop)
   defaultOwnerId: "5000000077944"
 
 salesforce:

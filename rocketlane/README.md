@@ -1,54 +1,66 @@
 # sf-to-rocketlane
 
-MuleSoft app that creates a Rocketlane project whenever a `Project__c` record is created in Salesforce, writes the Rocketlane project Id back to the Salesforce record, and updates the Rocketlane project when one of its tracked Project fields changes.
+MuleSoft app for the Salesforce ↔ Rocketlane integration:
+
+- **Salesforce → Rocketlane:** creates the Rocketlane project when a `Project__c` is created and updates it when a tracked Project field changes. Requests come from Salesforce as `Integration_Request__e` platform events (same pattern as the Jira integration); results are written only to the Project's `Integration_Transaction__c`.
+- **Rocketlane → Salesforce:** a Rocketlane webhook updates 12 Account fields when they change in Rocketlane.
 
 ## How it works
 
+### Salesforce → Rocketlane
+
 ```
-Replay channel listener  (/data/Project__ChangeEvent, replay ALL + resume from last replay id)
-└─ Choice                (flow maxConcurrency = 1: one event at a time)
-   ├─ When changeType == "CREATE"
-   │   ├─ Until Successful [GET /fields single-choice → vars.rlSingleChoice,
-   │   │                    GET /fields multi-choice  → vars.rlMultiChoice]
-   │   └─ Query Project__c with its Account__r and Opportunity__r fields
-   │         WHERE Id IN :ids AND Rocketlane_Id__c = null
-   │       └─ For Each → Try
-   │           ├─ Set Variable   accountWebsite, sfId
-   │           ├─ Flow Reference build-rocketlane-body (shared Transform)
-   │           ├─ Until Successful [POST /projects]
-   │           ├─ Set Variable   rlCompanyId = customer.companyId
-   │           ├─ Update         Project__c.Rocketlane_Id__c = projectId
-   │           ├─ Choice         if the Account has a Website:
-   │           │                 Until Successful [PUT /companies/{companyId} { companyUrl }]
-   │           ├─ Logger
-   │           └─ On Error Continue → ERROR Logger (Rocketlane response + sent body)
-   ├─ When changeType == "UPDATE" and a tracked field changed (see below)
-   │   ├─ Logger "UPDATE detected"
-   │   ├─ Until Successful [GET /fields single-choice, multi-choice]
-   │   └─ Query (same fields) WHERE Id IN :ids AND Rocketlane_Id__c != null
-   │       └─ For Each → Try
-   │           ├─ Set Variable   sfId, rlProjectId
-   │           ├─ Flow Reference build-rocketlane-body
-   │           ├─ Transform      keep only startDate + fields
-   │           ├─ Until Successful [PUT /projects/{projectId}]
-   │           ├─ Logger
-   │           └─ On Error Continue → ERROR Logger
-   └─ Default (all other events are ignored)
+Salesforce
+  Flow "Project | After Save | Create Rocketlane Sync Request" (create, or a tracked field changed)
+  Button "Resync Rocketlane" (screen flow)
+   └─ subflow "Rocketlane | Publish Project Sync Request"
+        find/create the Project's Integration_Transaction__c (record type Rocketlane_Project) → Requested
+        publish Integration_Request__e (Target_System__c = ROCKETLANE, Request_Id__c = transaction Id)
+
+Mule flow integration-request-to-rocketlane  (replay ALL + resume, maxConcurrency 1)
+└─ Choice Target_System__c == "ROCKETLANE"   (other systems' events are ignored)
+   └─ Try
+      ├─ Until Successful [GET /fields single + multi choice]
+      ├─ Query Project__c (+ Account__r, Opportunity__r) by Source_Record_Id__c
+      ├─ Query the transaction's External_Id__c (fallback if Project Rocketlane Id is empty)
+      ├─ no Rocketlane Id → create-rocketlane-project   (POST /projects, PUT /companies/{id} companyUrl)
+      │  else             → update-rocketlane-project   (PUT /projects/{id}, startDate + fields only)
+      ├─ Update transaction → Created (External_Id__c, request/response payload, timestamps)
+      └─ On error → transaction Retrying (429/5xx) or Failed - Terminal (4xx), Last_Error__c
+
+Salesforce flow "Integration Transaction | After Update | Set Project Rocketlane Id"
+  Created            → Project.Rocketlane_Id__c = External_Id__c, clear Rocketlane_Error_Message__c
+  Failed / Retrying  → Project.Rocketlane_Error_Message__c = LEFT(Last_Error_Short__c, 255)
 ```
 
-Tracked Project fields for updates: `Account__c`, `BusinessUnit__c`, `CloseDate__c`, `CreatedDate`, `ImplementationTimelineDeadline__c`, `Implementation_Products__c`, `Implementation_Type__c`, `Instance_Login__c`, `IsTestAccount__c`, `Neon_CRM_Instance_Created_Date__c`, `Opportunity__c`, `ProductionInstanceName__c`, `ProjectType__c`, `StartDate__c`, `TemplateCopyURL__c`, `sysImplementationType__c`. Changes to the Account or Opportunity alone do not trigger an update; their current values are sent whenever a tracked Project field changes.
+Mule never writes to `Project__c` for this direction. Tracked fields that start a sync: `Account__c`, `BusinessUnit__c`, `CloseDate__c`, `Implementation_Products__c`, `Neon_CRM_Instance_Created_Date__c`, `Opportunity__c`, `ProductionInstanceName__c`, `ProjectType__c`, `StartDate__c`, `TemplateCopyURL__c`, `sysImplementationType__c` (formula and rich text fields cannot trigger a flow; their current values are sent with every sync).
+
+### Rocketlane → Salesforce
+
+```
+Rocketlane Global automation (Field is updated → Push project webhook)
+ → POST /rocketlane/webhook  (Mule flow rocketlane-webhook-to-salesforce; replies 200 at once)
+   async: PROJECT_UPDATED and actor ≠ rocketlane.apiUserId (our API key user → no loop)
+     → changeLog.to.fields, keep the 12 mapped fields → Account Id = project field "SF ID"
+     → Website Designer → Salesforce User by email
+     → Update Account (dates as Date, text trimmed, empty value → field cleared)
+```
+
+Account fields: `Website_Build_Status__c`, `Website_Launch_Date__c`, `Website_Abandoned_Date__c`, `NCRM_Implementation_Status__c`, `NCRM_Implementation_Complete_Date__c`, `NCRM_Implementation_Incomplete_Date__c`, `Arts_People_Implementation_Status__c`, `Arts_People_Implementation_Complete_Date__c`, `Arts_People_Implementation_Incomplete_Da__c`, `Rallybound_Implementation_Incomplete_Dat__c`, `Implementation_Complete_Notes__c`, `Website_Designer__c`. One Rocketlane automation is needed per field.
+
+### General
 
 - Salesforce login: OAuth JWT Bearer through an External Client App and an API-only integration user.
 - Rocketlane auth: `api-key` header, sent as a default header by `Rocketlane_HTTP`.
-- Duplicates are prevented by the `Rocketlane_Id__c = null` filter. The write-back causes an UPDATE event, which the Choice ignores.
+- Duplicates are prevented by deciding create vs update on the Rocketlane Id (Project, or the transaction's External Id).
 - Rocketlane custom fields are sent as `fields: [{ fieldId, fieldValue }]`. Choice fields are sent as Rocketlane option numbers, looked up by label at runtime from `GET /fields`, so option numbers never need to be configured.
 - Empty Salesforce values, and choice values with no matching Rocketlane option, are left out.
 
 ## Prerequisites
 
 - Anypoint Studio with Mule runtime 4.12 (Java 17).
-- Salesforce: Change Data Capture enabled for `Project__c`, field `Rocketlane_Id__c`, integration user with the Rocketlane Integration permission set (read access to the mapped Project, Account and Opportunity fields), and an External Client App with JWT Bearer enabled.
-- Rocketlane API key.
+- Salesforce: fields `Project__c.Rocketlane_Id__c` and `Rocketlane_Error_Message__c`, `Integration_Transaction__c` with lookup `Project__c`, record type `Rocketlane_Project` and Target System value `ROCKETLANE`, the three flows above, the Resync Rocketlane quick action, an integration user with the `Rocketlane_Integration` permission set (read on mapped fields, Integration_Transaction__c edit, Integration_Request__e read, Account edit on the 12 fields), and an External Client App with JWT Bearer. Change Data Capture is not used.
+- Rocketlane: API key, webhook pointing to `<app URL>/rocketlane/webhook`, one global automation per inbound field.
 
 ## Configuration
 
@@ -62,7 +74,7 @@ One config file per environment: `src/main/resources/config-${env}.yaml`. The ap
 
 Each file has the same keys:
 
-- `rocketlane.*` and `salesforce.*`: connection settings. Secrets are encrypted (AES/CBC, random IVs) with the MuleSoft Secure Properties Tool.
+- `rocketlane.*` and `salesforce.*`: connection settings; `rocketlane.apiUserId` is the Rocketlane user behind the API key (its changes are ignored). Secrets are encrypted (AES/CBC, random IVs) with the MuleSoft Secure Properties Tool.
 - `rocketlaneFields.*`: Rocketlane custom field Ids (not secret). Dev and UAT share one Rocketlane workspace, so they share these Ids; production has its own.
 
 All values are read as `${secure::...}` or `p('secure::...')`. Each environment uses its own master key.
@@ -97,4 +109,5 @@ Sandbox: `sf-to-rocketlane-dev`, Neon One LLC → Sandbox, Shared Space US East 
 
 - Project Notes and Additional Onboarding Notes (Rocketlane NOTE fields; the API returned 404 for them).
 - Legacy Database (on hold until the picklist mapping is confirmed).
-- Rocketlane → Salesforce sync (webhooks).
+- Basic authentication on the Rocketlane webhook.
+- Rocketlane automations for the remaining inbound fields.
