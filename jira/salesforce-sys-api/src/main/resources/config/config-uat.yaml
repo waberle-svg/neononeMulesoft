@@ -10,7 +10,7 @@ http:
 
 sf:
   tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
-  principal: "REPLACE_ME_integration_user_username_in_uat_sandbox"
+  principal: "swati.sharma@bluvium.com.rcaimplem"   # temporary: Swati's user until Neon One provides a dedicated integration user
   keystore:
     path: "keystore/neon-jira-integration-uat.jks"   # packaged resource per ADR-006 (decision pending)
     alias: "neon-jira-integration-uat"

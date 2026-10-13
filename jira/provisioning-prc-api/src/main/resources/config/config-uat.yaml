@@ -105,7 +105,7 @@ inbound:
     limit: "200"
 
 sf:
-  baseUrl: "REPLACE_ME_https://neonone--uat.sandbox.lightning.force.com"
+  baseUrl: "https://neonone--rcaimplem.sandbox.lightning.force.com"   # UAT = sandbox rcaimplem
 
 sysSf:
   protocol: "HTTPS"
