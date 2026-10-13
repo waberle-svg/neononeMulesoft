@@ -8,8 +8,6 @@
         <name>CustomObject</name>
     </types>
     <types>
-        <members>Opportunity.JIRA_SETUP_Status__c</members>
-        <members>Opportunity.JIRA_SETUP_Status_Updated__c</members>
         <members>OpportunityLineItem.Integration_Product_Line__c</members>
         <members>OrderItem.Integration_Product_Line__c</members>
         <members>OrderItem.Integration_Sync_JIRA__c</members>

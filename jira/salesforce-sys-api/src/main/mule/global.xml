@@ -63,7 +63,7 @@
                                    tokenEndpoint="${sf.tokenEndpoint}">
             <!-- Bounded reconnection so operations FAIL FAST (canonical error to the caller) when Salesforce rejects
                  the connection; the platform-event listener declares its own reconnect-forever in events.xml.
-                 Found in the local smoke run of 19 Sep 2026 (ERR-0009): with reconnect-forever here, a query on a
+                 Found in the first local smoke run (ERR-0009): with reconnect-forever here, a query on a
                  broken connection blocked until the caller timed out (30 s) instead of returning an error. -->
             <reconnection>
                 <reconnect count="${sf.reconnect.count}" frequency="${sf.reconnect.frequencyMs}"/>

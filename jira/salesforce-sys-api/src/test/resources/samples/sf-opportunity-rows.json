@@ -15,8 +15,6 @@
     "Includes_Web_Template_Copy__c": 1,
     "BusinessUnit__c": "01 NeonCRM",
     "JIRA_SETUP_Issue__c": null,
-    "JIRA_SETUP_Status__c": null,
-    "JIRA_SETUP_Status_Updated__c": null,
     "JIRA_Error_Message__c": null,
     "Risk_Stage__c": "Closed/Churn",
     "Forecast_Opportunity__c": true,

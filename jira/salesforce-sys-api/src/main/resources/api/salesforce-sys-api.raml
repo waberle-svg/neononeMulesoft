@@ -35,8 +35,6 @@ types:
       includesWebTemplateCopy?: number
       businessUnit?: string
       jiraSetupIssueKey?: string
-      jiraSetupStatus?: string
-      jiraSetupStatusUpdated?: datetime
       jiraErrorMessage?: string
       riskStage?:
         type: string
@@ -70,7 +68,7 @@ types:
       primaryContact?: Contact
       technicalContact?:
         type: Contact
-        description: The ACCOUNT's technical contact (Account.TechnicalContact__c) — requirements v3, Swati 5 Oct 2026.
+        description: The ACCOUNT's technical contact (Account.TechnicalContact__c) (requirements v3).
       opportunityTechnicalContact?:
         type: Contact
         description: The Opportunity's own TechnicalContact__c lookup, kept for reference; the ticket uses technicalContact.
@@ -190,7 +188,7 @@ types:
       requestType?:
         type: string
         enum: [SETUP, DEACTIVATION, EXTERNAL]
-        description: Business request type. Rows created before the 7 Oct 2026 rename may still read PROVISIONING until Salesforce replaces the value.
+        description: Business request type. Rows created before the rename may still read PROVISIONING until Salesforce replaces the value.
       requestStatus?:
         type: string
         enum: [Requested, Created, Failed - Terminal, Retrying, Cancelled]

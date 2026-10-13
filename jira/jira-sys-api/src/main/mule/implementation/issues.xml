@@ -77,13 +77,13 @@ var candidates = {
   primaryContactEmail:   { field: p('jira.fields.primaryContactEmail'),   value: req.primaryContact.email },
   technicalContactName:  { field: p('jira.fields.technicalContactName'),  value: req.technicalContact.name },
   technicalContactEmail: { field: p('jira.fields.technicalContactEmail'), value: req.technicalContact.email },
-  // Requirements v3 (1 Oct 2026) System Setup fields; ids read from the NSSU/SETUP create screen on 3 Oct 2026
+  // Requirements v3 System Setup fields; ids read from the NSSU/SETUP create screens
   implementationType:    { field: p('jira.fields.implementationType'),    value: if (req.implementationType == null) null else { value: req.implementationType } },
   operatingCountry:      { field: p('jira.fields.operatingCountry'),      value: req.operatingCountry },
   nteeCode:              { field: p('jira.fields.nteeCode'),              value: req.nteeCode },
   nteeDivision:          { field: p('jira.fields.nteeDivision'),          value: req.nteeDivision },
   nteeCategory:          { field: p('jira.fields.nteeCategory'),          value: req.nteeCategory },
-  // Additional Users is a MULTI-LINE text field (schema textarea): Jira Cloud v3 takes ADF, not a string (ERR-0024, 8 Oct 2026).
+  // Additional Users is a MULTI-LINE text field (schema textarea): Jira Cloud v3 takes ADF, not a string (ERR-0024).
   // One paragraph per line of the request value; absent when the request carries none.
   additionalUsers:       { field: p('jira.fields.additionalUsers'),       value: if (req.additionalUsers == null) null else adfLines(req.additionalUsers) }
 }
@@ -133,7 +133,7 @@ output application/json
         <set-variable variableName="created" value="#[payload]" doc:name="Keep IssueCreated"/>
         <logger level="INFO" doc:name="Log created" message='#[output text/plain --- "Created Jira issue " ++ payload.key]'/>
 
-        <!-- Ticket owner: assign to the configured account (Swati in Dev/UAT). Done as a second call because the assignee
+        <!-- Ticket owner: assign to the configured account (the integration's API account in Dev/UAT). Done as a second call because the assignee
              field is not on the NSSU create screen. A failure here must NOT fail the creation (the ticket exists; failing
              would make the process API retry and create a duplicate), so it is logged and reported in the response. -->
         <set-variable variableName="assigneeAccountId"
@@ -257,7 +257,7 @@ var statusItems = (body.changelog.items default []) filter ($.field == "status")
     category: body.issue.fields.status.statusCategory.key
   },
   previousStatus: if (isEmpty(statusItems)) null else { id: statusItems[0].from, name: statusItems[0].fromString },
-  // Jira sends `timestamp` in epoch MILLISECONDS; DataWeave's default Number -> DateTime coercion assumes seconds (parking-lot bug, fixed 1 Oct 2026)
+  // Jira sends `timestamp` in epoch MILLISECONDS; DataWeave's default Number -> DateTime coercion assumes seconds (parking-lot bug, fixed)
   changedAt:      if (body.timestamp != null) ((body.timestamp as Number) as DateTime { unit: "milliseconds" }) else now(),
   sfOpportunityId: body.issue.fields[p('jira.fields.sfOpportunityId')],
   url: "https://" ++ p('jira.host') ++ "/browse/" ++ (body.issue.key default "")
@@ -275,7 +275,7 @@ var statusItems = (body.changelog.items default []) filter ($.field == "status")
                                 message='#["Forwarding status change for " ++ payload.issueKey ++ " -> " ++ payload.status.name]'/>
                         <until-successful maxRetries="${prc.retry.maxRetries}" millisBetweenRetries="${prc.retry.millisBetweenRetries}" doc:name="Retry forward">
                             <http:request config-ref="Process_Api_Request_Config" method="POST" path="${prc.paths.issueStatusEvents}" doc:name="prc: POST issue-status-events">
-                                <!-- prc enforces the inter-app secret in hosted environments: send it (was missing until 25 Sep 2026) -->
+                                <!-- prc enforces the inter-app secret in hosted environments: send it (was missing before the caller check) -->
                                 <http:headers>#[{ "Content-Type": "application/json", "X-Client-Id": p('api.name'), "X-Client-Secret": p('secure::api.clientSecret') }]</http:headers>
                             </http:request>
                         </until-successful>
@@ -287,7 +287,7 @@ var statusItems = (body.changelog.items default []) filter ($.field == "status")
 
     <!-- ===== GET /search/jql — issues carrying a label (vars.searchLabel, optional vars.searchProject) -> Issue[] =====
          The process API labels every ticket it creates (sf-deact-<opportunity id>-<line>) and asks here before creating,
-         so a ticket whose key never reached Salesforce is linked instead of duplicated (Scenario 2, 29 Sep 2026). -->
+         so a ticket whose key never reached Salesforce is linked instead of duplicated (Scenario 2). -->
     <flow name="jira-search-issues" doc:name="jira-search-issues">
         <ee:transform doc:name="JQL">
             <ee:variables>

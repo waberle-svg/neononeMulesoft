@@ -268,7 +268,7 @@
         </munit:execution>
     </munit:test>
 
-    <!-- ===== Scenario 2 (29 Sep 2026): create-screen profiles, labels, due date, label search ===== -->
+    <!-- ===== Scenario 2: create-screen profiles, labels, due date, label search ===== -->
     <munit:test name="create-deactivate-instance-payload-keeps-only-screen-fields"
                 description="A DEACTIVATE_INSTANCE request sends only the fields on that type's create screen: labels and due date in, reporter / modules / SF ids out; multi-line description becomes paragraphs">
         <munit:behavior>
@@ -522,7 +522,7 @@
         </munit:validation>
     </munit:test>
 
-    <!-- ===== Requirements v3 (5 Oct 2026): System Setup ticket with the Order-model fields and a per-request reporter ===== -->
+    <!-- ===== Requirements v3: System Setup ticket with the Order-model fields and a per-request reporter ===== -->
     <munit:test name="create-system-setup-v3-sends-new-fields-and-request-reporter"
                 description="Implementation Type (option), Operating Country, NTEE, Additional Users and labels reach Jira under their field ids; the request's reporter wins over the environment default">
         <munit:behavior>
@@ -586,7 +586,7 @@
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15204]" is="#[MunitTools::equalTo('Core CRM Subscription Fee, Neon CRM SimpleStart')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15259]" is="#[MunitTools::equalTo('Devonna Dionne')]"/>
             <munit-tools:assert-that expression="#[vars.sent.fields.labels]" is="#[MunitTools::equalTo(['sf-setup-801Su000001OrdAIAS-neon_crm', 'sf-setup'])]"/>
-            <!-- the request's reporter (Natalie) beats the environment default (test-reporter-account-id) -->
+            <!-- the request's reporter beats the environment default (test-reporter-account-id) -->
             <munit-tools:assert-that expression="#[vars.sent.fields.reporter.accountId]" is="#[MunitTools::equalTo('60a27983391e56006e52cca8')]"/>
             <!-- no NTEE Category was supplied: the key is absent, not null -->
             <munit-tools:assert-that expression="#[vars.sent.fields.customfield_15314?]" is="#[MunitTools::equalTo(false)]"/>

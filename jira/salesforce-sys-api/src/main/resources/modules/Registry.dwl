@@ -8,7 +8,7 @@
 
 // Fields read from Salesforce for every registry query (keep in sync with toCanonical below)
 var soqlFields = "Id, Name, Target_System__c, Request_Type__c, Request_Status__c, Opportunity__c, Account__c, " ++
-    // Order__c (Scenario 1, Order model, 5 Oct 2026): set by the publishing Flow, read-only for Mule
+    // Order__c (Scenario 1, Order model): set by the publishing Flow, read-only for Mule
     "Order__c, Source_Business_Key__c, Product_Line__c, Group_Key__c, " ++
     "Attempts__c, Last_Error__c, Last_Error_Short__c, Error_Category__c, Mule_Correlation_Id__c, " ++
     "External_Key__c, External_Id__c, External_URL__c, External_Container__c, External_Type__c, " ++
@@ -51,7 +51,7 @@ var longTextFields = ["Last_Error__c", "Request_Payload__c", "Response_Payload__
 var longTextMax = 32768
 
 // DateTime fields: the connector needs typed DateTime values, not ISO strings
-// (found live 19 Sep 2026: "Last Synced At: value not of required type", ERR-0011)
+// (found live: "Last Synced At: value not of required type", ERR-0011)
 var dateTimeFields = ["Status_Changed_At__c", "Last_Synced_At__c", "System_Ready_At__c", "Last_Attempt_At__c", "Next_Retry_At__c"]
 var numberFields   = ["Attempts__c"]
 
@@ -133,7 +133,7 @@ fun toRecord(body, base) = do {
 /**
  * First result item of salesforce:update / create / upsert. The connector returns either a plain array of
  * { id, success, errors } or (Salesforce connector 10.x/11.x) an object { id, items: [ { id, success?, exception?, errors? } ] }
- * — seen live on 19 Sep 2026 (ERR-0011). Accept both.
+ * — seen live (ERR-0011). Accept both.
  */
 fun firstResult(payload) =
     if (payload == null) null

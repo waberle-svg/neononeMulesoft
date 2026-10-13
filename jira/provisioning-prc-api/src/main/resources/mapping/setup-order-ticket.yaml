@@ -1,5 +1,5 @@
 # setup-order-ticket.yaml — how a Jira "System Setup" ticket is built for ONE product line of an activated Order
-# (Scenario 1, Order model — requirements v3 "Jira Requirements" of 1 Oct 2026 and Swati's answers of 5 Oct 2026).
+# (Scenario 1, Order model — requirements v3 "Jira Requirements" and the client's answers).
 # The Opportunity-model mapping (Phase 1) stays in provisioning-ticket.yaml; the process API picks this file when the
 # registry row carries Order__c.
 #
@@ -10,7 +10,7 @@
 #
 # Context paths:
 #   opp.*                 canonical Opportunity (salesforce-sys-api): account.{name,nteeCode,nteeDivision,billingCountry},
-#                         primaryContact, technicalContact (= the ACCOUNT's technical contact, Swati 5 Oct), partnerContact, description,
+#                         primaryContact, technicalContact (= the ACCOUNT's technical contact, client decision), partnerContact, description,
 #                         productionInstanceName, productRollup, opportunityNumber
 #   order.*               canonical Order: orderNumber, activatedDate, neonCrmModules (Order.NeonCRM_Modules__c, built by the
 #                         Salesforce Order Flow; null when blank), items[], additionalUsers[]
@@ -27,7 +27,7 @@
 version: 1
 
 # Implementation Type: first rule whose "contains" text appears (case-insensitive) in Opportunity.ProductRollup__c wins;
-# the document's table of 1 Oct 2026. Option values are exactly Jira's (customfield_15343).
+# the requirements v3 table. Option values are exactly Jira's (customfield_15343).
 rules:
   implementationType:
     - contains:
@@ -58,9 +58,9 @@ fields:
     source: "opp.account.name"
     maxLength: 255
 
-  # Description laid out like the setup team's hand-written tickets (SETUP-11083; Swati, 8 Oct 2026):
+  # Description laid out like the setup team's hand-written tickets (SETUP-11083):
   #   bold labels, underlined contact names, e-mail on its own line, Sales Notes as bullets, bold section
-  #   headers with the value on the next line. No Order section (client, 9 Oct 2026: a dedicated field may follow).
+  #   headers with the value on the next line. No Order section (client: a dedicated field may follow).
   # Markup rendered by jira-sys-api: blank line = new paragraph, newline = line break, "- " = bullet,
   # **bold**, __underline__, a bare e-mail = mailto link.
   description:
@@ -78,7 +78,7 @@ fields:
   # Required on the System Setup screen
   productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
   # Modules: Order.NeonCRM_Modules__c verbatim (the Salesforce Order Flow builds it from Product2.Jira_Module_Value__c);
-  # "NA" when the field is blank (Swati, 7 Oct 2026). Mule does not derive it from the products.
+  # "NA" when the field is blank (client decision). Mule does not derive it from the products.
   modules:            { source: "order.neonCrmModules", default: "NA" }
   webTemplateCopy:    { value: "NOT_PURCHASED" }
 

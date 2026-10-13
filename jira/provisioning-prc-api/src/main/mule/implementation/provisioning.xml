@@ -8,7 +8,7 @@
       3. route on the row's Request_Type__c:
            SETUP         -> provision-ticket   (Scenario 1: System Setup ticket; Order model or the Phase 1 Opportunity model)
            DEACTIVATION  -> deactivate-ticket  (Scenario 2: one deactivation ticket per product line of a churned Opportunity)
-         The request type value was renamed PROVISIONING -> SETUP in Salesforce on 7 Oct 2026. Mule's canonical value is SETUP;
+         The request type value was renamed PROVISIONING -> SETUP in Salesforce (requirements v4). Mule's canonical value is SETUP;
          PROVISIONING is NOT accepted (IGNORED_TYPE); provisioning.legacyRequestTypes is an emergency switch kept empty.
 
   provision-ticket / deactivate-ticket share the same shape:
@@ -21,7 +21,7 @@
       transient -> registry Retrying, park in retry_store with backoff RETRY_SCHEDULED; after maxAttempts RETRIES_EXHAUSTED
   Scenario 2 and the Scenario 1 Order model add a third idempotency check (idempotency #3): before creating, Jira is asked
   for a ticket carrying the label derived from the Salesforce record; a hit is linked (LINKED_EXISTING_TICKET) instead of
-  duplicated. Since 5 Oct 2026 both ticket flows also keep a write-ahead record of every key Jira returned in the
+  duplicated. Both ticket flows also keep a write-ahead record of every key Jira returned in the
   created_issues_store (idempotency #2b): a retry finds the key there first and links it without asking Jira, so the
   "write-back failed after the ticket was created" gap is closed even if someone edits the labels.
   Scenario 1 runs in two models decided per row: Order model (registry row has Order__c; requirements v3) or the Phase 1
@@ -48,7 +48,7 @@
                 message='#[output text/plain --- "Integration request " ++ (vars.requestId default "?") ++ " type=" ++ (vars.req.requestType default "?") ++ " source=" ++ (vars.opportunityId default "?")]'/>
 
         <!-- Request types: provisioning.requestTypes (canonical: SETUP, DEACTIVATION) plus provisioning.legacyRequestTypes
-             (emergency switch only — EMPTY in every environment by decision of 7 Oct 2026; the old spelling PROVISIONING is not accepted).
+             (emergency switch only — EMPTY in every environment by decision; the old spelling PROVISIONING is not accepted).
              A legacy value is processed exactly like SETUP but logged at WARN so the sender can be found and fixed. -->
         <set-variable variableName="acceptedTypes" doc:name="acceptedTypes"
                       value="#[((p('provisioning.requestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
@@ -105,7 +105,7 @@ output application/json skipNullOn="everywhere"
     </flow>
 
     <!-- ===== Scenario 1: System Setup ticket. Requires vars.req, vars.requestId, vars.registry =====
-         Two models, decided PER ROW (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026):
+         Two models, decided PER ROW (requirements v3 and the client's answers):
            Order model       — registry.orderId set: one row per Order x product line; the ticket covers the flagged Order
                                Products of that line (salesforce-sys-api GET /orders/{id}); mapping setup-order-ticket.yaml
            Opportunity model — registry.orderId blank: the Phase 1 behaviour (publisher v5 still produces such rows in Dev)
@@ -440,9 +440,9 @@ fun reporterFor(scenario, code) = do {
   existingKey:     if (opportunityKey == null) null else vars.opp.deactivation[opportunityKey].jiraKey,
   label:           label,
   tags:            [label, p('deactivation.labelPrefix')],
-  // Reporter of the deactivation ticket (requirements 7 Oct 2026: Chelsea Diehl for every line); null = API account
+  // Reporter of the deactivation ticket (requirements v4: Chelsea Diehl for every line); null = API account
   reporterAccountId: reporterFor("deactivation", code),
-  // Summary rule (Swati, 1 Oct 2026): "System shutdown for <summaryLabel> /<summarySubject>/" — CRM shows the instance id,
+  // Summary rule (client): "System shutdown for <summaryLabel> /<summarySubject>/" — CRM shows the instance id,
   // Fundraise and Arts People show the Account name
   summaryLabel:    cfg('summaryLabel') default sfValue,
   summarySubject:  if ((cfg('summarySubject') default "instanceId") == "accountName") (vars.opp.account.name default "") else (instanceId default ""),

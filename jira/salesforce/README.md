@@ -1,18 +1,18 @@
 # salesforce — the integration's own Salesforce metadata
 
 Salesforce DX project holding **only the components the Salesforce ↔ Jira integration owns** (Phase 1 + Scenario 2), so they
-are versioned next to the three Mule apps (ADR-008 monorepo, amended 29 Sep 2026). Neon One's own metadata stays out of Git;
+are versioned next to the three Mule apps (ADR-008 monorepo). Neon One's own metadata stays out of Git;
 the full org retrieve used for discovery lives outside the repo (`~/Desktop/NEONONE SF`) and is not a source of truth.
 
-Since 29 Sep 2026 **this folder is the source of truth** for these components; the demo scripts (`../demo/demo-env.sh`,
+**This folder is the source of truth** for these components; the demo scripts (`../demo/demo-env.sh`,
 `SFDX`) deploy from here.
 
 ## What is in here
 | Folder | Components | Owner |
 |---|---|---|
-| `objects/Integration_Transaction__c` | the registry object, 29 custom fields (incl. `Product_Line__c`, unique `Group_Key__c`, `Order__c`, the tracking timestamps `Last_Attempt_At__c` / `Next_Retry_At__c` / `System_Ready_At__c`), record type `JIRA_Issue`, field history on 12 fields | ours (shared with the Rocketlane integration since 9 Oct 2026: their `Project__c`, record type and layout item are theirs and are not in this folder; their picklist values ROCKETLANE / Not Eligible are kept) |
+| `objects/Integration_Transaction__c` | the registry object, 29 custom fields (incl. `Product_Line__c`, unique `Group_Key__c`, `Order__c`, the tracking timestamps `Last_Attempt_At__c` / `Next_Retry_At__c` / `System_Ready_At__c`), record type `JIRA_Issue`, field history on 12 fields | ours (shared with the Rocketlane integration: their `Project__c`, record type and layout item are theirs and are not in this folder; their picklist values ROCKETLANE / Not Eligible are kept) |
 | `objects/Integration_Request__e` | the platform event and its 8 fields | ours |
-| `objects/Opportunity/fields` | `JIRA_SETUP_Status__c`, `JIRA_SETUP_Status_Updated__c` (Phase 1). The other Jira fields on Opportunity are Neon One's and are only read/written by the Flows | ours, on Neon One's object |
+| `objects/Opportunity/fields` | none: the Phase 1 fields `JIRA_SETUP_Status__c` and `JIRA_SETUP_Status_Updated__c` were retired (the Jira status lives on Order Item now); they still exist in the Dev org, are not deployed to UAT and are no longer read by `salesforce-sys-api`. The Jira fields on Opportunity are Neon One's and are only read/written by the Flows | — |
 | `objects/OpportunityLineItem/fields` | `Integration_Product_Line__c` formula (Scenario 2) | ours, on Neon One's object |
 | `objects/OrderItem/fields` | `Integration_Product_Line__c`, `Integration_Sync_JIRA__c` formulas (Scenario 1 Order model) | ours, on Neon One's object |
 | `layouts` | `Integration Transaction Layout` (sections + History related list) | ours |
@@ -39,7 +39,7 @@ sf project deploy start --test-level NoTestRun --manifest manifest/uat-1-data-mo
 Then verify: `sf sobject describe --sobject Integration_Transaction__c -o neonone-uat-org --json | jq '[.result.fields[].name | select(endswith("__c"))] | length'` → 29 (your user needs field access, e.g. the permission set, to see them); record type `JIRA_Issue` present; the layout shows the History related list; `Jira_Integration_Access` exists. The External Client App, the integration user, the consumer key and the tab are **manual steps after the deploy** — runbook in the knowledge base (doc 35) or the shared handover doc.
 
 ## Rules
-- **Check first, then deploy.** Check-only: `sf project deploy start --dry-run --test-level NoTestRun --manifest manifest/<file> -o <alias>`. **Never** use `sf project deploy validate` (it runs the whole org's Apex tests in a shared sandbox). Real deploy = same command without `--dry-run`; in Dev it is announced to Ayush beforehand.
+- **Check first, then deploy.** Check-only: `sf project deploy start --dry-run --test-level NoTestRun --manifest manifest/<file> -o <alias>`. **Never** use `sf project deploy validate` (it runs the whole org's Apex tests in a shared sandbox). Real deploy = same command without `--dry-run`; in Dev it is announced beforehand.
 - The two publisher Flows are committed as `Draft` and switched on/off per test window with `../demo/02-activate-publisher-flow.sh` / `../demo/06-stop.sh` (the Dev sandbox is shared; every real transition would become a Jira ticket while a publisher is active).
 - Keep this folder and the org in step: after any change made directly in the org, retrieve it here (`sf project retrieve start --manifest manifest/<file> -o <alias>`) before committing. Deploying a picklist field re-sends its whole value list, so values other teams added in the org must be in this folder before any redeploy.
 

@@ -10,7 +10,7 @@
  *                     **text**                       bold
  *                     __text__                       underline
  *                     a line that is only an e-mail  mailto link
- *                   Modelled on how the setup team writes tickets by hand (SETUP-11083, 8 Oct 2026).
+ *                   Modelled on how the setup team writes tickets by hand (SETUP-11083).
  *   adfLines(text)  one plain paragraph per non-blank line (Additional Users: one user per line).
  *
  *   import * from modules::Adf

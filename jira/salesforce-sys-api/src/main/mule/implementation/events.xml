@@ -47,7 +47,7 @@
                 <ee:set-variable variableName="request"><![CDATA[%dw 2.0
 import try from dw::Runtime
 output application/java
-// Live shape (Salesforce connector, 20 Sep 2026, ERR-0015): the CometD envelope
+// Live shape (Salesforce connector, ERR-0015): the CometD envelope
 //   { channel: "/event/Integration_Request__e", data: { event: { replayId, createdDate }, payload: { <event fields> } } }
 // Older docs show { payload: {...}, event: {...} }; a flat map of fields is tolerated too.
 var envelope = payload.data default payload

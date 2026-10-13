@@ -26,7 +26,9 @@ output text/plain
 "SELECT Id, OpportunityNumber__c, Name, StageName, Type, CloseDate, Description, "
   ++ "Is_Test_Account_Opportunity__c, Project_Requirement_Met__c, ProductionInstanceName__c, "
   ++ "NeonCRM_Modules__c, ProductRollup__c, Includes_Web_Template_Copy__c, BusinessUnit__c, "
-  ++ "JIRA_SETUP_Issue__c, JIRA_SETUP_Status__c, JIRA_SETUP_Status_Updated__c, JIRA_Error_Message__c, "
+  // Opportunity.JIRA_SETUP_Status__c / _Updated__c retired (the setup ticket status lives on the Order Product, GET /orders);
+  // they are not deployed to UAT, so they must not be selected here
+  ++ "JIRA_SETUP_Issue__c, JIRA_Error_Message__c, "
   // Scenario 2 (cancellation): the churn trigger fields and the per-product-line write-back fields
   ++ "Risk_Stage__c, Forecast_Opportunity__c, "
   ++ "Neon_CRM_Cancellation_JIRA__c, Neon_CRM_Cancellation_Error__c, "
@@ -35,7 +37,7 @@ output text/plain
   ++ "AccountId, Account.Name, Account.Neon_CRM_Instance_Created_Date__c, Account.NCRM_Instance__c, "
   // Scenario 2: the Account carries one instance identifier per product line, plus the cancellation outcome set by Apex
   ++ "Account.RB_RB_ID__c, Account.Arts_People_Theatre_Id__c, Account.Deactivation_Date__c, Account.CancellationStatus__c, Account.IsTestAccount__c, "
-  // Scenario 1 (requirements v3, Swati 5 Oct 2026): technical contact comes from the Account; NTEE and country from the Account
+  // Scenario 1 (requirements v3): technical contact comes from the Account; NTEE and country from the Account
   ++ "Account.TechnicalContact__c, Account.TechnicalContact__r.Name, Account.TechnicalContact__r.Email, "
   ++ "Account.NTEECode__c, Account.NTEE_Division__c, Account.BillingCountry, "
   ++ "PrimaryContact__c, PrimaryContact__r.Name, PrimaryContact__r.Email, "
@@ -89,8 +91,6 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
   includesWebTemplateCopy:  r.Includes_Web_Template_Copy__c,
   businessUnit:             r.BusinessUnit__c,
   jiraSetupIssueKey:        r.JIRA_SETUP_Issue__c,
-  jiraSetupStatus:          r.JIRA_SETUP_Status__c,
-  jiraSetupStatusUpdated:   r.JIRA_SETUP_Status_Updated__c,
   jiraErrorMessage:         r.JIRA_Error_Message__c,
   riskStage:                r.Risk_Stage__c,
   forecastOpportunity:      r.Forecast_Opportunity__c,
@@ -121,7 +121,7 @@ fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyy
     artsPeople:    { jiraKey: blankAsNull(r.Arts_People_Cancellation_JIRA__c), error: r.Arts_People_Cancellation_Error__c }
   },
   primaryContact:   person(r.PrimaryContact__c, r.PrimaryContact__r),
-  // Swati, 5 Oct 2026: "Technical contact should be from account only" — the Account's lookup wins; the Opportunity's own
+  // Client rule: "Technical contact should be from account only" — the Account's lookup wins; the Opportunity's own
   // lookup is kept under its own name for reference
   technicalContact:            person(r.Account.TechnicalContact__c, r.Account.TechnicalContact__r),
   opportunityTechnicalContact: person(r.TechnicalContact__c, r.TechnicalContact__r),

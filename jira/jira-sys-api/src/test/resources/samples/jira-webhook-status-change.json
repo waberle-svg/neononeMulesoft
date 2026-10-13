@@ -2,7 +2,7 @@
   "timestamp": 1790663571211,
   "webhookEvent": "jira:issue_updated",
   "issue_event_type_name": "issue_generic",
-  "user": { "accountId": "61121eff4e8d8d0069df301b", "displayName": "Swati Sharma" },
+  "user": { "accountId": "61121eff4e8d8d0069df301b", "displayName": "API User" },
   "issue": {
     "id": "246526",
     "key": "NSSU-8",

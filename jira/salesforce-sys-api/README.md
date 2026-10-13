@@ -63,7 +63,7 @@ mvn clean deploy -DmuleDeploy -Pdev -Dsecure.key="$MULE_SECURE_KEY" -Dcloudhub.p
 
 Project knowledge base: `~/Desktop/NEONONE-KB`.
 
-## Scenario 1 Order model (5 Oct 2026)
+## Scenario 1 Order model
 - `GET /orders/{id}?productLine=<Product2.Product_Line__c>&syncOnly=true|false` — Order header (incl. `neonCrmModules`, `createSetupJira`), the Order Products selected **through the Product** (`Product2.Sync_JIRA__c`, `Product2.Product_Line__c`; SOQL can filter on related fields, a Flow cannot) and the Account's Contacts flagged `Orientation_Participant__c` (additional users); each item carries `syncJira`, `jiraModuleValue` (Product2.Jira_Module_Value__c) and `createSetupJira`. Flow `sf-get-order` in `implementation/orders.xml`.
 - Opportunity view: `technicalContact` = the **Account's** technical contact (requirements v3); the Opportunity's own lookup is `opportunityTechnicalContact`. New: `account.billingCountry`, `account.nteeCode`, `account.nteeDivision`, `partnerContact`, `partnerAccount`, `partnerName`, `nteeClassification`.
 - Registry rows expose `orderId` (`Integration_Transaction__c.Order__c`, read-only for Mule). **The field must exist in the org before this build is deployed** (every registry SELECT includes it).

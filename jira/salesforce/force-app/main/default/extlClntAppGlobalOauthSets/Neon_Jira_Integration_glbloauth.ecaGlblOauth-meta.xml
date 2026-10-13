@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Global OAuth settings. <certificate> is the PUBLIC half of the Dev key pair generated 19 Sep 2026
+<!-- Global OAuth settings. <certificate> is the PUBLIC half of the Dev key pair
      (private key/keystore in ~/Desktop/Neonone Mulesoft Project/.secrets/dev/, never committed). Replace per org. -->
 <ExtlClntAppGlobalOauthSettings xmlns="http://soap.sforce.com/2006/04/metadata">
     <callbackUrl>http://localhost:1717/OauthRedirect</callbackUrl>

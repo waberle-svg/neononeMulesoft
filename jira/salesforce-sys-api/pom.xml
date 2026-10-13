@@ -28,7 +28,7 @@
         <salesforce.connector.version>12.0.0</salesforce.connector.version>
         <objectstore.connector.version>1.2.2</objectstore.connector.version>
 
-        <!-- Deployment: CloudHub 2.0 private space "Bluvium" (25 Sep 2026). Connected-app credentials come from
+        <!-- Deployment: CloudHub 2.0 (target per cloudhub.target below). Connected-app credentials come from
              ~/.m2/settings.xml (anypoint.client.id / anypoint.client.secret); the secure key from -Dsecure.key; the
              process API's internal hostname from -Dcloudhub.prc.host once known. Never hardcode secrets here. -->
         <cloudhub.env>Sandbox</cloudhub.env>
@@ -191,7 +191,7 @@
 
     <profiles>
         <profile>
-            <!-- "dev" = our Dev configuration hosted in the client's Sandbox environment (the only one that exists, 25 Sep 2026) -->
+            <!-- "dev" = our Dev configuration hosted in the client's Sandbox environment (the only one that exists) -->
             <id>dev</id>
             <properties>
                 <cloudhub.env>Sandbox</cloudhub.env>

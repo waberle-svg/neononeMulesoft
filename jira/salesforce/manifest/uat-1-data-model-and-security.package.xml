@@ -4,7 +4,9 @@
        sf project deploy start --dry-run --test-level NoTestRun --manifest manifest/uat-1-data-model-and-security.package.xml -o <uat alias>
      then the same command without - -dry-run. Never use "sf project deploy validate" (runs every Apex test in the org).
      Prerequisite: the Salesforce team's fields the permission set grants (Product2, Order, OrderItem, Account, Opportunity,
-     Contact) must already exist in UAT, or the PermissionSet component fails. -->
+     Contact) must already exist in UAT, or the PermissionSet component fails.
+     Opportunity.JIRA_SETUP_Status__c and JIRA_SETUP_Status_Updated__c are not part of it (the Jira fields live on
+     Order Item now); 45 members. -->
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>Integration_Transaction__c</members>
@@ -49,8 +51,6 @@
         <members>Integration_Request__e.Source_Org_Id__c</members>
         <members>Integration_Request__e.Source_Record_Id__c</members>
         <members>Integration_Request__e.Target_System__c</members>
-        <members>Opportunity.JIRA_SETUP_Status__c</members>
-        <members>Opportunity.JIRA_SETUP_Status_Updated__c</members>
         <members>OrderItem.Integration_Product_Line__c</members>
         <members>OrderItem.Integration_Sync_JIRA__c</members>
         <members>OpportunityLineItem.Integration_Product_Line__c</members>

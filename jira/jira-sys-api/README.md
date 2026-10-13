@@ -44,8 +44,8 @@ mvn clean deploy -DmuleDeploy -Pdev -Dsecure.key="$MULE_SECURE_KEY" -Dcloudhub.p
 
 Project knowledge base: `~/Desktop/NEONONE-KB`.
 
-## Requirements v3 fields (5 Oct 2026)
+## Requirements v3 fields
 - System Setup create payload now carries `implementationType` (option by value, customfield_15343), `operatingCountry` (15228), `nteeCode` (15364), `nteeDivision` (15365), `nteeCategory` (15314) and `additionalUsers` (15316) when the request supplies them; `jira.screens.SYSTEM_SETUP` lists them.
-- `additionalUsers` (customfield_15316) is a **multi-line** text field: it is sent as an ADF document, one paragraph per line of the request value (8 Oct 2026, ERR-0024). Every other text field on the screen is single-line and takes a plain string.
-- The `description` text carries a small markup rendered to ADF by `modules/Adf.dwl` (8 Oct 2026, to match the setup team's hand-written tickets such as SETUP-11083): blank line = paragraph, newline = line break, `- ` = bullet, `**bold**`, `__underline__`, a bare e-mail = mailto link. The process API decides the layout in its mapping YAML; this API only renders.
+- `additionalUsers` (customfield_15316) is a **multi-line** text field: it is sent as an ADF document, one paragraph per line of the request value (ERR-0024). Every other text field on the screen is single-line and takes a plain string.
+- The `description` text carries a small markup rendered to ADF by `modules/Adf.dwl` (to match the setup team's hand-written tickets such as SETUP-11083): blank line = paragraph, newline = line break, `- ` = bullet, `**bold**`, `__underline__`, a bare e-mail = mailto link. The process API decides the layout in its mapping YAML; this API only renders.
 - Reporter: the request's `reporterAccountId` wins; `jira.defaults.reporterAccountId` is **blank** in dev/uat/prod so deactivation tickets keep the API account as reporter while provisioning-prc-api sends Natalie Newendyke for System Setup tickets.

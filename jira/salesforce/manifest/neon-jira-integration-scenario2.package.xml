@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Scenario 2 (cancellation / deactivation) additions to the Salesforce <-> Jira (MuleSoft) integration, 29 Sep 2026.
-     Check-only run (never deploy without Ayush's go):
+<!-- Scenario 2 (cancellation / deactivation) additions to the Salesforce <-> Jira (MuleSoft) integration.
+     Check-only run (never deploy without approval):
        sf project deploy start - -dry-run - -test-level NoTestRun - -manifest manifest/neon-jira-integration-scenario2.package.xml -o neon-dev
      (write the two dashes together; split here only so this comment stays valid XML) -->
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">

@@ -58,7 +58,7 @@
             <munit-tools:assert-that expression="#[payload.opportunityNumber]" is="#[MunitTools::equalTo('O-0210538')]"/>
             <munit-tools:assert-that expression="#[payload.account.name]" is="#[MunitTools::equalTo('Acme Nonprofit')]"/>
             <munit-tools:assert-that expression="#[payload.primaryContact.email]" is="#[MunitTools::equalTo('pat@example.org')]"/>
-            <!-- requirements v3 (Swati, 5 Oct 2026): the technical contact is the ACCOUNT's; the Opportunity's own lookup is blank here -->
+            <!-- requirements v3 (client decision): the technical contact is the ACCOUNT's; the Opportunity's own lookup is blank here -->
             <munit-tools:assert-that expression="#[payload.technicalContact.email]" is="#[MunitTools::equalTo('devonna.dionne@example.org')]"/>
             <munit-tools:assert-that expression="#[payload.opportunityTechnicalContact]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[payload.account.nteeCode]" is="#[MunitTools::equalTo('S22')]"/>
@@ -344,7 +344,7 @@
         </munit:validation>
     </munit:test>
 
-    <!-- ===== Scenario 1, Order model (requirements v3, 5 Oct 2026): GET /orders/{id} ===== -->
+    <!-- ===== Scenario 1, Order model (requirements v3): GET /orders/{id} ===== -->
     <munit:test name="get-order-maps-rows-to-canonical"
                 description="Order header + Order Products selected through the Product + the Account's additional users become the canonical Order">
         <munit:behavior>
@@ -404,7 +404,7 @@
             <!-- an empty-string key is "no key" for the idempotency guard; a "true" string from the connector is a real boolean on the contract -->
             <munit-tools:assert-that expression="#[payload.items[1].jiraSetupIssueKey]" is="#[MunitTools::nullValue()]"/>
             <munit-tools:assert-that expression="#[payload.items[1].syncJira]" is="#[MunitTools::equalTo(true)]"/>
-            <!-- requirements 7 Oct 2026: module value per product and the Flow's qualification flag travel with the item; the Order's built string when present -->
+            <!-- requirements v4: module value per product and the Flow's qualification flag travel with the item; the Order's built string when present -->
             <munit-tools:assert-that expression="#[payload.items[0].jiraModuleValue]" is="#[MunitTools::equalTo('Custom Objects | File Manager | Fundraising')]"/>
             <munit-tools:assert-that expression="#[payload.items[0].createSetupJira]" is="#[MunitTools::equalTo(true)]"/>
             <munit-tools:assert-that expression="#[payload.items[1].jiraModuleValue]" is="#[MunitTools::nullValue()]"/>

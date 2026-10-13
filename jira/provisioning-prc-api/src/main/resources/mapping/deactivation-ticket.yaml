@@ -1,5 +1,5 @@
 # deactivation-ticket.yaml — how a Jira deactivation ticket is built for ONE product line of a churned Opportunity
-# (Scenario 2, Swati's requirements of 24 Sep 2026 §Cancellation; same mini mapping engine as provisioning-ticket.yaml).
+# (Scenario 2, the client's cancellation requirements; same mini mapping engine as provisioning-ticket.yaml).
 #
 # This file IS the field mapping. Changing what goes on the ticket is a change here, never in a flow.
 # Leaf spec: exactly one of  source: "<path>" | template: "text with {path} tokens" | rule: "<name>" | value: <constant>
@@ -26,17 +26,17 @@ fields:
   project:   { source: "line.project" }
   issueType: { source: "line.issueType" }
 
-  # Reporter (7 Oct 2026): Chelsea Diehl for every deactivation line, from config reporters.deactivation.*; jira-sys-api sends it only
+  # Reporter (requirements v4): Chelsea Diehl for every deactivation line, from config reporters.deactivation.*; jira-sys-api sends it only
   # where the create screen has the Reporter field (WOU yes, live WORK no — Neon One must add it) and the API account may modify it
   reporterAccountId: { source: "line.reporterAccountId" }
 
-  # Summary (Swati, 1 Oct 2026): "System shutdown for CRM /<instance id>/", "System shutdown for Fundraise /<Account name>/",
+  # Summary (client rule): "System shutdown for CRM /<instance id>/", "System shutdown for Fundraise /<Account name>/",
   # "System shutdown for Arts People /<Account name>/" — label and subject come from config deactivation.lines.<CODE>
   summary:
     template: "System shutdown for {line.summaryLabel} /{line.summarySubject}/"
     maxLength: 255
 
-  # First line as in the document; the rest gives the receiving team the "when" and the "why" (agreed with Swati 29 Sep 2026)
+  # First line as in the document; the rest gives the receiving team the "when" and the "why" (agreed with the client)
   description:
     # (one blank line between lines: jira-sys-api renders a blank line as a paragraph break, a newline as a line break)
     template: |

@@ -19,11 +19,11 @@ jira:
     productionInstance: "Pending"   # MVP placeholder when the Opportunity has no instance name
     modules: "Core Modules"         # MVP placeholder until the Modules source is confirmed (Q16)
     webTemplateCopy: "NOT_PURCHASED"
-    # Ticket ownership (Jira accountIds). Swati Sharma (Bluvium) — Dev/UAT only; the client decides the owner for Production
+    # Ticket ownership (Jira accountIds). the integration's API account in Dev/UAT; the client decides the owner for Production
     # assignee is applied with PUT /issue/{key}/assignee after creation (the field is not on the NSSU create screen);
     # reporter is sent in the create payload (needs Modify Reporter). Empty string = leave Jira defaults.
     assigneeAccountId: "61121eff4e8d8d0069df301b"
-    # 5 Oct 2026: blank on purpose. provisioning-prc-api sends the reporter per ticket type (System Setup = Natalie
+    # Blank on purpose. provisioning-prc-api sends the reporter per ticket type (System Setup = Natalie
     # Newendyke, requirements v3); deactivation tickets keep the API account as reporter.
     reporterAccountId: ""
 
@@ -31,13 +31,13 @@ jira:
     SYSTEM_SETUP: "10800"
     DEACTIVATE_INSTANCE: "11900"    # "Deactivate Instance" (exists only in project WORK today; NSSU has System Setup only)
 
-  # Which canonical fields each issue type's CREATE SCREEN accepts (read from Jira createmeta, 26-29 Sep 2026).
+  # Which canonical fields each issue type's CREATE SCREEN accepts (read from Jira createmeta).
   # The create payload keeps only these: Jira answers 400 for any field that is not on the screen. "reporter"/"assignee"
   # mean "may be set" (reporter needs Modify Reporter; assignee is a second call). No entry for a type = send everything.
   screens:
     SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail,implementationType,operatingCountry,nteeCode,nteeDivision,nteeCategory,additionalUsers"
-    # Dev/UAT target is project WOU ("Work Orders - UAT", created by Neon One 30 Sep 2026): its Deactivate Instance screen
-    # REQUIRES reporter (verified 1 Oct 2026). Production WORK has no reporter on that screen — see config-prod.yaml.
+    # Dev/UAT target is project WOU ("Work Orders - UAT", created by Neon One): its Deactivate Instance screen
+    # REQUIRES reporter (verified). Production WORK has no reporter on that screen — see config-prod.yaml.
     DEACTIVATE_INSTANCE: "summary,description,reporter,assignee,labels,dueDate,priority,productionInstance"
 
   search:
@@ -46,7 +46,7 @@ jira:
   status:
     instanceReadyId: "10805"        # "System Ready" — match on id, never on category
 
-  # Jira custom field ids (verified 15 Sep 2026 against neoncrm.atlassian.net)
+  # Jira custom field ids (verified against neoncrm.atlassian.net)
   fields:
     productionInstance: "customfield_11202"
     modules: "customfield_15204"
@@ -58,7 +58,7 @@ jira:
     primaryContactEmail: "customfield_15225"
     technicalContactName: "customfield_15259"
     technicalContactEmail: "customfield_15260"
-    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens, 3 Oct 2026)
+    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens)
     implementationType: "customfield_15343"
     operatingCountry: "customfield_15228"
     nteeCode: "customfield_15364"

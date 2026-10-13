@@ -12,7 +12,7 @@ provisioning:
   # Request types this process handles; anything else is acknowledged and ignored
   requestTypes: "SETUP,DEACTIVATION"
   # Request types other than the ones above are IGNORED (outcome IGNORED_TYPE, INFO log; the row stays Requested).
-  # Decision 7 Oct 2026: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
+  # Decision: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
   # legacyRequestTypes exists only as an emergency switch (comma-separated spellings processed as SETUP with a WARN); keep it empty.
   legacyRequestTypes: ""
   # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
@@ -25,7 +25,7 @@ provisioning:
     schedulerFrequencyMinutes: "1"
   # Where the mapping lives (classpath). ADR-014: YAML now, Salesforce Custom Metadata later.
   mappingFile: "mapping/provisioning-ticket.yaml"
-  # ---- Scenario 1, Order model (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026) ----
+  # ---- Scenario 1, Order model (requirements v3 and the client's answers) ----
   # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
   # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
   orderMappingFile: "mapping/setup-order-ticket.yaml"
@@ -34,7 +34,7 @@ provisioning:
   # Labels on every setup ticket: "<prefix>-<order id>-<line code>" and the bare prefix
   labelPrefix: "sf-setup"
 
-# Scenario 2 — cancellation / deactivation (Swati's requirements 24 Sep 2026; decisions 28-29 Sep 2026)
+# Scenario 2 — cancellation / deactivation (the client's cancellation requirements and the decisions that followed)
 deactivation:
   mappingFile: "mapping/deactivation-ticket.yaml"
   # Before creating, ask Jira for a ticket that already carries this request's label (closes the duplicate gap)
@@ -48,10 +48,10 @@ deactivation:
   #   instanceField         key under opportunity.account in salesforce-sys-api that holds this line's instance id
   #   opportunityKey        key under opportunity.deactivation holding this line's write-back pair (existing-key guard)
   #   instanceLabel         how the receiving team names the identifier (appears on the ticket)
-  #   summaryLabel          the word after "System shutdown for" in the ticket summary (Swati, 1 Oct 2026: CRM | Fundraise | Arts People)
+  #   summaryLabel          the word after "System shutdown for" in the ticket summary (client: CRM | Fundraise | Arts People)
   #   summarySubject        what goes between the slashes in the summary: instanceId (Neon CRM) | accountName (Fundraise, Arts People)
-  # DEV (1 Oct 2026): every line -> project WOU "Work Orders - UAT" (Neon One's test copy of WORK, created 30 Sep 2026),
-  # real issue type Deactivate Instance (11900). Swati: WOU stands in for WORK, FUND and ARTS until those exist.
+  # DEV: every line -> project WOU "Work Orders - UAT" (Neon One's test copy of WORK),
+  # real issue type Deactivate Instance (11900). Client: WOU stands in for WORK, FUND and ARTS until those exist.
   # 29-30 Sep the stand-in was NSSU / SYSTEM_SETUP (ticket NSSU-9). Production: see config-prod.yaml.
   # A line with project "TBD" (or no entry) fails terminally with a clear message instead of creating a wrong ticket.
   lines:
@@ -81,22 +81,22 @@ deactivation:
       summarySubject: "accountName"
 
 
-# Jira reporters by scenario and product line (Atlassian accountIds; requirements of 7 Oct 2026).
+# Jira reporters by scenario and product line (Atlassian accountIds; requirements v4).
 # Resolution per request: reporters.<scenario>.lines.<LINE_CODE> -> reporters.<scenario>.default -> none (Jira uses the API account).
 # Setting a reporter requires (a) the Reporter field on the issue type's CREATE SCREEN in that project — jira-sys-api drops the
 # field where the screen lacks it (today: WORK / Deactivate Instance) — and (b) "Modify Reporter" for the API account in the project.
 # Every value here can be overridden per environment as a Runtime Manager property (same key), no rebuild needed.
 reporters:
   setup:
-    # System Setup tickets. DEV: NEON_CRM = Swati Sharma (Dev only). Fundraise / Arts People setup reporters are not decided yet
-    # (candidate for Arts People per the 7 Oct document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
+    # System Setup tickets. DEV: NEON_CRM = the integration's API account (Dev only). Fundraise / Arts People setup reporters are not decided yet
+    # (candidate for Arts People per the requirements v4 document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
     default: ""
     lines:
       NEON_CRM: "61121eff4e8d8d0069df301b"
       NEON_FUNDRAISE: ""
       ARTS_PEOPLE: ""
   deactivation:
-    # Deactivate Instance tickets, all product lines. DEV: Swati Sharma (Dev only).
+    # Deactivate Instance tickets, all product lines. DEV: the integration's API account (Dev only).
     default: "61121eff4e8d8d0069df301b"
     lines:
       NEON_CRM: ""

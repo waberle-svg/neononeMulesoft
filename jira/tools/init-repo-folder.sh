@@ -6,7 +6,7 @@
 #
 # Usage:  zsh tools/init-repo-folder.sh [destination]      default destination: ~/Desktop/Mulesoft-N-One
 set -e
-# Historical: used once on 26 Sep 2026 to create this repository from the pre-Git working folder. Kept for reference.
+# Historical: used once to create this repository from the pre-Git working folder. Kept for reference.
 SRC="${SRC:-$(cd "$(dirname "$0")/.." && pwd)}"
 DEST="${1:-$HOME/Desktop/Mulesoft-N-One}"
 KB="${KB:-$HOME/Desktop/NEONONE-KB}"
@@ -111,7 +111,7 @@ Runtime **Mule 4.12.3 / Java 17**, built with Maven, tested with MUnit, deployed
 
 - New here? Read [docs/SETUP.md](docs/SETUP.md) first, then [docs/BRANCHING.md](docs/BRANCHING.md).
 - Open the **workspace file** \`$REPO_NAME.code-workspace\` in VS Code, not the folder (the MuleSoft extension needs each app at a workspace root).
-- Architecture, decisions, runbooks and the error log live in the Bluvium knowledge base \`NEONONE-KB\` (ask Ayush Upadhyaya).
+- Architecture, decisions, runbooks and the error log live in the Bluvium knowledge base \`NEONONE-KB\` (ask the integration team).
 - Secrets: encrypted \`config/secure-<env>.yaml\` files are committed; the AES key, keystores and \`.mule-local.env\` are **never** committed — see \`docs/SETUP.md\` §4.
 
 ## Build
@@ -179,7 +179,7 @@ EOF
   cd "$DEST"
   git init -q -b main
   git add -A
-  git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo Ayush Upadhyaya)}" \
+  git -c user.name="${GIT_AUTHOR_NAME:-$(git config user.name || echo developer)}" \
       -c user.email="${GIT_AUTHOR_EMAIL:-$(git config user.email || echo ayush.upadhyaya@bluvium.com)}" \
       commit -q -m "repo: initial import of the three Neon One Mule apps, demo scripts, tools and docs" \
       -m "Imported from the working folder without build output, IDE caches or secrets. Encrypted secure-dev.yaml files are included; keys and keystores are not."

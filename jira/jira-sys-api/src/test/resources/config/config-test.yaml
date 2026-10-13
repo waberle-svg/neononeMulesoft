@@ -42,7 +42,7 @@ jira:
     primaryContactEmail: "customfield_15225"
     technicalContactName: "customfield_15259"
     technicalContactEmail: "customfield_15260"
-    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens, 3 Oct 2026)
+    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens)
     implementationType: "customfield_15343"
     operatingCountry: "customfield_15228"
     nteeCode: "customfield_15364"

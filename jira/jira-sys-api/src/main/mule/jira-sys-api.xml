@@ -37,7 +37,7 @@
     <!-- Interim inter-app authentication (before API Manager), same mechanism as provisioning-prc-api and salesforce-sys-api:
          callers must send X-Client-Secret equal to secure::api.clientSecret. Off locally (api.enforceClientSecret=false),
          on in every hosted environment. POST /webhooks/jira is exempt: Jira Cloud cannot send our header; that endpoint
-         is protected by its own HMAC signature check (jira.webhook.validateSignature). Added 25 Sep 2026 before the
+         is protected by its own HMAC signature check (jira.webhook.validateSignature). Added before the
          first CloudHub deployment so the app can safely receive a public endpoint later. -->
     <sub-flow name="authorize-caller">
         <choice doc:name="Enforce client secret?">

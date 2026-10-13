@@ -4,15 +4,16 @@
 # Jira_Integration_Access (it grants FLS on every field Mule reads or the Flows write): if one is missing in the target
 # org, package 1 fails on the PermissionSet component, and Mule's queries would fail at runtime.
 # Existence is checked through the Tooling API (CustomField), which does NOT depend on the running user's field-level
-# security — a describe call would hide fields the user cannot see and report them as missing (12 Oct 2026 lesson).
+# security — a describe call would hide fields the user cannot see and report them as missing.
 #   usage: scripts/check-uat-prerequisites.sh <org alias>        e.g. scripts/check-uat-prerequisites.sh neon-uat
 #   exit 0 = everything present · 1 = something missing (listed) · 2 = cannot read an object (alias/access)
 set -u
 ORG="${1:?org alias required, e.g. neon-uat}"
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
 PS="$HERE/force-app/main/default/permissionsets/Jira_Integration_Access.permissionset-meta.xml"
-# Fields in the permission set that are NOT ours (ours = our two objects + the five standard-object fields we deploy)
-OURS='^(Integration_Transaction__c\.|Integration_Request__e\.|Opportunity\.JIRA_SETUP_Status__c$|Opportunity\.JIRA_SETUP_Status_Updated__c$|OrderItem\.Integration_Product_Line__c$|OrderItem\.Integration_Sync_JIRA__c$|OpportunityLineItem\.Integration_Product_Line__c$)'
+# Fields in the permission set that are NOT ours (ours = our two objects + the three standard-object formula fields we deploy;
+# the two Opportunity status fields were retired)
+OURS='^(Integration_Transaction__c\.|Integration_Request__e\.|OrderItem\.Integration_Product_Line__c$|OrderItem\.Integration_Sync_JIRA__c$|OpportunityLineItem\.Integration_Product_Line__c$)'
 required=$(grep -o '<field>[A-Za-z0-9_]*\.[A-Za-z0-9_]*</field>' "$PS" | sed 's/<[^>]*>//g' | grep -v -E "$OURS" | sort -u)
 objects=$(echo "$required" | cut -d. -f1 | sort -u)
 missing=0; checked=0

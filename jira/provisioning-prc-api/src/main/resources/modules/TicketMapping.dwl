@@ -44,7 +44,7 @@ fun applyRule(rule: String, ctx) =
             else null
         }
         // ---- Scenario 1, Order model (requirements v3) ----
-        // Modules is NOT a rule any more (Swati, 7 Oct 2026): the ticket carries Order.NeonCRM_Modules__c exactly as Salesforce
+        // Modules is NOT a rule any more (client decision): the ticket carries Order.NeonCRM_Modules__c exactly as Salesforce
         // built it, or the literal "NA" when that field is blank — a plain source + default leaf in setup-order-ticket.yaml.
         // Implementation Type: first matching rule over Opportunity.ProductRollup__c (case-insensitive substring),
         // table in the mapping YAML (rules.implementationType), else rules.implementationTypeDefault
@@ -74,7 +74,7 @@ fun applyRule(rule: String, ctx) =
     }
 
 /**
- * Contact block in the description markup jira-sys-api renders (modelled on SETUP-11083, 8 Oct 2026):
+ * Contact block in the description markup jira-sys-api renders (modelled on SETUP-11083):
  *   **Header**            bold label, then a line break and the
  *   __Name__              underlined name in the same paragraph,
  *   (blank line)

@@ -12,10 +12,10 @@ http:
 sf:
   # Sandbox token endpoint. Production uses https://login.salesforce.com/services/oauth2/token (wrong one -> invalid_grant)
   tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
-  # JWT "sub": the user the integration acts as. Interim: Ayush's own Dev user (Q13 — integration user licence pending).
+  # JWT "sub": the user the integration acts as. Interim: a developer's own Dev user (Q13 — integration user licence pending).
   principal: "ayush.upadhyaya@bluvium.com"
   keystore:
-    # Private key that signs the JWT. Generated 19 Sep 2026. Since 25 Sep 2026 bundled in the JAR as a classpath resource
+    # Private key that signs the JWT. Bundled in the JAR as a classpath resource
     # (src/main/resources/keystore/, git-ignored by *.jks; master copy in .secrets/dev/) so the same JAR runs on CloudHub (ADR-006).
     path: "keystore/neon-jira-integration-dev.jks"
     alias: "neon-jira-integration-dev"

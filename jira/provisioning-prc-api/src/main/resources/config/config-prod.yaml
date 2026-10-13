@@ -10,7 +10,7 @@ http:
 provisioning:
   requestTypes: "SETUP,DEACTIVATION"
   # Request types other than the ones above are IGNORED (outcome IGNORED_TYPE, INFO log; the row stays Requested).
-  # Decision 7 Oct 2026: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
+  # Decision: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
   # legacyRequestTypes exists only as an emergency switch (comma-separated spellings processed as SETUP with a WARN); keep it empty.
   legacyRequestTypes: ""
   processableStatuses: "Requested,Retrying"
@@ -20,7 +20,7 @@ provisioning:
     maxDelaySeconds: "3600"
     schedulerFrequencyMinutes: "2"
   mappingFile: "mapping/provisioning-ticket.yaml"
-  # ---- Scenario 1, Order model (requirements v3, 1 Oct 2026; Swati's answers 5 Oct 2026) ----
+  # ---- Scenario 1, Order model (requirements v3 and the client's answers) ----
   # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
   # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
   orderMappingFile: "mapping/setup-order-ticket.yaml"
@@ -30,7 +30,7 @@ provisioning:
   labelPrefix: "sf-setup"
 
 # Scenario 2 — see config-dev.yaml for the meaning of each key. PRODUCTION targets per the requirements document:
-# Neon CRM -> WORK "Deactivate Instance" (exists). FUND and ARTS do not exist yet (Neon One, 29 Sep 2026): "TBD" makes
+# Neon CRM -> WORK "Deactivate Instance" (exists). FUND and ARTS do not exist yet (Neon One): "TBD" makes
 # such a request fail terminally with a clear message on the Opportunity instead of creating a ticket in the wrong place.
 deactivation:
   mappingFile: "mapping/deactivation-ticket.yaml"
@@ -64,7 +64,7 @@ deactivation:
       summarySubject: "accountName"
 
 
-# Jira reporters by scenario and product line (Atlassian accountIds; requirements of 7 Oct 2026).
+# Jira reporters by scenario and product line (Atlassian accountIds; requirements v4).
 # Resolution per request: reporters.<scenario>.lines.<LINE_CODE> -> reporters.<scenario>.default -> none (Jira uses the API account).
 # Setting a reporter requires (a) the Reporter field on the issue type's CREATE SCREEN in that project — jira-sys-api drops the
 # field where the screen lacks it (today: WORK / Deactivate Instance) — and (b) "Modify Reporter" for the API account in the project.
@@ -72,7 +72,7 @@ deactivation:
 reporters:
   setup:
     # System Setup tickets. PROD: NEON_CRM = Natalie Newendyke. Fundraise / Arts People setup reporters are not decided yet
-    # (candidate for Arts People per the 7 Oct document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
+    # (candidate for Arts People per the requirements v4 document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
     default: ""
     lines:
       NEON_CRM: "60a27983391e56006e52cca8"

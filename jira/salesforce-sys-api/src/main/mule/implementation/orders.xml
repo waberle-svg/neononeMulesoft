@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   implementation/orders.xml — read of one Salesforce Order with the Order Products that matter to the Jira integration
-  (Scenario 1, Order model, requirements v3 of 1 Oct 2026: a System Setup ticket is raised per activated Order and product line).
+  (Scenario 1, Order model, requirements v3: a System Setup ticket is raised per activated Order and product line).
 
   GET /orders/{id}?productLine=<Product2.Product_Line__c value>&syncOnly=true|false
     - Order header (number, status, activation date, Opportunity, Account)
@@ -71,7 +71,7 @@ var o = vars.order
 fun blankAsNull(v) = if (v == null or isEmpty(trim(v as String))) null else v
 fun dateOnly(v) = if (v == null) null else ((v as Date) as String { format: "yyyy-MM-dd" })
 // Booleans on related records (Product2.*, Account.*) arrive from the Salesforce connector as the strings "true"/"false"
-// (seen live 5 Oct 2026 on CloudHub); the contract is a real boolean
+// (seen live on CloudHub); the contract is a real boolean
 fun bool(v) = if (v == null) false else (lower(v as String) == "true")
 ---
 {
@@ -87,7 +87,7 @@ fun bool(v) = if (v == null) false else (lower(v as String) == "true")
     name:          o.Account.Name,
     isTestAccount: bool(o.Account.IsTestAccount__c)
   },
-  // Modules string built by Salesforce (Order.NeonCRM_Modules__c, requirements 7 Oct 2026) — null until the Order Flow fills it
+  // Modules string built by Salesforce (Order.NeonCRM_Modules__c, requirements v4) — null until the Order Flow fills it
   neonCrmModules:  blankAsNull(o.NeonCRM_Modules__c),
   createSetupJira: bool(o.Create_SETUP_Jira__c),
   filter: {
