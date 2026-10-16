@@ -1,0 +1,93 @@
+{
+  "id": "801Su000001OrdAIAS",
+  "orderNumber": "00000123",
+  "status": "Activated",
+  "activatedDate": "2026-10-05T14:02:11.000Z",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "account": {
+    "id": "001Su00000tjc9VIAQ",
+    "name": "Acme Nonprofit",
+    "isTestAccount": false
+  },
+  "filter": {
+    "productLine": "Neon CRM",
+    "syncOnly": false
+  },
+  "items": [
+    {
+      "id": "802Su000001ItmCIAS",
+      "orderItemNumber": "0000000103",
+      "quantity": 1,
+      "productId": "01tSu000000EvntIAA",
+      "productName": "Events Module Subscription",
+      "productCode": "SS-01-EMS",
+      "productLine": "Neon CRM",
+      "syncJira": false,
+      "jiraModuleValue": "Events | Neon Events",
+      "createSetupJira": false
+    },
+    {
+      "id": "802Su000001ItmAIAS",
+      "orderItemNumber": "0000000101",
+      "quantity": 1,
+      "productId": "01tSu000000CoreIAA",
+      "productName": "Core CRM Subscription Fee",
+      "productCode": "SS-01-CCSF",
+      "productLine": "Neon CRM",
+      "syncJira": true,
+      "jiraModuleValue": "Custom Objects | File Manager | Fundraising | Donor Covered Fees | Texting",
+      "createSetupJira": true
+    },
+    {
+      "id": "802Su000001ItmBIAS",
+      "orderItemNumber": "0000000102",
+      "quantity": 1,
+      "productId": "01tSu000000SimpIAA",
+      "productName": "Neon CRM SimpleStart",
+      "productCode": "SD-01-SS",
+      "productLine": "Neon CRM",
+      "syncJira": true,
+      "jiraModuleValue": null,
+      "createSetupJira": true
+    },
+    {
+      "id": "802Su000001ItmDIAS",
+      "orderItemNumber": "0000000104",
+      "quantity": 1,
+      "productId": "01tSu000000ExpAIAA",
+      "productName": "Neon CRM External Processor - Authorize.net",
+      "productCode": "SS-01-EXP-A.N",
+      "productLine": "Neon CRM",
+      "syncJira": false,
+      "jiraModuleValue": "Third Party Gateways",
+      "createSetupJira": false
+    },
+    {
+      "id": "802Su000001ItmEIAS",
+      "orderItemNumber": "0000000105",
+      "quantity": 1,
+      "productId": "01tSu000000ExpBIAA",
+      "productName": "Neon CRM External Processor Support",
+      "productCode": "SS-01-EXP",
+      "productLine": "Neon CRM",
+      "syncJira": false,
+      "jiraModuleValue": "Third Party Gateways",
+      "createSetupJira": false
+    }
+  ],
+  "additionalUsers": [
+    {
+      "id": "003Su000004AddA1AAA",
+      "name": "Ellen Clark",
+      "email": "ellen.clark@example.org"
+    },
+    {
+      "id": "003Su000004AddB2AAA",
+      "name": "Ashley Peska",
+      "email": "ashley.peska@example.org"
+    }
+  ],
+  "neonCrmModules": null,
+  "createSetupJira": false
+}

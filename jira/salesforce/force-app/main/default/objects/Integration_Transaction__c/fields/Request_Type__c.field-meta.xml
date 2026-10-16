@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Request_Type__c</fullName>
+    <description>Business request type: a System Setup ticket for a new instance, a Deactivate Instance ticket for a cancellation, or an external record discovered through an inbound event rather than created from Salesforce.</description>
+    <label>Request Type</label>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>PROVISIONING</fullName>
+                <default>false</default>
+                <label>PROVISIONING</label>
+            </value>
+            <value>
+                <fullName>DEACTIVATION</fullName>
+                <default>false</default>
+                <label>DEACTIVATION</label>
+            </value>
+            <value>
+                <fullName>EXTERNAL</fullName>
+                <default>false</default>
+                <label>EXTERNAL</label>
+            </value>
+            <value>
+                <fullName>SETUP</fullName>
+                <default>false</default>
+                <label>SETUP</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

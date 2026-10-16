@@ -1,0 +1,24 @@
+{
+  "id": "006Su00000XPwLxIAL",
+  "opportunityNumber": "O-0210538",
+  "name": "Acme Nonprofit - Renewal Forecast - Cancellation",
+  "stageName": "Closed Lost",
+  "type": "RCA Retention",
+  "riskStage": "Closed/Churn",
+  "forecastOpportunity": true,
+  "account": {
+    "id": "001Su00000tjc9VIAQ",
+    "name": "Acme Nonprofit",
+    "ncrmInstance": "acmenonprofit",
+    "rbId": null,
+    "artsPeopleTheatreId": null,
+    "deactivationDate": "2027-09-22",
+    "cancellationStatus": "Cancel Account",
+    "isTestAccount": false
+  },
+  "deactivation": {
+    "neonCrm":       { "jiraKey": "NSSU-5", "error": null },
+    "neonFundraise": { "jiraKey": null, "error": null },
+    "artsPeople":    { "jiraKey": null, "error": null }
+  }
+}

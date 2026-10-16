@@ -1,0 +1,7 @@
+# Test-only fake secrets. Plain values (not wrapped in ![...]) are used as-is by the secure properties module.
+jira:
+  email: "munit@test.invalid"
+  token: "munit-fake-token"
+  webhookSecret: "munit-webhook-secret"
+api:
+  clientSecret: "munit-client-secret"

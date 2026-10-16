@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RecordType xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>JIRA_Issue</fullName>
+    <active>true</active>
+    <description>A Jira issue created or tracked by the integration.</description>
+    <label>JIRA Issue</label>
+    <picklistValues>
+        <picklist>Error_Category__c</picklist>
+        <values>
+            <fullName>Auth</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Mapping</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Terminal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Transient</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>External_Status_Category__c</picklist>
+        <values>
+            <fullName>Done</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>In Progress</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>To Do</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Product_Line__c</picklist>
+        <values>
+            <fullName>Arts People</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Neon CRM</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Neon Fundraise</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Request_Status__c</picklist>
+        <values>
+            <fullName>Cancelled</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Created</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Failed - Terminal</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Not Eligible</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>Requested</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>Retrying</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Request_Type__c</picklist>
+        <values>
+            <fullName>DEACTIVATION</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>EXTERNAL</fullName>
+            <default>false</default>
+        </values>
+        <values>
+            <fullName>PROVISIONING</fullName>
+            <default>true</default>
+        </values>
+        <values>
+            <fullName>SETUP</fullName>
+            <default>false</default>
+        </values>
+    </picklistValues>
+    <picklistValues>
+        <picklist>Target_System__c</picklist>
+        <values>
+            <fullName>JIRA</fullName>
+            <default>true</default>
+        </values>
+    </picklistValues>
+</RecordType>

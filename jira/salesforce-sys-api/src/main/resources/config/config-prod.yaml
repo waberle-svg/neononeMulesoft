@@ -1,0 +1,44 @@
+# salesforce-sys-api — PRODUCTION environment (CloudHub 2.0, Neon One Production org). Non-secret values only.
+api:
+  name: "salesforce-sys-api"
+  version: "1.0.0"
+  enforceClientSecret: "true"
+
+http:
+  port: "8081"
+
+sf:
+  tokenEndpoint: "https://login.salesforce.com/services/oauth2/token"
+  principal: "REPLACE_ME_integration_user_username_in_production"
+  keystore:
+    path: "keystore/neon-jira-integration-prod.jks"
+    alias: "neon-jira-integration-prod"
+  reconnect:
+    # Bounded: operations fail fast with a canonical error (ERR-0009); the event listener reconnects forever (events.reconnectFrequencyMs)
+    count: "3"
+    frequencyMs: "2000"
+  events:
+    reconnectFrequencyMs: "30000"
+    channel: "/event/Integration_Request__e"
+    replayOption: "FROM_LAST_REPLAY_ID"
+    targetSystems: "JIRA"
+    allowSimulation: "false"
+  opportunity:
+    extraFields: ""
+  registry:
+    sweepLimit: "200"
+
+prc:
+  protocol: "HTTPS"
+  host: "REPLACE_ME_provisioning-prc-api-prod.cloudhub.io"
+  port: "443"
+  basePath: "/api/v1"
+  responseTimeoutMs: "20000"
+  paths:
+    provisioningRequests: "/provisioning-requests"
+  retry:
+    maxRetries: "3"
+    millisBetweenRetries: "5000"
+  redrive:
+    frequencyMinutes: "5"
+    maxAttempts: "12"

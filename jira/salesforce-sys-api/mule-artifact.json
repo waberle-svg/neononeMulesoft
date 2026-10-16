@@ -1,0 +1,10 @@
+{
+  "minMuleVersion": "4.12.0",
+  "javaSpecificationVersions": ["17"],
+  "secureProperties": [
+    "sf.consumerKey",
+    "sf.keystore.password",
+    "secure.key",
+    "api.clientSecret"
+  ]
+}

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  jira-sys-api.xml — the API front door.
+  One HTTP listener, one APIkit router, and one thin flow per RAML operation that delegates to implementation/*.xml.
+  APIkit flow names follow its convention: <method>:\<resource>[:<content-type>]:<apikit-config-name>
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== Main flow: listener + router ===== -->
+    <flow name="jira-sys-api-main" doc:name="jira-sys-api main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/v1/*" doc:name="HTTP /api/v1/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <logger level="INFO" doc:name="Log request"
+                message='#["jira-sys-api " ++ attributes.method ++ " " ++ attributes.requestPath ++ " from " ++ (attributes.headers."x-client-id" default "anonymous")]'/>
+        <flow-ref name="authorize-caller" doc:name="Check caller"/>
+        <apikit:router config-ref="jira-sys-api-config" doc:name="APIkit router"/>
+        <error-handler ref="global-error-handler"/>
+    </flow>
+
+    <!-- Interim inter-app authentication (before API Manager), same mechanism as provisioning-prc-api and salesforce-sys-api:
+         callers must send X-Client-Secret equal to secure::api.clientSecret. Off locally (api.enforceClientSecret=false),
+         on in every hosted environment. POST /webhooks/jira is exempt: Jira Cloud cannot send our header; that endpoint
+         is protected by its own HMAC signature check (jira.webhook.validateSignature). Added before the
+         first CloudHub deployment so the app can safely receive a public endpoint later. -->
+    <sub-flow name="authorize-caller">
+        <choice doc:name="Enforce client secret?">
+            <when expression="#[p('api.enforceClientSecret') == 'true'
+                                and !((attributes.requestPath default '') endsWith '/webhooks/jira')
+                                and (attributes.headers.'x-client-secret' default '') != p('secure::api.clientSecret')]">
+                <raise-error type="APP:UNAUTHORIZED_CALLER" description="Missing or invalid X-Client-Secret" doc:name="401"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="callerAccepted" value="#[true]" doc:name="Caller accepted"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- ===== GET /ping — liveness, no Jira call ===== -->
+    <flow name="get:\ping:jira-sys-api-config" doc:name="GET /ping">
+        <ee:transform doc:name="Ping response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+  status: "ok",
+  app: p('api.name'),
+  version: p('api.version'),
+  env: p('mule.env'),
+  timestamp: now()
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== GET /me — connectivity check against Jira ===== -->
+    <flow name="get:\me:jira-sys-api-config" doc:name="GET /me">
+        <flow-ref name="jira-get-myself" doc:name="Jira: get myself"/>
+    </flow>
+
+    <!-- ===== GET /issues?label=… — issues carrying a label (the process API's duplicate check before creating) ===== -->
+    <flow name="get:\issues:jira-sys-api-config" doc:name="GET /issues">
+        <set-variable variableName="searchLabel" value="#[attributes.queryParams.label]" doc:name="searchLabel"/>
+        <set-variable variableName="searchProject" value="#[attributes.queryParams.project]" doc:name="searchProject"/>
+        <flow-ref name="jira-search-issues" doc:name="Jira: search issues by label"/>
+    </flow>
+
+    <!-- ===== POST /issues — create an issue from the canonical request ===== -->
+    <flow name="post:\issues:application\json:jira-sys-api-config" doc:name="POST /issues">
+        <flow-ref name="jira-create-issue" doc:name="Jira: create issue"/>
+        <set-variable variableName="httpStatus" value="201" doc:name="201 Created"/>
+    </flow>
+
+    <!-- ===== GET /issues/{key} — status + instance-ready timestamp ===== -->
+    <flow name="get:\issues\(key):jira-sys-api-config" doc:name="GET /issues/{key}">
+        <set-variable variableName="issueKey" value="#[attributes.uriParams.'key']" doc:name="issueKey"/>
+        <flow-ref name="jira-get-issue" doc:name="Jira: get issue"/>
+    </flow>
+
+    <!-- ===== POST /webhooks/jira — accept fast, process async ===== -->
+    <flow name="post:\webhooks\jira:application\json:jira-sys-api-config" doc:name="POST /webhooks/jira">
+        <!-- Keep the exact bytes Jira sent: the HMAC signature is computed over the raw body, not a re-serialised copy -->
+        <set-variable variableName="rawBody" value="#[payload.^raw as String]" doc:name="rawBody"/>
+        <set-variable variableName="signature" value="#[attributes.headers.'x-hub-signature' default '']" doc:name="signature"/>
+        <async doc:name="Process in background">
+            <try doc:name="Isolate webhook processing">
+                <flow-ref name="jira-process-webhook" doc:name="Process webhook"/>
+                <error-handler>
+                    <on-error-continue type="ANY">
+                        <logger level="ERROR" doc:name="Log webhook failure"
+                                message='#["Webhook processing failed: " ++ (error.description default "unknown")]'/>
+                    </on-error-continue>
+                </error-handler>
+            </try>
+        </async>
+        <set-variable variableName="httpStatus" value="202" doc:name="202 Accepted"/>
+        <set-payload value='#[output application/json --- { accepted: true }]' doc:name="Accepted body"/>
+    </flow>
+
+</mule>

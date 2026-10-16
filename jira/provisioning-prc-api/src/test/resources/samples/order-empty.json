@@ -1,0 +1,33 @@
+{
+  "id": "801Su000001OrdAIAS",
+  "orderNumber": "00000123",
+  "status": "Activated",
+  "activatedDate": "2026-10-05T14:02:11.000Z",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "account": {
+    "id": "001Su00000tjc9VIAQ",
+    "name": "Acme Nonprofit",
+    "isTestAccount": false
+  },
+  "filter": {
+    "productLine": "Neon CRM",
+    "syncOnly": false
+  },
+  "items": [
+    {
+      "id": "802Su000001ItmZIAS",
+      "orderItemNumber": "0000000199",
+      "quantity": 1,
+      "productId": "01tSu000000EvntIAA",
+      "productName": "Events Module Subscription",
+      "productCode": "SS-01-EMS",
+      "productLine": "Neon CRM",
+      "syncJira": false,
+      "jiraModuleValue": "Events | Neon Events",
+      "createSetupJira": false
+    }
+  ],
+  "additionalUsers": [],
+  "neonCrmModules": null
+}

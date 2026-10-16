@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- activeVersionNumber 0 = deactivated. Used to switch the publisher Flow off outside test windows (deploying a Draft
+     Flow version does NOT deactivate the active version). Set to the wanted version number to activate. -->
+<FlowDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <activeVersionNumber>0</activeVersionNumber>
+</FlowDefinition>

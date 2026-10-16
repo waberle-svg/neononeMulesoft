@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/inbound.xml — Jira -> Salesforce.
+   A. Webhook events (normalised by jira-sys-api) -> registry row by external key. Near real time.
+   B. Reconciliation sweep (scheduled + POST /sweeps/instance-ready): every registry row whose ticket is not Done is
+      re-read from Jira and updated when its status changed. Catches missed webhooks; is the whole inbound path until
+      the webhook is registered after deployment.
+  In both cases Mule writes ONLY the registry row; the Salesforce Flow stamps the Account when status id 10805 appears.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== A. IssueStatusChanged (payload) -> registry ===== -->
+    <flow name="handle-issue-status-event" doc:name="handle-issue-status-event">
+        <set-variable variableName="event" value="#[payload]" doc:name="event"/>
+        <set-variable variableName="issueKey" value="#[vars.event.issueKey]" doc:name="issueKey"/>
+        <set-variable variableName="createIfMissing" value="#[p('inbound.createRowForUnknownKeys') == 'true']" doc:name="createIfMissing"/>
+        <logger level="INFO" doc:name="Log event"
+                message='#[output text/plain --- "Status event for " ++ (vars.issueKey default "?") ++ " -> " ++ (vars.event.status.name default "?") ++ " (" ++ (vars.event.status.id default "?") ++ ")"]'/>
+        <ee:transform doc:name="Event -> ExternalStatusUpdate">
+            <ee:variables>
+                <ee:set-variable variableName="externalUpdate"><![CDATA[%dw 2.0
+output application/java
+var ev = vars.event
+var isReady = (ev.status.id default "") == p('jira.instanceReadyStatusId')
+---
+{
+  external: {
+    id:              ev.issueId,
+    url:             ev.url,
+    status:          ev.status.name,
+    statusId:        ev.status.id,
+    statusCategory:  p('jira.statusCategoryMap.' ++ (ev.status.category default "undefined")),
+    statusChangedAt: ev.changedAt default now(),
+    lastSyncedAt:    now(),
+    // System_Ready_At__c is written only on the System Ready transition, so a later status never clears or moves it
+    (systemReadyAt:  ev.changedAt default now()) if (isReady)
+  }
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <try doc:name="Apply to registry">
+            <flow-ref name="sys-sf-put-external-status" doc:name="SF: put external status"/>
+            <ee:transform doc:name="StatusEventOutcome">
+                <ee:message>
+                    <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+{ issueKey: vars.issueKey, outcome: if (payload.created == true) "CREATED_EXTERNAL_ROW" else "UPDATED", requestId: payload.id }]]></ee:set-payload>
+                </ee:message>
+            </ee:transform>
+            <error-handler>
+                <on-error-continue type="HTTP:NOT_FOUND">
+                    <logger level="WARN" doc:name="Unknown key" message='#[output text/plain --- "No registry row for " ++ vars.issueKey ++ "; event ignored (inbound.createRowForUnknownKeys=" ++ p("inbound.createRowForUnknownKeys") ++ ")"]'/>
+                    <set-payload value='#[output application/json --- { issueKey: vars.issueKey, outcome: "IGNORED_UNKNOWN_KEY" }]' doc:name="IGNORED_UNKNOWN_KEY"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </flow>
+
+    <!-- ===== B. Reconciliation sweep ===== -->
+    <flow name="sweep-scheduler" doc:name="Sweep scheduler">
+        <scheduler doc:name="Every N minutes">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${inbound.sweep.frequencyMinutes}" timeUnit="MINUTES"/>
+            </scheduling-strategy>
+        </scheduler>
+        <choice doc:name="Sweep enabled?">
+            <when expression="#[p('inbound.sweep.enabled') == 'true']">
+                <flow-ref name="sweep-instance-ready" doc:name="Sweep"/>
+                <logger level="INFO" doc:name="Sweep result" message='#[output text/plain --- "Sweep finished: " ++ write(payload, "application/json")]'/>
+            </when>
+            <otherwise>
+                <logger level="DEBUG" doc:name="Sweep disabled" message="Sweep disabled by configuration"/>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <flow name="sweep-instance-ready" doc:name="sweep-instance-ready">
+        <set-variable variableName="startedAt" value="#[now()]" doc:name="startedAt"/>
+        <set-variable variableName="stats" value="#[{ checked: 0, updated: 0, unchanged: 0, errors: 0 }]" doc:name="stats"/>
+        <set-variable variableName="listFilters" doc:name="listFilters"
+                      value="#[{ targetSystem: 'JIRA', requestStatus: 'Created', excludeExternalStatusCategory: 'Done', limit: p('inbound.sweep.limit') }]"/>
+        <flow-ref name="sys-sf-list-integration-requests" doc:name="SF: list open rows"/>
+        <set-variable variableName="rows" value="#[payload]" doc:name="rows"/>
+        <logger level="INFO" doc:name="Sweep start" message='#[output text/plain --- "Sweep: " ++ (sizeOf(vars.rows) as String) ++ " open ticket(s) to check"]'/>
+
+        <foreach collection="#[vars.rows]" doc:name="For each open row">
+            <set-variable variableName="row" value="#[payload]" doc:name="row"/>
+            <set-variable variableName="issueKey" value="#[vars.row.external.key]" doc:name="issueKey"/>
+            <set-variable variableName="requestId" value="#[vars.row.id]" doc:name="requestId"/>
+            <set-variable variableName="stats" value="#[(vars.stats - 'checked') ++ { checked: vars.stats.checked + 1 }]" doc:name="checked+1"/>
+            <try doc:name="Check one ticket">
+                <flow-ref name="sys-jira-get-issue" doc:name="Jira: get issue"/>
+                <set-variable variableName="issue" value="#[payload]" doc:name="issue"/>
+                <choice doc:name="Status changed?">
+                    <when expression="#[(vars.issue.status.id default '') != (vars.row.external.statusId default '')]">
+                        <ee:transform doc:name="Issue -> ExternalStatusUpdate">
+                            <ee:variables>
+                                <ee:set-variable variableName="externalUpdate"><![CDATA[%dw 2.0
+output application/java
+var iss = vars.issue
+var isReady = (iss.status.id default "") == p('jira.instanceReadyStatusId')
+---
+{
+  external: {
+    id:              iss.id,
+    url:             iss.url,
+    "type":          iss.issueType,
+    status:          iss.status.name,
+    statusId:        iss.status.id,
+    statusCategory:  p('jira.statusCategoryMap.' ++ (iss.status.category default "undefined")),
+    statusChangedAt: if (isReady and iss.systemReadyAt != null) iss.systemReadyAt else (iss.updated default now()),
+    lastSyncedAt:    now(),
+    // written only when the ticket is System Ready now (transition time from the changelog when Jira has it)
+    (systemReadyAt:  iss.systemReadyAt default (iss.updated default now())) if (isReady)
+  }
+}]]></ee:set-variable>
+                            </ee:variables>
+                        </ee:transform>
+                        <set-variable variableName="createIfMissing" value="#[false]" doc:name="createIfMissing=false"/>
+                        <flow-ref name="sys-sf-put-external-status" doc:name="SF: put external status"/>
+                        <set-variable variableName="stats" value="#[(vars.stats - 'updated') ++ { updated: vars.stats.updated + 1 }]" doc:name="updated+1"/>
+                        <logger level="INFO" doc:name="Updated" message='#[output text/plain --- "Sweep: " ++ vars.issueKey ++ " -> " ++ (vars.issue.status.name default "?")]'/>
+                    </when>
+                    <otherwise>
+                        <set-variable variableName="stats" value="#[(vars.stats - 'unchanged') ++ { unchanged: vars.stats.unchanged + 1 }]" doc:name="unchanged+1"/>
+                    </otherwise>
+                </choice>
+                <error-handler>
+                    <!-- One bad ticket never stops the sweep -->
+                    <on-error-continue type="ANY">
+                        <set-variable variableName="stats" value="#[(vars.stats - 'errors') ++ { errors: vars.stats.errors + 1 }]" doc:name="errors+1"/>
+                        <logger level="ERROR" doc:name="Row failed" message='#[output text/plain --- "Sweep: " ++ (vars.issueKey default "?") ++ " skipped: " ++ (error.description default "")]'/>
+                    </on-error-continue>
+                </error-handler>
+            </try>
+        </foreach>
+
+        <ee:transform doc:name="SweepResult">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+vars.stats ++ { startedAt: vars.startedAt, finishedAt: now() }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+</mule>

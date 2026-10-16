@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- activeVersionNumber 0 = deactivated. The Scenario 2 publisher stays off outside test windows, like the Scenario 1
+     publisher (the Dev sandbox is shared; every real churn would otherwise become a Jira ticket). Set to the wanted
+     version number to activate. -->
+<FlowDefinition xmlns="http://soap.sforce.com/2006/04/metadata">
+    <activeVersionNumber>0</activeVersionNumber>
+</FlowDefinition>

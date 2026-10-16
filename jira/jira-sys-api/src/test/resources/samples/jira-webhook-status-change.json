@@ -1,0 +1,22 @@
+{
+  "timestamp": 1790663571211,
+  "webhookEvent": "jira:issue_updated",
+  "issue_event_type_name": "issue_generic",
+  "user": { "accountId": "61121eff4e8d8d0069df301b", "displayName": "API User" },
+  "issue": {
+    "id": "246526",
+    "key": "NSSU-8",
+    "self": "https://jira.test.invalid/rest/api/3/issue/246526",
+    "fields": {
+      "summary": "CloudHub Test 29 Sep | O-0210756",
+      "status": { "id": "10805", "name": "System Ready", "statusCategory": { "key": "indeterminate", "name": "In Progress" } },
+      "customfield_15227": "006Su00000YAW34IAH"
+    }
+  },
+  "changelog": {
+    "id": "999001",
+    "items": [
+      { "field": "status", "fieldtype": "jira", "from": "12403", "fromString": "Testing in Progress", "to": "10805", "toString": "System Ready" }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "folders": [
+    { "name": "salesforce-sys-api",   "path": "salesforce-sys-api" },
+    { "name": "jira-sys-api",         "path": "jira-sys-api" },
+    { "name": "provisioning-prc-api", "path": "provisioning-prc-api" },
+    { "name": "repo root (docs, demo, tools)", "path": "." }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.git": true,
+      "**/.svn": true,
+      "**/.hg": true,
+      "**/.jj": true,
+      "**/.DS_Store": true,
+      "**/Thumbs.db": true,
+      "**/.mule": true,
+      "**/target": true,
+      "**/.tooling-project": true,
+      "**/services": true,
+      ".mule": true
+    },
+    "files.eol": "\n",
+    "mule.runtime.defaultArguments": "-M-Dmule.env=dev -M-Dsecure.key=REPLACE_WITH_MULE_SECURE_KEY_FROM_.mule-local.env"
+  }
+}

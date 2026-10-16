@@ -1,0 +1,5 @@
+# Salesforce DX ignore list for the integration's own metadata
+**/.DS_Store
+**/*.log
+.sfdx/
+.sf/

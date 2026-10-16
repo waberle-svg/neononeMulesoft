@@ -1,0 +1,11 @@
+# salesforce-sys-api — UAT secrets, encrypted with the Secure Configuration Properties module (AES/CBC) under the UAT key.
+# The key is supplied at runtime as the protected Runtime Manager property secure.key (locally from .mule-local-uat.env).
+sf:
+  # Consumer key of the External Client App "Neon Jira Integration" in sandbox rcaimplem (created by hand 13 Oct 2026).
+  consumerKey: "![BGJZUUGN9r8oIaX/d3kZ5drqYWmQKgWlpeXARo/xftnLg9tUdQuCpt6uhR8UTumzIaaT39/cX5i8Xd2zIKIZpVEcdU3Cz0T14/uZ9NT1ICMKh2Lgi3N6MkFV23DrpJpw]"
+  keystore:
+    # Password of neon-jira-integration-uat.jks (generated 13 Oct 2026, expires 12 Oct 2028; master copy in the vault).
+    password: "![9YCY3OODDYgYxRnqcGdQSGSwVxZETUSHrnBrzZUtd3w=]"
+api:
+  # Inter-app shared secret (X-Client-Secret). One value for all three UAT apps; generated 13 Oct 2026, in the vault.
+  clientSecret: "![mW3mOodycqdJfMCFHRBLS5bbUXHil6gSrl2IGUOUqcbaBTcDYydvY5COEz0q4cxa5La2ErMEDazqnFAoEJCeMka3aag4OXshmobJjVZLKio=]"

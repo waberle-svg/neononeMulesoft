@@ -1,0 +1,92 @@
+# jira-sys-api — DEV environment. Non-secret values only. Secrets live in secure-dev.yaml (encrypted).
+api:
+  name: "jira-sys-api"
+  version: "1.0.0"
+  # Interim inter-app auth (before API Manager): callers must send X-Client-Secret matching secure::api.clientSecret.
+  # false locally so curl works; overridden to true by a Runtime Manager property on CloudHub. /webhooks/jira is exempt (HMAC).
+  enforceClientSecret: "false"
+
+http:
+  port: "8082"
+
+jira:
+  host: "neoncrm.atlassian.net"
+  basePath: "/rest/api/3"
+  responseTimeoutMs: "30000"
+
+  defaults:
+    project: "NSSU"                 # UAT project; SETUP in production
+    productionInstance: "Pending"   # MVP placeholder when the Opportunity has no instance name
+    modules: "Core Modules"         # MVP placeholder until the Modules source is confirmed (Q16)
+    webTemplateCopy: "NOT_PURCHASED"
+    # Ticket ownership (Jira accountIds). the integration's API account in Dev/UAT; the client decides the owner for Production
+    # assignee is applied with PUT /issue/{key}/assignee after creation (the field is not on the NSSU create screen);
+    # reporter is sent in the create payload (needs Modify Reporter). Empty string = leave Jira defaults.
+    assigneeAccountId: "61121eff4e8d8d0069df301b"
+    # Blank on purpose. provisioning-prc-api sends the reporter per ticket type (System Setup = Natalie
+    # Newendyke, requirements v3); deactivation tickets keep the API account as reporter.
+    reporterAccountId: ""
+
+  issueTypes:
+    SYSTEM_SETUP: "10800"
+    DEACTIVATE_INSTANCE: "11900"    # "Deactivate Instance" (exists only in project WORK today; NSSU has System Setup only)
+
+  # Which canonical fields each issue type's CREATE SCREEN accepts (read from Jira createmeta).
+  # The create payload keeps only these: Jira answers 400 for any field that is not on the screen. "reporter"/"assignee"
+  # mean "may be set" (reporter needs Modify Reporter; assignee is a second call). No entry for a type = send everything.
+  screens:
+    SYSTEM_SETUP: "summary,description,reporter,assignee,labels,dueDate,productionInstance,modules,webTemplateCopy,sfOpportunityId,sfAccountId,organizationName,primaryContactName,primaryContactEmail,technicalContactName,technicalContactEmail,implementationType,operatingCountry,nteeCode,nteeDivision,nteeCategory,additionalUsers"
+    # Dev/UAT target is project WOU ("Work Orders - UAT", created by Neon One): its Deactivate Instance screen
+    # REQUIRES reporter (verified). Production WORK has no reporter on that screen — see config-prod.yaml.
+    DEACTIVATE_INSTANCE: "summary,description,reporter,assignee,labels,dueDate,priority,productionInstance"
+
+  search:
+    maxResults: "10"                # GET /issues?label= (duplicate check by the process API)
+
+  status:
+    instanceReadyId: "10805"        # "System Ready" — match on id, never on category
+
+  # Jira custom field ids (verified against neoncrm.atlassian.net)
+  fields:
+    productionInstance: "customfield_11202"
+    modules: "customfield_15204"
+    webTemplateCopy: "customfield_15100"
+    sfOpportunityId: "customfield_15227"
+    sfAccountId: "customfield_15223"
+    organizationName: "customfield_15226"
+    primaryContactName: "customfield_15224"
+    primaryContactEmail: "customfield_15225"
+    technicalContactName: "customfield_15259"
+    technicalContactEmail: "customfield_15260"
+    # Requirements v3 System Setup fields (ids verified on the NSSU and SETUP create screens)
+    implementationType: "customfield_15343"
+    operatingCountry: "customfield_15228"
+    nteeCode: "customfield_15364"
+    nteeDivision: "customfield_15365"
+    nteeCategory: "customfield_15314"
+    additionalUsers: "customfield_15316"
+
+  # Select-list option values (by value; ids: Not Purchased 12602, Copy Now 12600, Delay 12601, No Purchased 12820)
+  options:
+    webTemplateCopy:
+      NOT_PURCHASED: "Not Purchased"
+      COPY_NOW: "Copy Now"
+      DELAY: "Delay"
+      NO_PURCHASED: "No Purchased"
+
+  webhook:
+    validateSignature: "true"
+    forwardOnlyStatusChanges: "true"
+
+# Downstream: provisioning-prc-api (local ports: sys-sf 8081, sys-jira 8082, prc 8083)
+prc:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8083"
+  basePath: "/api/v1"
+  responseTimeoutMs: "15000"
+  paths:
+    issueStatusEvents: "/issue-status-events"
+  retry:
+    maxRetries: "3"
+    millisBetweenRetries: "5000"

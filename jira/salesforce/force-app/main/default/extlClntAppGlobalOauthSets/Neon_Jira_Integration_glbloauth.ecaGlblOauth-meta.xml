@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Global OAuth settings. <certificate> is the PUBLIC half of the Dev key pair
+     (private key/keystore in ~/Desktop/Neonone Mulesoft Project/.secrets/dev/, never committed). Replace per org. -->
+<ExtlClntAppGlobalOauthSettings xmlns="http://soap.sforce.com/2006/04/metadata">
+    <callbackUrl>http://localhost:1717/OauthRedirect</callbackUrl>
+    <certificate>MIIDmTCCAoGgAwIBAgIUU6bcr+U98fog0azjbnVPNMos3H4wDQYJKoZIhvcNAQELBQAwXDEkMCIGA1UEAwwbTmVvbiBKaXJhIEludGVncmF0aW9uIChEZXYpMRUwEwYDVQQKDAxOZW9uIE9uZSBMTEMxHTAbBgNVBAsMFE11bGVTb2Z0IEludGVncmF0aW9uMB4XDTI2MDkxOTEyMDMxOVoXDTI4MDkxODEyMDMxOVowXDEkMCIGA1UEAwwbTmVvbiBKaXJhIEludGVncmF0aW9uIChEZXYpMRUwEwYDVQQKDAxOZW9uIE9uZSBMTEMxHTAbBgNVBAsMFE11bGVTb2Z0IEludGVncmF0aW9uMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0ZaV7ZrV5vfeopgHDgCqWEaC1GsncOS0SYMB8MQDx7+Tvc1Rr1/bnQ8mIvSpgicY9Kjtzi6avXHdmCufRNw38kLGpla5xraHlCXPZOunnFfkvtpzbxHMgUuCKroqkG/T3OPvmbFzvghwD5u0Qe+KUwcivUYN18Gi8Ro3zr7twKTyCA1ubbK4IGdLCPYCnFwEJ2RvmhjKJQclWpX/Z0idfno/ByoMaJtCt3c5ioUkuM8zaJ9f5QZycRM+dkmCQmrYT7McsBRKuMHMm+AaeMUWtdsNjebxR/AmR62cldauv+HSzBOrTvnXA2Zv40bPEUgCvXU4TivHAMTKODWWSs9fSwIDAQABo1MwUTAdBgNVHQ4EFgQU9tfYLtxuJT1Vxu+6nPDOXyWkNyUwHwYDVR0jBBgwFoAU9tfYLtxuJT1Vxu+6nPDOXyWkNyUwDwYDVR0TAQH/BAUwAwEB/zANBgkqhkiG9w0BAQsFAAOCAQEADxCiL6bjfddOM6jr5aQn6+0y7XpCjbhln3STtAPrzCpL2NMLtajiPnyNZBoGqkfYFyn+gsUX+wadPMlH9l9GKPLtt3pNERWm096XrpZVfSCshA0i82UfD52fJ8SlXEWM35nLJ/HN99LqseHEGz/Or6IQ4AXEGkSNS6L081QZmtIJK0eu5DWTq4tKAje+7/lKrHHsIGrI3kYZnwGWoMTMPI+6JRmBDxpip35ZHBrIx+l1ptehjdPvWgXUcFoOukn5bLNpvqMRwiebmzBQrxyfuNLgZwPEOc5AadWpsrsH/wcnah+dtRwFkKyLusWF2+qRxXaqWmqN2r+pOqaPw012EA==</certificate>
+    <externalClientApplication>Neon_Jira_Integration</externalClientApplication>
+    <isClientCredentialsFlowEnabled>false</isClientCredentialsFlowEnabled>
+    <isConsumerSecretOptional>false</isConsumerSecretOptional>
+    <isDeviceFlowEnabled>false</isDeviceFlowEnabled>
+    <isIntrospectAllTokens>false</isIntrospectAllTokens>
+    <isNamedUserJwtEnabled>false</isNamedUserJwtEnabled>
+    <isPkceRequired>false</isPkceRequired>
+    <isSecretRequiredForRefreshToken>false</isSecretRequiredForRefreshToken>
+    <isTokenExchangeEnabled>false</isTokenExchangeEnabled>
+    <label>Neon_Jira_Integration_glbloauth</label>
+    <shouldRotateConsumerKey>false</shouldRotateConsumerKey>
+    <shouldRotateConsumerSecret>false</shouldRotateConsumerSecret>
+</ExtlClntAppGlobalOauthSettings>

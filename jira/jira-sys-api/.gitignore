@@ -1,0 +1,26 @@
+# Build output
+target/
+
+# IDE / tooling caches
+.mule/
+.tooling-project/
+.classpath
+.project
+.settings/
+.vscode/settings.json
+*.iml
+.idea/
+
+# Logs and OS files
+*.log
+.DS_Store
+
+# Secrets — never commit plain-text credentials, keys or env files
+*.env
+.env.*
+**/secure-*.plain.yaml
+*.key
+*.p12
+*.jks
+
+.tooling-project

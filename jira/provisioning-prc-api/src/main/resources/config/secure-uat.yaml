@@ -1,0 +1,6 @@
+# provisioning-prc-api — UAT secrets, encrypted with the Secure Configuration Properties module (AES/CBC) under the UAT key.
+# The key is supplied at runtime as the protected Runtime Manager property secure.key (locally from .mule-local-uat.env).
+# Must match secure::api.clientSecret in salesforce-sys-api and jira-sys-api of the same environment.
+api:
+  # Inter-app shared secret (X-Client-Secret). One value for all three UAT apps; generated 13 Oct 2026, in the vault.
+  clientSecret: "![mW3mOodycqdJfMCFHRBLS5bbUXHil6gSrl2IGUOUqcbaBTcDYydvY5COEz0q4cxa5La2ErMEDazqnFAoEJCeMka3aag4OXshmobJjVZLKio=]"

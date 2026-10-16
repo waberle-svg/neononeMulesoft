@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Step 2 of the Salesforce <-> Jira integration deploy: OAuth policies of the External Client App
+     (Admin approved users are pre-authorized). Deploy only AFTER neon-jira-integration.package.xml has created the app. -->
+<Package xmlns="http://soap.sforce.com/2006/04/metadata">
+    <types>
+        <members>Neon_Jira_Integration_oauthPlcy</members>
+        <name>ExtlClntAppOauthConfigurablePolicies</name>
+    </types>
+    <version>68.0</version>
+</Package>

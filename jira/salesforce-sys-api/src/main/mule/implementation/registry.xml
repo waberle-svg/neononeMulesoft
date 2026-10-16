@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/registry.xml — reads and writes of Integration_Transaction__c, the integration registry.
+  This is the ONLY object Mule ever writes in Salesforce (ADR-013). Salesforce Flows react to these writes and
+  apply every Opportunity/Account effect. Field mapping lives in modules/Registry.dwl.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== GET one row by Id (vars.recordId) -> canonical IntegrationRequest ===== -->
+    <flow name="registry-get-by-id" doc:name="registry-get-by-id">
+        <ee:transform doc:name="SOQL">
+            <ee:variables>
+                <ee:set-variable variableName="soql"><![CDATA[%dw 2.0
+import * from modules::Registry
+output text/plain
+---
+"SELECT " ++ soqlFields ++ " FROM Integration_Transaction__c WHERE Id = ':id'"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Integration_Transaction__c by Id">
+            <salesforce:salesforce-query>#[vars.soql]</salesforce:salesforce-query>
+            <salesforce:parameters>#[{ id: vars.recordId }]</salesforce:parameters>
+        </salesforce:query>
+        <set-variable variableName="rows" value="#[payload as Array]" doc:name="rows"/>
+        <choice doc:name="Found?">
+            <when expression="#[isEmpty(vars.rows)]">
+                <raise-error type="APP:NOT_FOUND" description="#['Integration request ' ++ vars.recordId ++ ' not found']" doc:name="404"/>
+            </when>
+            <otherwise>
+                <ee:transform doc:name="Row -> canonical">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+import * from modules::Registry
+output application/json skipNullOn="everywhere"
+---
+toCanonical(vars.rows[0])]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <!-- ===== List rows for the reconciliation sweep (vars.filters = query params) ===== -->
+    <flow name="registry-list" doc:name="registry-list">
+        <ee:transform doc:name="Filters -> SOQL + bind params">
+            <ee:variables>
+                <!-- Values are bound as parameters (never concatenated); only the presence of each clause is dynamic -->
+                <ee:set-variable variableName="params"><![CDATA[%dw 2.0
+output application/java
+var f = vars.filters default {}
+---
+{
+  targetSystem:    f.targetSystem default "JIRA",
+  requestStatus:   f.requestStatus default "Created",
+  excludeCategory: f.excludeExternalStatusCategory default "Done",
+  opportunityId:   f.opportunityId,
+  externalKey:     f.externalKey
+}]]></ee:set-variable>
+                <ee:set-variable variableName="soql"><![CDATA[%dw 2.0
+import * from modules::Registry
+output text/plain
+var f = vars.filters default {}
+var excludeCategory = f.excludeExternalStatusCategory default "Done"
+var limit = min([ (f.limit default p('sf.registry.sweepLimit')) as Number, 2000 ])
+---
+"SELECT " ++ soqlFields ++ " FROM Integration_Transaction__c"
+  ++ " WHERE Target_System__c = ':targetSystem' AND Request_Status__c = ':requestStatus'"
+  ++ (if (isEmpty(excludeCategory)) "" else " AND (External_Status_Category__c = null OR External_Status_Category__c != ':excludeCategory')")
+  ++ (if (f.opportunityId == null) "" else " AND Opportunity__c = ':opportunityId'")
+  ++ (if (f.externalKey == null) "" else " AND External_Key__c = ':externalKey'")
+  ++ " ORDER BY CreatedDate ASC LIMIT " ++ (limit as String)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Integration_Transaction__c list">
+            <salesforce:salesforce-query>#[vars.soql]</salesforce:salesforce-query>
+            <salesforce:parameters>#[vars.params filterObject ((v, k) -> v != null)]</salesforce:parameters>
+        </salesforce:query>
+        <ee:transform doc:name="Rows -> canonical list">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+import * from modules::Registry
+output application/json skipNullOn="everywhere"
+---
+(payload as Array) map toCanonical($)]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== Update one row (vars.recordId, vars.updateBody) ===== -->
+    <flow name="registry-update" doc:name="registry-update">
+        <ee:transform doc:name="Canonical body -> SF record">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+import * from modules::Registry
+output application/java
+---
+[ toRecord(vars.updateBody, { Id: vars.recordId }) ]]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log update"
+                message='#[output text/plain --- "Updating Integration_Transaction__c " ++ vars.recordId ++ " fields " ++ ((payload[0] - "Id") pluck ((v, k) -> k as String) joinBy ",")]'/>
+        <salesforce:update type="Integration_Transaction__c" config-ref="Salesforce_Config" doc:name="SF: update Integration_Transaction__c">
+            <salesforce:records>#[payload]</salesforce:records>
+        </salesforce:update>
+        <flow-ref name="registry-check-write-result" doc:name="Check result"/>
+    </flow>
+
+    <!-- ===== Apply an external status update by External_Key__c (vars.externalKey, vars.updateBody, vars.createIfMissing) ===== -->
+    <flow name="registry-apply-by-external-key" doc:name="registry-apply-by-external-key">
+        <ee:transform doc:name="SOQL by external key">
+            <ee:variables>
+                <ee:set-variable variableName="soql"><![CDATA[%dw 2.0
+import * from modules::Registry
+output text/plain
+---
+"SELECT " ++ soqlFields ++ " FROM Integration_Transaction__c WHERE External_Key__c = ':key' LIMIT 1"]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <salesforce:query config-ref="Salesforce_Config" doc:name="SF: query Integration_Transaction__c by External_Key__c">
+            <salesforce:salesforce-query>#[vars.soql]</salesforce:salesforce-query>
+            <salesforce:parameters>#[{ key: vars.externalKey }]</salesforce:parameters>
+        </salesforce:query>
+        <set-variable variableName="rows" value="#[payload as Array]" doc:name="rows"/>
+
+        <choice doc:name="Known key?">
+            <!-- Known: update the existing row -->
+            <when expression="#[!isEmpty(vars.rows)]">
+                <set-variable variableName="recordId" value="#[vars.rows[0].Id]" doc:name="recordId"/>
+                <set-variable variableName="created" value="#[false]" doc:name="created=false"/>
+                <flow-ref name="registry-update" doc:name="Registry: update"/>
+            </when>
+            <!-- Unknown and allowed: create a minimal EXTERNAL row so the ticket becomes visible in Salesforce -->
+            <when expression="#[vars.createIfMissing == true]">
+                <ee:transform doc:name="Canonical body -> new SF record (EXTERNAL)">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+import * from modules::Registry
+output application/java
+---
+[ toRecord(vars.updateBody, {
+    Target_System__c: "JIRA",
+    Request_Type__c:  "EXTERNAL",
+    Request_Status__c: "Created",
+    External_Key__c:  vars.externalKey,
+    Attempts__c: 0
+}) ]]]></ee:set-payload>
+                    </ee:message>
+                </ee:transform>
+                <logger level="WARN" doc:name="Log create"
+                        message='#[output text/plain --- "Creating EXTERNAL Integration_Transaction__c for unknown key " ++ vars.externalKey]'/>
+                <salesforce:create type="Integration_Transaction__c" config-ref="Salesforce_Config" doc:name="SF: create Integration_Transaction__c">
+                    <salesforce:records>#[payload]</salesforce:records>
+                </salesforce:create>
+                <flow-ref name="registry-check-write-result" doc:name="Check result"/>
+                <set-variable variableName="recordId" value="#[vars.writeResult.id]" doc:name="recordId"/>
+                <set-variable variableName="created" value="#[true]" doc:name="created=true"/>
+                <set-variable variableName="httpStatus" value="201" doc:name="201 Created"/>
+            </when>
+            <otherwise>
+                <raise-error type="APP:NOT_FOUND" description="#['No integration request with external key ' ++ vars.externalKey]" doc:name="404"/>
+            </otherwise>
+        </choice>
+
+        <flow-ref name="registry-get-by-id" doc:name="Registry: re-read"/>
+        <ee:transform doc:name="WriteResult">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ id: vars.recordId, created: vars.created, record: payload }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- ===== Shared: turn a [ {id, success, errors} ] result into either vars.writeResult or an APP:WRITE_REJECTED error ===== -->
+    <sub-flow name="registry-check-write-result">
+        <!-- Accepts both result shapes the connector can return (array, or object with items) — ERR-0011 -->
+        <ee:transform doc:name="First result">
+            <ee:variables>
+                <ee:set-variable variableName="writeResult"><![CDATA[%dw 2.0
+import * from modules::Registry
+output application/java
+---
+firstResult(payload)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <ee:transform doc:name="Write error text">
+            <ee:variables>
+                <ee:set-variable variableName="writeErrorText"><![CDATA[%dw 2.0
+import * from modules::Registry
+output text/plain
+---
+"Salesforce rejected the write: " ++ (writeError(vars.writeResult) default "unknown")]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <choice doc:name="Accepted by Salesforce?">
+            <when expression="#[import * from modules::Registry --- !writeSucceeded(vars.writeResult)]">
+                <raise-error type="APP:WRITE_REJECTED" doc:name="422" description="#[vars.writeErrorText]"/>
+            </when>
+            <otherwise>
+                <logger level="DEBUG" doc:name="Write ok" message='#[output text/plain --- "Salesforce write ok: " ++ (vars.writeResult.id default "")]'/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+</mule>

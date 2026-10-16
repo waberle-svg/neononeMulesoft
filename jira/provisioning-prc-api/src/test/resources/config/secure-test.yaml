@@ -1,0 +1,3 @@
+# Test-only fake secrets. Plain values (not wrapped in ![...]) are used as-is by the secure properties module.
+api:
+  clientSecret: "munit-client-secret"

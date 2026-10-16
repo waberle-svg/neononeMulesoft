@@ -1,0 +1,17 @@
+{
+  "id": "a0BSu000001orderMAA",
+  "name": "INT-000012",
+  "targetSystem": "JIRA",
+  "requestType": "SETUP",
+  "requestStatus": "Requested",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "orderId": "801Su000001OrdAIAS",
+  "sourceBusinessKey": "00000123",
+  "productLine": "Neon CRM",
+  "groupKey": "801Su000001OrdAIAS:SETUP:NEON_CRM",
+  "attempts": 0,
+  "external": {},
+  "createdDate": "2026-10-05T14:02:20.000Z",
+  "lastModifiedDate": "2026-10-05T14:02:20.000Z"
+}

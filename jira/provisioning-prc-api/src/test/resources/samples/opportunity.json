@@ -1,0 +1,22 @@
+{
+  "id": "006Su00000XPwLxIAL",
+  "opportunityNumber": "O-0210538",
+  "name": "Acme Nonprofit - Neon CRM",
+  "stageName": "Closed Won",
+  "type": "New",
+  "closeDate": "2026-09-18",
+  "description": "Sales notes for the setup team",
+  "isTestAccountOpportunity": false,
+  "projectRequirementMet": true,
+  "productionInstanceName": "acmenonprofit",
+  "neonCrmModules": "Membership|Events|Store",
+  "productRollup": "NCRM::Neon CRM::Base|MEM::Membership::Module",
+  "includesWebTemplateCopy": 1,
+  "businessUnit": "01 NeonCRM",
+  "jiraSetupIssueKey": null,
+  "account": { "id": "001Su00000tjc9VIAQ", "name": "Acme Nonprofit" },
+  "primaryContact": { "id": "003Su000004AbCdEFG", "name": "Pat Example", "email": "pat@example.org" },
+  "technicalContact": null,
+  "owner": { "id": "005Su00000ABCDEFGH", "name": "Sam Seller", "email": "sam.seller@neonone.com" },
+  "salesRep": { "id": "005Su00000ABCDEFGH", "name": "Sam Seller", "email": "sam.seller@neonone.com" }
+}

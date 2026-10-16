@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  global.xml — every global configuration for jira-sys-api lives here, nothing else.
+  Flows are in jira-sys-api.xml (API router), implementation/*.xml (operations) and common/*.xml (error handling).
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd">
+
+    <!-- ===== Environment selection =====
+         mule.env is supplied at runtime (-M-Dmule.env=dev locally, a Runtime Manager property on CloudHub).
+         The global-property below is only the fallback when nothing is supplied. -->
+    <global-property name="mule.env" value="dev" doc:name="Default environment"/>
+
+    <!-- Non-secret configuration, one file per environment -->
+    <configuration-properties file="config/config-${mule.env}.yaml" doc:name="Environment properties"/>
+
+    <!-- Secrets. Values in secure-<env>.yaml are encrypted (![...]) with a key supplied at runtime as secure.key.
+         Referenced as ${secure::name}. On CloudHub the same names can be supplied as protected properties instead. -->
+    <secure-properties:config name="Secure_Properties"
+                              file="config/secure-${mule.env}.yaml"
+                              key="${secure.key}"
+                              doc:name="Secure properties">
+        <secure-properties:encrypt algorithm="AES" mode="CBC"/>
+    </secure-properties:config>
+
+    <!-- Every flow without its own handler uses the global one (common/error-handler.xml) -->
+    <configuration defaultErrorHandler-ref="global-error-handler" doc:name="Default error handler"/>
+
+    <!-- ===== Inbound: this API's HTTP listener ===== -->
+    <http:listener-config name="api-httpListenerConfig" doc:name="API HTTP listener">
+        <http:listener-connection host="0.0.0.0" port="${http.port}"/>
+    </http:listener-config>
+
+    <!-- APIkit router configuration driven by the RAML specification -->
+    <apikit:config name="jira-sys-api-config"
+                   api="api/jira-sys-api.raml"
+                   outboundHeadersMapName="outboundHeaders"
+                   httpStatusVarName="httpStatus"
+                   doc:name="APIkit config"/>
+
+    <!-- ===== Outbound: Jira Cloud REST v3 (Basic auth: service-account email + API token) ===== -->
+    <http:request-config name="Jira_Request_Config"
+                         basePath="${jira.basePath}"
+                         responseTimeout="${jira.responseTimeoutMs}"
+                         doc:name="Jira request config">
+        <http:request-connection protocol="HTTPS" host="${jira.host}" port="443">
+            <http:authentication>
+                <http:basic-authentication username="${secure::jira.email}" password="${secure::jira.token}"/>
+            </http:authentication>
+        </http:request-connection>
+    </http:request-config>
+
+    <!-- ===== Outbound: provisioning-prc-api (receives normalised webhook events) ===== -->
+    <http:request-config name="Process_Api_Request_Config"
+                         basePath="${prc.basePath}"
+                         responseTimeout="${prc.responseTimeoutMs}"
+                         doc:name="Process API request config">
+        <http:request-connection protocol="${prc.protocol}" host="${prc.host}" port="${prc.port}"/>
+    </http:request-config>
+
+</mule>

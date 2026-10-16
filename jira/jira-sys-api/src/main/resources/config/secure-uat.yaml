@@ -1,0 +1,10 @@
+# jira-sys-api — UAT secrets, encrypted with the Secure Configuration Properties module (AES/CBC) under the UAT key.
+# The key is supplied at runtime as the protected Runtime Manager property secure.key (locally from .mule-local-uat.env).
+# Jira identity for UAT: Swati's Atlassian account, token labelled neonone-mule-uat (created 13 Oct 2026, in the vault).
+jira:
+  email: "![19duF5n3/85s2h8W1ElZJLwhl/u8tHvwnU8pkHbrBjQ=]"
+  token: "![v9+8TXBtC+MHCd60eBHXdpkOmn873dVZdkhCnZ8mvO+gwyIT33yPXh83q8JgOIwbtfdBANDpTADsv9EuXB0AxV5w84zKYuYix2SrxuJowdPc9swD/IPzhenNI2KX7YVOF6R/zaQ+mCBiA1FCCsl45+ZlqDezTFiSa/ybicj2TqgSSnjXeoh3Q/1xoVht86ikkhJhUZSn4hsqxGy+SH2xugQRdzRXv2CZLW8fMUxRpwRo0o/brJXrM8cMgzDnfEDveg+asTpp5gmLfIOef6VcXA==]"
+  webhookSecret: "![OzlnBXzKYj7c+Sm+wfBQjRPygo/UtDDoMt/Apb4TSACB4dyns3MWrLZJYCXutYfSKKdZUC07I2OPyWpdYu6xYAPm1/yPLkSW938imqbuIwc=]"
+api:
+  # Inter-app shared secret (X-Client-Secret). One value for all three UAT apps; generated 13 Oct 2026, in the vault.
+  clientSecret: "![mW3mOodycqdJfMCFHRBLS5bbUXHil6gSrl2IGUOUqcbaBTcDYydvY5COEz0q4cxa5La2ErMEDazqnFAoEJCeMka3aag4OXshmobJjVZLKio=]"

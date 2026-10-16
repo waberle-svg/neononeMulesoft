@@ -1,0 +1,59 @@
+# salesforce-sys-api — DEV environment (local runtime against the Neon One Dev sandbox "cpqtriage").
+# Non-secret values only. Secrets live in secure-dev.yaml (encrypted).
+api:
+  name: "salesforce-sys-api"
+  version: "1.0.0"
+  # Interim inter-app auth (before API Manager): callers must send X-Client-Secret matching secure::api.clientSecret
+  enforceClientSecret: "false"
+
+http:
+  port: "8081"
+
+sf:
+  # Sandbox token endpoint. Production uses https://login.salesforce.com/services/oauth2/token (wrong one -> invalid_grant)
+  tokenEndpoint: "https://test.salesforce.com/services/oauth2/token"
+  # JWT "sub": the user the integration acts as. Interim: a developer's own Dev user (Q13 — integration user licence pending).
+  principal: "ayush.upadhyaya@bluvium.com"
+  keystore:
+    # Private key that signs the JWT. Bundled in the JAR as a classpath resource
+    # (src/main/resources/keystore/, git-ignored by *.jks; master copy in .secrets/dev/) so the same JAR runs on CloudHub (ADR-006).
+    path: "keystore/neon-jira-integration-dev.jks"
+    alias: "neon-jira-integration-dev"
+  reconnect:
+    # Bounded: operations fail fast with a canonical error (ERR-0009); the event listener reconnects forever (events.reconnectFrequencyMs)
+    count: "3"
+    frequencyMs: "2000"
+
+  events:
+    reconnectFrequencyMs: "30000"
+    channel: "/event/Integration_Request__e"
+    # FROM_LAST_REPLAY_ID: resume from the last replay id the connector persisted (no lost events across restarts)
+    replayOption: "FROM_LAST_REPLAY_ID"
+    # Comma-separated Target_System__c values this app forwards; anything else is logged and dropped
+    targetSystems: "JIRA"
+    # POST /events/integration-requests injects a synthetic event for local testing. Never true in UAT/Prod.
+    allowSimulation: "true"
+
+  opportunity:
+    # Extra Opportunity fields to read and return under "extra" (comma-separated API names), no code change needed
+    extraFields: ""
+
+  registry:
+    sweepLimit: "200"
+
+# Downstream: provisioning-prc-api (local ports: sys-sf 8081, sys-jira 8082, prc 8083)
+prc:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8083"
+  basePath: "/api/v1"
+  responseTimeoutMs: "20000"
+  paths:
+    provisioningRequests: "/provisioning-requests"
+  retry:
+    maxRetries: "3"
+    millisBetweenRetries: "5000"
+  # Events that could not be delivered are parked in a persistent Object Store and re-driven on this schedule
+  redrive:
+    frequencyMinutes: "5"
+    maxAttempts: "12"

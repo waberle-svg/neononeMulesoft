@@ -1,0 +1,11 @@
+{
+  "minMuleVersion": "4.12.0",
+  "javaSpecificationVersions": ["17"],
+  "secureProperties": [
+    "jira.email",
+    "jira.token",
+    "jira.webhookSecret",
+    "secure.key",
+    "api.clientSecret"
+  ]
+}

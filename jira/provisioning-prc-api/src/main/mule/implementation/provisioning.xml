@@ -1,0 +1,651 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/provisioning.xml — the outbound orchestration (Salesforce -> Jira), step by step as in 11-option-a-design.md.
+
+  Every request (any Request_Type__c) enters process-provisioning-request:
+      1. request type we handle?                       else IGNORED_TYPE
+      2. registry row exists and is processable?       else IGNORED_UNKNOWN_REQUEST / SKIPPED_ALREADY_PROCESSED   (idempotency #1)
+      3. route on the row's Request_Type__c:
+           SETUP         -> provision-ticket   (Scenario 1: System Setup ticket; Order model or the Phase 1 Opportunity model)
+           DEACTIVATION  -> deactivate-ticket  (Scenario 2: one deactivation ticket per product line of a churned Opportunity)
+         The request type value was renamed PROVISIONING -> SETUP in Salesforce (requirements v4). Mule's canonical value is SETUP;
+         PROVISIONING is NOT accepted (IGNORED_TYPE); provisioning.legacyRequestTypes is an emergency switch kept empty.
+
+  provision-ticket / deactivate-ticket share the same shape:
+      guard(s) that end the request without a ticket   -> registry Cancelled, SKIPPED_EXISTING_KEY                 (idempotency #2)
+      build the ticket from a mapping YAML              -> canonical IssueCreateRequest
+      jira-sys-api POST /issues                          -> key ; GET /issues/{key} -> initial status (best effort)
+      registry -> Created + external record              => the Salesforce Flow copies key/status/error to the Opportunity
+  failure anywhere in between (record-failure):
+      terminal  -> registry Failed - Terminal (+ category, error)                                  TERMINAL_ERROR
+      transient -> registry Retrying, park in retry_store with backoff RETRY_SCHEDULED; after maxAttempts RETRIES_EXHAUSTED
+  Scenario 2 and the Scenario 1 Order model add a third idempotency check (idempotency #3): before creating, Jira is asked
+  for a ticket carrying the label derived from the Salesforce record; a hit is linked (LINKED_EXISTING_TICKET) instead of
+  duplicated. Both ticket flows also keep a write-ahead record of every key Jira returned in the
+  created_issues_store (idempotency #2b): a retry finds the key there first and links it without asking Jira, so the
+  "write-back failed after the ticket was created" gap is closed even if someone edits the labels.
+  Scenario 1 runs in two models decided per row: Order model (registry row has Order__c; requirements v3) or the Phase 1
+  Opportunity model (no Order__c).
+  Nothing is ever written to a Salesforce field the integration filters on; the registry row is the audit trail.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== Entry point for every request: common checks, then route on the request type ===== -->
+    <flow name="process-provisioning-request" doc:name="process-provisioning-request">
+        <set-variable variableName="req" value="#[payload]" doc:name="req"/>
+        <set-variable variableName="requestId" value="#[vars.req.requestId]" doc:name="requestId"/>
+        <set-variable variableName="opportunityId" value="#[vars.req.sourceRecordId]" doc:name="opportunityId"/>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'IGNORED_TYPE' }]" doc:name="outcome (default)"/>
+        <logger level="INFO" doc:name="Log start"
+                message='#[output text/plain --- "Integration request " ++ (vars.requestId default "?") ++ " type=" ++ (vars.req.requestType default "?") ++ " source=" ++ (vars.opportunityId default "?")]'/>
+
+        <!-- Request types: provisioning.requestTypes (canonical: SETUP, DEACTIVATION) plus provisioning.legacyRequestTypes
+             (emergency switch only — EMPTY in every environment by decision; the old spelling PROVISIONING is not accepted).
+             A legacy value is processed exactly like SETUP but logged at WARN so the sender can be found and fixed. -->
+        <set-variable variableName="acceptedTypes" doc:name="acceptedTypes"
+                      value="#[((p('provisioning.requestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
+        <set-variable variableName="legacyTypes" doc:name="legacyTypes"
+                      value="#[((p('provisioning.legacyRequestTypes') default '') splitBy ',') map trim($) filter (!isEmpty($))]"/>
+        <choice doc:name="1. Request type handled?">
+            <when expression="#[!((vars.acceptedTypes ++ vars.legacyTypes) contains (vars.req.requestType default ''))]">
+                <logger level="INFO" doc:name="Ignore type" message='#[output text/plain --- "Ignoring request type " ++ (vars.req.requestType default "null") ++ " (accepted: " ++ (vars.acceptedTypes joinBy ",") ++ (if (isEmpty(vars.legacyTypes)) "" else "; legacy: " ++ (vars.legacyTypes joinBy ",")) ++ ")"]'/>
+            </when>
+            <otherwise>
+                <choice doc:name="Legacy request type?">
+                    <when expression="#[vars.legacyTypes contains (vars.req.requestType default '')]">
+                        <logger level="WARN" doc:name="Deprecated type"
+                                message='#[output text/plain --- "Request " ++ (vars.requestId default "?") ++ " uses deprecated request type " ++ vars.req.requestType ++ "; processed as SETUP. Change the publishing Flow to SETUP (provisioning.legacyRequestTypes keeps this working meanwhile)."]'/>
+                    </when>
+                </choice>
+                <!-- 2. Registry row: exists? processable? -->
+                <flow-ref name="sys-sf-get-integration-request" doc:name="Registry: get row"/>
+                <choice doc:name="2. Registry row processable?">
+                    <when expression="#[vars.registry == null]">
+                        <logger level="ERROR" doc:name="Unknown request" message='#[output text/plain --- "No Integration_Transaction__c row for request " ++ vars.requestId ++ "; ignoring"]'/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'IGNORED_UNKNOWN_REQUEST', message: 'Registry row not found' }]" doc:name="IGNORED_UNKNOWN_REQUEST"/>
+                    </when>
+                    <when expression="#[vars.registry.external.key != null or !((p('provisioning.processableStatuses') splitBy ',') map trim($) contains (vars.registry.requestStatus default ''))]">
+                        <logger level="INFO" doc:name="Already processed"
+                                message='#[output text/plain --- "Request " ++ vars.requestId ++ " already processed (status " ++ (vars.registry.requestStatus default "?") ++ ", key " ++ (vars.registry.external.key default "none") ++ "); skipping"]'/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_ALREADY_PROCESSED', issueKey: vars.registry.external.key, message: 'Registry status ' ++ (vars.registry.requestStatus default '') }]" doc:name="SKIPPED_ALREADY_PROCESSED"/>
+                    </when>
+                    <otherwise>
+                        <!-- 3. The registry row is authoritative for the type; the event only carried it.
+                             DEACTIVATION -> deactivation ticket; SETUP (and any configured legacy spelling) -> setup ticket -->
+                        <choice doc:name="3. Route on request type">
+                            <when expression="#[(vars.registry.requestType default vars.req.requestType) == 'DEACTIVATION']">
+                                <flow-ref name="deactivate-ticket" doc:name="Scenario 2: deactivation ticket"/>
+                            </when>
+                            <otherwise>
+                                <flow-ref name="provision-ticket" doc:name="Scenario 1: setup ticket"/>
+                            </otherwise>
+                        </choice>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+
+        <ee:transform doc:name="ProvisioningOutcome">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn="everywhere"
+---
+{ requestId: vars.requestId } ++ vars.outcome]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log outcome" message='#[output text/plain --- "Integration request " ++ vars.requestId ++ " -> " ++ write(payload, "application/json")]'/>
+    </flow>
+
+    <!-- ===== Scenario 1: System Setup ticket. Requires vars.req, vars.requestId, vars.registry =====
+         Two models, decided PER ROW (requirements v3 and the client's answers):
+           Order model       — registry.orderId set: one row per Order x product line; the ticket covers the flagged Order
+                               Products of that line (salesforce-sys-api GET /orders/{id}); mapping setup-order-ticket.yaml
+           Opportunity model — registry.orderId blank: the Phase 1 behaviour (publisher v5 still produces such rows in Dev)
+         Idempotency, in order: router (#1 row state) -> created-issue store (#2b, this app's own memory of the key it
+         obtained) -> existing key on the Salesforce record (#2) -> Jira label search (#3, Order model only). -->
+    <flow name="provision-ticket" doc:name="provision-ticket">
+        <set-variable variableName="attempt" value="#[((vars.registry.attempts default 0) as Number) + 1]" doc:name="attempt"/>
+        <!-- The row is authoritative for the Opportunity; the event's Source_Record_Id__c is an Order Id in the Order model -->
+        <set-variable variableName="opportunityId" value="#[vars.registry.opportunityId default vars.req.sourceRecordId]" doc:name="opportunityId (row first)"/>
+        <try doc:name="Provision or record failure">
+            <flow-ref name="recall-created-issue" doc:name="Store: ticket already created for this request?"/>
+            <choice doc:name="Recovered from the created-issue store?">
+                <when expression="#[vars.recalled.key != null]">
+                    <flow-ref name="link-recalled-issue" doc:name="Link the remembered ticket"/>
+                </when>
+                <otherwise>
+                    <choice doc:name="Which model?">
+                        <when expression="#[vars.registry.orderId != null]">
+                            <flow-ref name="provision-order-ticket" doc:name="Order model"/>
+                        </when>
+                        <otherwise>
+                            <flow-ref name="provision-opportunity-ticket" doc:name="Opportunity model (Phase 1)"/>
+                        </otherwise>
+                    </choice>
+                </otherwise>
+            </choice>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <flow-ref name="record-failure" doc:name="Record failure"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </flow>
+
+    <!-- Opportunity model (unchanged Phase 1 logic): vars.opportunityId -> ticket from provisioning-ticket.yaml -->
+    <sub-flow name="provision-opportunity-ticket">
+        <flow-ref name="sys-sf-get-opportunity" doc:name="SF: get opportunity"/>
+        <choice doc:name="Opportunity already keyed?">
+            <when expression="#[vars.opp.jiraSetupIssueKey != null]">
+                <logger level="WARN" doc:name="Existing key"
+                        message='#[output text/plain --- "Opportunity " ++ vars.opportunityId ++ " already has Jira key " ++ vars.opp.jiraSetupIssueKey ++ "; cancelling request " ++ vars.requestId]'/>
+                <set-variable variableName="existingKey" value="#[vars.opp.jiraSetupIssueKey]" doc:name="existingKey"/>
+                <flow-ref name="registry-mark-cancelled-existing-key" doc:name="Registry: Cancelled (existing key)"/>
+            </when>
+            <otherwise>
+                <flow-ref name="build-ticket" doc:name="Build ticket"/>
+                <flow-ref name="sys-jira-create-issue" doc:name="Jira: create issue"/>
+                <flow-ref name="remember-created-issue" doc:name="Store: remember the key"/>
+                <flow-ref name="read-initial-status" doc:name="Jira: initial status (best effort)"/>
+                <flow-ref name="registry-mark-created" doc:name="Registry: Created"/>
+                <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'CREATED', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt }]" doc:name="CREATED"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- Order model: vars.registry.orderId + vars.registry.productLine -> ticket from setup-order-ticket.yaml -->
+    <sub-flow name="provision-order-ticket">
+        <set-variable variableName="orderId" value="#[vars.registry.orderId]" doc:name="orderId"/>
+        <flow-ref name="resolve-setup-line" doc:name="Resolve product line (setup)"/>
+        <flow-ref name="sys-sf-get-order" doc:name="SF: get order + Order Products of the line"/>
+        <!-- The group a ticket covers = the Order Products of the line whose Product is flagged Sync_JIRA__c; the other items of
+             the line are add-ons that only contribute their Modules value -->
+        <set-variable variableName="flaggedItems" value="#[(vars.order.items default []) filter ((i) -> i.syncJira == true)]" doc:name="flaggedItems"/>
+        <set-variable variableName="opportunityId" value="#[vars.registry.opportunityId default vars.order.opportunityId]" doc:name="opportunityId"/>
+        <flow-ref name="sys-sf-get-opportunity" doc:name="SF: get opportunity"/>
+        <logger level="INFO" doc:name="Log order"
+                message='#[output text/plain --- "Request " ++ vars.requestId ++ " order " ++ (vars.order.orderNumber default vars.orderId) ++ " line " ++ vars.line.code ++ ": " ++ (sizeOf(vars.flaggedItems) as String) ++ " flagged Order Product(s) of " ++ (sizeOf(vars.order.items default []) as String) ++ " on the line"]'/>
+
+        <!-- Guard A: nothing to set up (the Flow should not have published; terminal, category Mapping, visible on the row) -->
+        <choice doc:name="A. Any flagged Order Product on this line?">
+            <when expression="#[isEmpty(vars.flaggedItems)]">
+                <raise-error type="APP:NO_SETUP_ITEMS" doc:name="No setup items"
+                             description="#['No Order Product flagged Sync_JIRA__c for product line \'' ++ vars.line.salesforceValue ++ '\' on Order ' ++ (vars.order.orderNumber default vars.orderId) ++ '. Nothing to set up.']"/>
+            </when>
+        </choice>
+
+        <!-- Guard C: an Order Product of the group already carries a setup key -> the Flow copies it to the others; no new ticket -->
+        <set-variable variableName="existingKey" doc:name="existingKey (first keyed item)"
+                      value="#[(vars.flaggedItems filter ((i) -> i.jiraSetupIssueKey != null) map ((i) -> i.jiraSetupIssueKey))[0]]"/>
+        <choice doc:name="C. Order Product already keyed for this line?">
+            <when expression="#[vars.existingKey != null]">
+                <logger level="WARN" doc:name="Existing key"
+                        message='#[output text/plain --- "Order " ++ (vars.order.orderNumber default vars.orderId) ++ " already has setup key " ++ vars.existingKey ++ " for " ++ vars.line.salesforceValue ++ "; cancelling request " ++ vars.requestId]'/>
+                <flow-ref name="registry-mark-cancelled-existing-key" doc:name="Registry: Cancelled (existing key)"/>
+            </when>
+            <otherwise>
+                <!-- Idempotency #3: a ticket we created earlier whose key never reached Salesforce (and is not in the store) -->
+                <set-variable variableName="duplicateCheck" value="#[p('provisioning.duplicateCheck') == 'true']" doc:name="duplicateCheck"/>
+                <flow-ref name="find-existing-ticket-by-label" doc:name="Jira: existing ticket by label?"/>
+                <choice doc:name="D. Ticket already in Jira?">
+                    <when expression="#[vars.existingIssue != null]">
+                        <logger level="WARN" doc:name="Link existing"
+                                message='#[output text/plain --- "Jira already has " ++ vars.existingIssue.key ++ " labelled " ++ vars.line.label ++ "; linking it to request " ++ vars.requestId ++ " instead of creating a duplicate"]'/>
+                        <set-variable variableName="issue" value="#[output application/java --- { key: vars.existingIssue.key, id: vars.existingIssue.id, url: vars.existingIssue.url, linked: true }]" doc:name="issue (linked)"/>
+                        <set-variable variableName="issueStatus" value="#[vars.existingIssue.status]" doc:name="issueStatus"/>
+                        <set-variable variableName="ticket" value="#[output application/java --- { project: vars.line.project, issueType: vars.line.issueType, labels: vars.line.tags }]" doc:name="ticket (reference only)"/>
+                        <flow-ref name="registry-mark-created" doc:name="Registry: Created (linked)"/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'LINKED_EXISTING_TICKET', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt, message: 'Existing Jira ticket linked by label ' ++ vars.line.label }]" doc:name="LINKED_EXISTING_TICKET"/>
+                    </when>
+                    <otherwise>
+                        <flow-ref name="build-order-ticket" doc:name="Build setup ticket (Order model)"/>
+                        <flow-ref name="sys-jira-create-issue" doc:name="Jira: create issue"/>
+                        <flow-ref name="remember-created-issue" doc:name="Store: remember the key"/>
+                        <flow-ref name="read-initial-status" doc:name="Jira: initial status (best effort)"/>
+                        <flow-ref name="registry-mark-created" doc:name="Registry: Created"/>
+                        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'CREATED', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt }]" doc:name="CREATED"/>
+                    </otherwise>
+                </choice>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- vars.registry.productLine (default Neon CRM), vars.orderId -> vars.line for the setup ticket (project/type from jira.*,
+         label "<prefix>-<order id>-<line code>"). Mirrors resolve-product-line (Scenario 2) with the setup configuration. -->
+    <sub-flow name="resolve-setup-line">
+        <ee:transform doc:name="Setup line">
+            <ee:variables>
+                <ee:set-variable variableName="line"><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/java
+var sfValue = ((vars.registry.productLine default vars.req.payload.productLine) default "Neon CRM") as String
+var code = upper(trim(sfValue) replace /[^A-Za-z0-9]+/ with "_")
+var label = p('provisioning.labelPrefix') ++ "-" ++ (vars.orderId default "") ++ "-" ++ lower(code)
+// Reporter: reporters.<scenario>.lines.<CODE> -> reporters.<scenario>.default -> null (Jira uses the API account)
+fun reporterFor(scenario, code) = do {
+    var byLine = try(() -> p('reporters.' ++ scenario ++ '.lines.' ++ code))
+    var dflt   = try(() -> p('reporters.' ++ scenario ++ '.default'))
+    var v = if (byLine.success and !isEmpty(trim((byLine.result default "") as String))) byLine.result
+            else if (dflt.success and !isEmpty(trim((dflt.result default "") as String))) dflt.result
+            else null
+    ---
+    if (v == null) null else trim(v as String)
+}
+---
+{
+  salesforceValue:   sfValue,
+  code:              code,
+  project:           p('jira.project'),
+  issueType:         "SYSTEM_SETUP",
+  label:             label,
+  tags:              [label, p('provisioning.labelPrefix')],
+  reporterAccountId: reporterFor("setup", code)
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+    </sub-flow>
+
+    <!-- vars.opp, vars.order, vars.line, vars.req, vars.registry -> vars.ticket (from mapping/setup-order-ticket.yaml) -->
+    <sub-flow name="build-order-ticket">
+        <ee:transform doc:name="Mapping -> IssueCreateRequest (setup, Order model)">
+            <ee:variables>
+                <ee:set-variable variableName="ticket"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+var mapping = readUrl("classpath://" ++ p('provisioning.orderMappingFile'), "application/yaml")
+var base = {
+  opp: vars.opp,
+  order: vars.order,
+  items: vars.flaggedItems default [],
+  line: vars.line,
+  req: vars.req,
+  registry: vars.registry,
+  rules: mapping.rules,
+  env: { jiraProject: p('jira.project'), reporterAccountId: vars.line.reporterAccountId },
+  sfUrl: p('sf.baseUrl') ++ "/" ++ (vars.opp.id default "")
+}
+// values that need logic AND appear inside a template (templates only resolve context paths)
+var ctx = base ++ { derived: {
+  primaryContactBlock:   applyRule("primaryContactBlock", base),
+  technicalContactBlock: applyRule("technicalContactBlock", base),
+  partnerBlock:          applyRule("partnerBlock", base),
+  salesNotes:            applyRule("salesNotes", base)
+} }
+---
+buildTicket(mapping, ctx)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log ticket"
+                message='#[output text/plain --- "Setup ticket (Order model) for request " ++ vars.requestId ++ ": " ++ write(vars.ticket - "description", "application/json")]'/>
+    </sub-flow>
+
+    <!-- ===== Created-issue store (idempotency #2b): this app's own record of the key Jira returned, written before the
+         registry patch. A retry finds it here and links instead of creating again — independent of labels and of Salesforce. -->
+    <sub-flow name="recall-created-issue">
+        <os:retrieve key="#[vars.requestId]" objectStore="created_issues_store" target="recalled" doc:name="Recall created issue">
+            <os:default-value>#[output application/java --- {}]</os:default-value>
+        </os:retrieve>
+    </sub-flow>
+    <sub-flow name="remember-created-issue">
+        <try doc:name="Remember (best effort)">
+            <os:store key="#[vars.requestId]" objectStore="created_issues_store" doc:name="Remember created issue">
+                <os:value>#[output application/json --- { key: vars.issue.key, id: vars.issue.id, url: vars.issue.url, project: vars.ticket.project, issueType: vars.ticket.issueType, labels: vars.ticket.labels, createdAt: now() }]</os:value>
+            </os:store>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="WARN" doc:name="Store failed" message='#[output text/plain --- "Could not remember created issue " ++ (vars.issue.key default "?") ++ " for request " ++ vars.requestId ++ ": " ++ (error.description default "")]'/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+    <!-- vars.recalled {key,id,url,project,issueType,labels} -> registry Created (linked) + LINKED_EXISTING_TICKET -->
+    <sub-flow name="link-recalled-issue">
+        <logger level="WARN" doc:name="Recovered from store"
+                message='#[output text/plain --- "Request " ++ vars.requestId ++ " already created " ++ vars.recalled.key ++ " (remembered " ++ (vars.recalled.createdAt default "?") ++ "); linking it instead of creating again"]'/>
+        <set-variable variableName="issue" value="#[output application/java --- { key: vars.recalled.key, id: vars.recalled.id, url: vars.recalled.url, linked: true, recovered: true }]" doc:name="issue (recalled)"/>
+        <set-variable variableName="ticket" value="#[output application/java --- { project: vars.recalled.project, issueType: vars.recalled.issueType, labels: vars.recalled.labels }]" doc:name="ticket (reference only)"/>
+        <flow-ref name="read-initial-status" doc:name="Jira: current status (best effort)"/>
+        <flow-ref name="registry-mark-created" doc:name="Registry: Created (recovered)"/>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'LINKED_EXISTING_TICKET', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt, message: 'Ticket recovered from the created-issue store' }]" doc:name="LINKED_EXISTING_TICKET (recovered)"/>
+    </sub-flow>
+
+    <!-- ===== Scenario 2: deactivation ticket for one product line. Requires vars.req, vars.requestId, vars.opportunityId, vars.registry =====
+         The registry row says which product line (Product_Line__c); the Opportunity's Account carries that line's instance id.
+         deactivation.lines.<CODE> in config maps a line to its Jira project / issue type / instance field, so routing
+         Neon CRM tickets to WORK later is a configuration change, not a code change. -->
+    <flow name="deactivate-ticket" doc:name="deactivate-ticket">
+        <set-variable variableName="attempt" value="#[((vars.registry.attempts default 0) as Number) + 1]" doc:name="attempt"/>
+        <try doc:name="Deactivate or record failure">
+            <flow-ref name="recall-created-issue" doc:name="Store: ticket already created for this request?"/>
+            <choice doc:name="Recovered from the created-issue store?">
+                <when expression="#[vars.recalled.key != null]">
+                    <flow-ref name="link-recalled-issue" doc:name="Link the remembered ticket"/>
+                </when>
+                <otherwise>
+                    <flow-ref name="deactivate-ticket-steps" doc:name="Deactivation steps"/>
+                </otherwise>
+            </choice>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <flow-ref name="record-failure" doc:name="Record failure"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </flow>
+
+    <sub-flow name="deactivate-ticket-steps">
+            <flow-ref name="sys-sf-get-opportunity" doc:name="SF: get opportunity"/>
+            <flow-ref name="resolve-product-line" doc:name="Resolve product line"/>
+
+            <!-- Guard A: the line must be configured with a real Jira target (TBD = Neon One has not created the project yet) -->
+            <choice doc:name="A. Product line configured?">
+                <when expression="#[vars.line.project == null or vars.line.project == 'TBD' or vars.line.issueType == null or vars.line.instanceField == null]">
+                    <raise-error type="APP:UNSUPPORTED_PRODUCT_LINE" doc:name="Unsupported line"
+                                 description="#['No Jira target configured for product line \'' ++ vars.line.salesforceValue ++ '\' (deactivation.lines.' ++ vars.line.code ++ '). Re-drive this request once the Jira project exists.']"/>
+                </when>
+            </choice>
+            <!-- Guard B: without an instance identifier there is nothing to deactivate (document rule; terminal, visible on the Opportunity) -->
+            <choice doc:name="B. Instance id present?">
+                <when expression="#[isEmpty(trim((vars.line.instanceId default '') as String))]">
+                    <raise-error type="APP:MISSING_INSTANCE_ID" doc:name="Missing instance id"
+                                 description="#['No ' ++ vars.line.instanceLabel ++ ' on Account ' ++ (vars.opp.account.name default vars.opp.account.id default '?') ++ ' for product line ' ++ vars.line.salesforceValue]"/>
+                </when>
+            </choice>
+
+            <choice doc:name="C. Opportunity already keyed for this line?">
+                <when expression="#[vars.line.existingKey != null]">
+                    <logger level="WARN" doc:name="Existing key"
+                            message='#[output text/plain --- "Opportunity " ++ vars.opportunityId ++ " already has deactivation key " ++ vars.line.existingKey ++ " for " ++ vars.line.salesforceValue ++ "; cancelling request " ++ vars.requestId]'/>
+                    <set-variable variableName="existingKey" value="#[vars.line.existingKey]" doc:name="existingKey"/>
+                    <flow-ref name="registry-mark-cancelled-existing-key" doc:name="Registry: Cancelled (existing key)"/>
+                </when>
+                <otherwise>
+                    <!-- Idempotency #3: a ticket we created earlier whose key never reached Salesforce (and is not in the store) -->
+                    <set-variable variableName="duplicateCheck" value="#[p('deactivation.duplicateCheck') == 'true']" doc:name="duplicateCheck"/>
+                    <flow-ref name="find-existing-ticket-by-label" doc:name="Jira: existing ticket by label?"/>
+                    <choice doc:name="D. Ticket already in Jira?">
+                        <when expression="#[vars.existingIssue != null]">
+                            <logger level="WARN" doc:name="Link existing"
+                                    message='#[output text/plain --- "Jira already has " ++ vars.existingIssue.key ++ " labelled " ++ vars.line.label ++ "; linking it to request " ++ vars.requestId ++ " instead of creating a duplicate"]'/>
+                            <set-variable variableName="issue" value="#[output application/java --- { key: vars.existingIssue.key, id: vars.existingIssue.id, url: vars.existingIssue.url, linked: true }]" doc:name="issue (linked)"/>
+                            <set-variable variableName="issueStatus" value="#[vars.existingIssue.status]" doc:name="issueStatus"/>
+                            <set-variable variableName="ticket" value="#[output application/java --- { project: vars.line.project, issueType: vars.line.issueType, labels: vars.line.tags }]" doc:name="ticket (reference only)"/>
+                            <flow-ref name="registry-mark-created" doc:name="Registry: Created (linked)"/>
+                            <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'LINKED_EXISTING_TICKET', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt, message: 'Existing Jira ticket linked by label ' ++ vars.line.label }]" doc:name="LINKED_EXISTING_TICKET"/>
+                        </when>
+                        <otherwise>
+                            <flow-ref name="build-deactivation-ticket" doc:name="Build deactivation ticket"/>
+                            <flow-ref name="sys-jira-create-issue" doc:name="Jira: create issue"/>
+                            <flow-ref name="remember-created-issue" doc:name="Store: remember the key"/>
+                            <flow-ref name="read-initial-status" doc:name="Jira: initial status (best effort)"/>
+                            <flow-ref name="registry-mark-created" doc:name="Registry: Created"/>
+                            <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'CREATED', issueKey: vars.issue.key, issueUrl: vars.issue.url, attempts: vars.attempt }]" doc:name="CREATED"/>
+                        </otherwise>
+                    </choice>
+                </otherwise>
+            </choice>
+    </sub-flow>
+
+    <!-- ===== Scenario 2 helpers ===== -->
+
+    <!-- vars.registry, vars.req, vars.opp -> vars.line { salesforceValue, code, project, issueType, instanceField, instanceLabel, opportunityKey, instanceId, existingKey, label, tags } -->
+    <sub-flow name="resolve-product-line">
+        <ee:transform doc:name="Product line -> configured Jira target">
+            <ee:variables>
+                <ee:set-variable variableName="line"><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/java
+// The registry row is authoritative; the event payload is the fallback (both are written by the Salesforce Flow)
+var sfValue = ((vars.registry.productLine default vars.req.payload.productLine) default "") as String
+// "Neon CRM" -> NEON_CRM, "Arts People" -> ARTS_PEOPLE: the key used under deactivation.lines in config
+var code = upper(trim(sfValue) replace /[^A-Za-z0-9]+/ with "_")
+fun cfg(key) = do {
+    var r = try(() -> p('deactivation.lines.' ++ code ++ '.' ++ key))
+    ---
+    if (r.success and !isEmpty(trim((r.result default "") as String))) r.result else null
+}
+var instanceField  = cfg('instanceField')
+var opportunityKey = cfg('opportunityKey')
+var instanceId = if (instanceField == null) null else vars.opp.account[instanceField]
+var label = p('deactivation.labelPrefix') ++ "-" ++ (vars.opportunityId default "") ++ "-" ++ lower(code)
+var deactivationDate = vars.opp.account.deactivationDate
+// Reporter: reporters.<scenario>.lines.<CODE> -> reporters.<scenario>.default -> null (Jira uses the API account)
+fun reporterFor(scenario, code) = do {
+    var byLine = try(() -> p('reporters.' ++ scenario ++ '.lines.' ++ code))
+    var dflt   = try(() -> p('reporters.' ++ scenario ++ '.default'))
+    var v = if (byLine.success and !isEmpty(trim((byLine.result default "") as String))) byLine.result
+            else if (dflt.success and !isEmpty(trim((dflt.result default "") as String))) dflt.result
+            else null
+    ---
+    if (v == null) null else trim(v as String)
+}
+---
+{
+  salesforceValue: sfValue,
+  code:            code,
+  project:         cfg('project'),
+  issueType:       cfg('issueType'),
+  instanceField:   instanceField,
+  instanceLabel:   cfg('instanceLabel') default "instance id",
+  opportunityKey:  opportunityKey,
+  instanceId:      instanceId,
+  existingKey:     if (opportunityKey == null) null else vars.opp.deactivation[opportunityKey].jiraKey,
+  label:           label,
+  tags:            [label, p('deactivation.labelPrefix')],
+  // Reporter of the deactivation ticket (requirements v4: Chelsea Diehl for every line); null = API account
+  reporterAccountId: reporterFor("deactivation", code),
+  // Summary rule (client): "System shutdown for <summaryLabel> /<summarySubject>/" — CRM shows the instance id,
+  // Fundraise and Arts People show the Account name
+  summaryLabel:    cfg('summaryLabel') default sfValue,
+  summarySubject:  if ((cfg('summarySubject') default "instanceId") == "accountName") (vars.opp.account.name default "") else (instanceId default ""),
+  // What the ticket says about the date: never a blank after "Deactivation date:" (the receiving team must see a missing date)
+  deactivationDateText: if (deactivationDate == null or isEmpty(trim(deactivationDate as String))) p('deactivation.missingDateText')
+                        else (deactivationDate as String)
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log line"
+                message='#[output text/plain --- "Request " ++ vars.requestId ++ " product line " ++ vars.line.code ++ " -> " ++ (vars.line.project default "unconfigured") ++ "/" ++ (vars.line.issueType default "?") ++ ", instance " ++ (vars.line.instanceId default "none")]'/>
+    </sub-flow>
+
+    <!-- vars.line -> vars.existingIssue (canonical Issue) or null. Off with deactivation.duplicateCheck=false.
+         The label alone identifies Opportunity + line, so the search is NOT scoped to the configured project: a ticket created in
+         the stand-in project before the target was switched is still found. Tickets already in a Done status are ignored: a
+         request re-issued after a completed deactivation (key cleared on purpose) must get a new ticket, not link a closed one. -->
+    <sub-flow name="find-existing-ticket-by-label">
+        <choice doc:name="Duplicate check enabled?">
+            <when expression="#[vars.duplicateCheck == true]">
+                <set-variable variableName="searchLabel" value="#[vars.line.label]" doc:name="searchLabel"/>
+                <set-variable variableName="searchProject" value="#[null]" doc:name="searchProject (any project)"/>
+                <flow-ref name="sys-jira-search-issues" doc:name="Jira: search by label"/>
+                <set-variable variableName="existingIssue" doc:name="existingIssue (first not Done)"
+                              value="#[(payload filter ((i) -> lower((i.status.category default '') as String) != 'done'))[0]]"/>
+                <choice doc:name="Only Done tickets matched?">
+                    <when expression="#[vars.existingIssue == null and !isEmpty(payload)]">
+                        <logger level="WARN" doc:name="Done tickets ignored"
+                                message='#[output text/plain --- "Label " ++ vars.line.label ++ " matches only Done ticket(s) " ++ ((payload map $.key) joinBy ", ") ++ "; a new ticket will be created"]'/>
+                    </when>
+                </choice>
+            </when>
+            <otherwise>
+                <set-variable variableName="existingIssue" value="#[null]" doc:name="existingIssue=null"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- vars.opp, vars.req, vars.registry, vars.line -> vars.ticket (from mapping/deactivation-ticket.yaml) -->
+    <sub-flow name="build-deactivation-ticket">
+        <ee:transform doc:name="Mapping -> IssueCreateRequest (deactivation)">
+            <ee:variables>
+                <ee:set-variable variableName="ticket"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+var mapping = readUrl("classpath://" ++ p('deactivation.mappingFile'), "application/yaml")
+var ctx = {
+  opp: vars.opp,
+  req: vars.req,
+  registry: vars.registry,
+  line: vars.line,
+  env: { jiraProject: p('jira.project') },
+  sfUrl: p('sf.baseUrl') ++ "/" ++ (vars.opp.id default "")
+}
+---
+buildTicket(mapping, ctx)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log ticket"
+                message='#[output text/plain --- "Deactivation ticket for request " ++ vars.requestId ++ ": " ++ write(vars.ticket - "description", "application/json")]'/>
+    </sub-flow>
+
+    <!-- ===== Scenario 1 helper: vars.opp, vars.req, vars.registry -> vars.ticket (from mapping/provisioning-ticket.yaml) ===== -->
+    <sub-flow name="build-ticket">
+        <ee:transform doc:name="Mapping -> IssueCreateRequest">
+            <ee:variables>
+                <ee:set-variable variableName="ticket"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+var mapping = readUrl("classpath://" ++ p('provisioning.mappingFile'), "application/yaml")
+var ctx = {
+  opp: vars.opp,
+  req: vars.req,
+  registry: vars.registry,
+  env: { jiraProject: p('jira.project') },
+  sfUrl: p('sf.baseUrl') ++ "/" ++ (vars.opp.id default "")
+}
+---
+buildTicket(mapping, ctx)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="INFO" doc:name="Log ticket"
+                message='#[output text/plain --- "Ticket for request " ++ vars.requestId ++ ": " ++ write(vars.ticket - "description", "application/json")]'/>
+    </sub-flow>
+
+    <!-- ===== Shared steps ===== -->
+
+    <!-- vars.issue -> vars.issueKey, vars.issueStatus. A failure here must not undo a created ticket, so it is swallowed. -->
+    <sub-flow name="read-initial-status">
+        <set-variable variableName="issueKey" value="#[vars.issue.key]" doc:name="issueKey"/>
+        <try doc:name="Read initial status">
+            <flow-ref name="sys-jira-get-issue" doc:name="Jira: get issue"/>
+            <set-variable variableName="issueStatus" value="#[payload.status]" doc:name="issueStatus"/>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="WARN" doc:name="Status read failed" message='#[output text/plain --- "Could not read initial status of " ++ vars.issueKey ++ ": " ++ (error.description default "")]'/>
+                    <set-variable variableName="issueStatus" value="#[null]" doc:name="issueStatus=null"/>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </sub-flow>
+
+    <!-- vars.issue, vars.issueStatus, vars.ticket, vars.attempt -> registry Created (the Salesforce Flow copies key + status to the Opportunity) -->
+    <sub-flow name="registry-mark-created">
+        <ee:transform doc:name="patch: Created">
+            <ee:variables>
+                <ee:set-variable variableName="registryPatch"><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/java
+var st = vars.issueStatus
+var typeCode = (vars.ticket.issueType default "SYSTEM_SETUP") as String
+// Display name of the issue type for External_Type__c (config jira.issueTypeNames.<CODE>; the code itself as fallback)
+var typeName = do { var r = try(() -> p('jira.issueTypeNames.' ++ typeCode)) --- if (r.success and r.result != null) r.result else typeCode }
+---
+{
+  requestStatus: "Created",
+  attempts: vars.attempt,
+  // tracking timestamps: this attempt's time; no retry pending any more
+  lastAttemptAt: now(),
+  nextRetryAt: null,
+  lastError: null,
+  errorCategory: null,
+  muleCorrelationId: correlationId,
+  requestPayload: if (vars.ticket == null) null else write(vars.ticket, "application/json"),
+  responsePayload: write(vars.issue, "application/json"),
+  // Scenario 2: stamp the resolved line so the write-back Flow can route the row even if the publisher left Product_Line__c blank
+  (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null),
+  external: {
+    key: vars.issue.key,
+    id: vars.issue.id,
+    url: vars.issue.url,
+    container: vars.ticket.project,
+    "type": typeName,
+    status: st.name default "Open",
+    statusId: st.id,
+    statusCategory: p('jira.statusCategoryMap.' ++ (st.category default "new")),
+    statusChangedAt: now(),
+    lastSyncedAt: now()
+  }
+}]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Created"/>
+    </sub-flow>
+
+    <!-- vars.existingKey, vars.attempt -> registry Cancelled + outcome SKIPPED_EXISTING_KEY -->
+    <sub-flow name="registry-mark-cancelled-existing-key">
+        <set-variable variableName="registryPatch" doc:name="patch: Cancelled"
+                      value="#[output application/java --- { requestStatus: 'Cancelled', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: 'Opportunity already has Jira key ' ++ vars.existingKey, errorCategory: 'Terminal', muleCorrelationId: correlationId, (productLine: vars.line.salesforceValue) if (vars.line.salesforceValue != null), external: { key: vars.existingKey } }]"/>
+        <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Cancelled"/>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'SKIPPED_EXISTING_KEY', issueKey: vars.existingKey, attempts: vars.attempt }]" doc:name="SKIPPED_EXISTING_KEY"/>
+    </sub-flow>
+
+    <!-- Called from the on-error-continue of both ticket flows: classify, then terminal / retry / exhausted. Uses `error`, vars.attempt, vars.ticket -->
+    <sub-flow name="record-failure">
+        <ee:transform doc:name="Classify failure">
+            <ee:variables>
+                <ee:set-variable variableName="failure"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+---
+classify(error)]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <logger level="ERROR" doc:name="Log failure"
+                message='#[output text/plain --- "Integration request " ++ vars.requestId ++ " attempt " ++ (vars.attempt as String) ++ " failed (" ++ (if (vars.failure.retryable) "transient" else "terminal") ++ ", " ++ vars.failure.code ++ "): " ++ vars.failure.message]'/>
+        <choice doc:name="Retryable?">
+            <when expression="#[vars.failure.retryable and vars.attempt &lt; (p('provisioning.retry.maxAttempts') as Number)]">
+                <flow-ref name="schedule-retry" doc:name="Schedule retry"/>
+            </when>
+            <when expression="#[vars.failure.retryable]">
+                <set-variable variableName="registryPatch" doc:name="patch: exhausted"
+                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: 'Retries exhausted after ' ++ (vars.attempt as String) ++ ' attempts. Last error: ' ++ vars.failure.message, errorCategory: 'Transient', muleCorrelationId: correlationId, responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal (exhausted)"/>
+                <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'RETRIES_EXHAUSTED', attempts: vars.attempt, message: vars.failure.message }]" doc:name="RETRIES_EXHAUSTED"/>
+            </when>
+            <otherwise>
+                <set-variable variableName="registryPatch" doc:name="patch: terminal"
+                              value="#[output application/java --- { requestStatus: 'Failed - Terminal', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: null, lastError: vars.failure.code ++ ': ' ++ vars.failure.message, errorCategory: vars.failure.category, muleCorrelationId: correlationId, requestPayload: if (vars.ticket == null) null else write(vars.ticket, 'application/json'), responsePayload: if (vars.failure.detail == null) null else write(vars.failure.detail, 'application/json') }]"/>
+                <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Failed - Terminal"/>
+                <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'TERMINAL_ERROR', attempts: vars.attempt, message: vars.failure.code ++ ': ' ++ vars.failure.message }]" doc:name="TERMINAL_ERROR"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <!-- Transient failure: registry -> Retrying and park the request with exponential backoff -->
+    <sub-flow name="schedule-retry">
+        <ee:transform doc:name="Backoff">
+            <ee:variables>
+                <ee:set-variable variableName="nextAttemptAt"><![CDATA[%dw 2.0
+import * from modules::TicketMapping
+output application/java
+---
+now() + ("PT" ++ (backoffSeconds(vars.attempt, p('provisioning.retry.baseDelaySeconds') as Number, p('provisioning.retry.maxDelaySeconds') as Number) as String) ++ "S") as Period]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+        <set-variable variableName="registryPatch" doc:name="patch: Retrying"
+                      value="#[output application/java --- { requestStatus: 'Retrying', attempts: vars.attempt, lastAttemptAt: now(), nextRetryAt: vars.nextAttemptAt, lastError: vars.failure.code ++ ': ' ++ vars.failure.message ++ ' (next attempt ' ++ (vars.nextAttemptAt as String) ++ ')', errorCategory: 'Transient', muleCorrelationId: correlationId }]"/>
+        <flow-ref name="sys-sf-patch-integration-request" doc:name="Registry: Retrying"/>
+        <os:store key="#[vars.requestId]" objectStore="retry_store" doc:name="Park in retry store">
+            <os:value>#[output application/json --- { requestId: vars.requestId, attempt: vars.attempt, nextAttemptAt: vars.nextAttemptAt, lastError: vars.failure.message, request: vars.req }]</os:value>
+        </os:store>
+        <set-variable variableName="outcome" value="#[output application/java --- { outcome: 'RETRY_SCHEDULED', attempts: vars.attempt, message: vars.failure.message ++ '; next attempt at ' ++ (vars.nextAttemptAt as String) }]" doc:name="RETRY_SCHEDULED"/>
+    </sub-flow>
+
+</mule>

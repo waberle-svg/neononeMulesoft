@@ -1,0 +1,119 @@
+# provisioning-prc-api — TEST (MUnit) environment. Both system APIs are mocked; hosts point nowhere on purpose.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0-test"
+  enforceClientSecret: "false"
+
+http:
+  port: "18083"
+
+provisioning:
+  requestTypes: "SETUP,DEACTIVATION"
+  # Request types other than the ones above are IGNORED (outcome IGNORED_TYPE, INFO log; the row stays Requested).
+  # Decision: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
+  # legacyRequestTypes exists only as an emergency switch (comma-separated spellings processed as SETUP with a WARN); keep it empty.
+  legacyRequestTypes: ""
+  processableStatuses: "Requested,Retrying"
+  retry:
+    maxAttempts: "3"
+    baseDelaySeconds: "1"
+    maxDelaySeconds: "4"
+    schedulerFrequencyMinutes: "60"
+  mappingFile: "mapping/provisioning-ticket.yaml"
+  # ---- Scenario 1, Order model (requirements v3 and the client's answers) ----
+  # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
+  # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
+  orderMappingFile: "mapping/setup-order-ticket.yaml"
+  # Before creating, ask Jira for a ticket already carrying this request's label (same safety net as deactivation)
+  duplicateCheck: "true"
+  # Labels on every setup ticket: "<prefix>-<order id>-<line code>" and the bare prefix
+  labelPrefix: "sf-setup"
+
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  duplicateCheck: "true"
+  labelPrefix: "sf-deact"
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  lines:
+    NEON_CRM:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+      summaryLabel: "CRM"
+      summarySubject: "instanceId"
+    NEON_FUNDRAISE:
+      project: "NSSU"
+      issueType: "SYSTEM_SETUP"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+      summaryLabel: "Fundraise"
+      summarySubject: "accountName"
+    ARTS_PEOPLE:
+      project: "TBD"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+      summaryLabel: "Arts People"
+      summarySubject: "accountName"
+
+
+# Jira reporters by scenario and product line (Atlassian accountIds; requirements v4).
+# Resolution per request: reporters.<scenario>.lines.<LINE_CODE> -> reporters.<scenario>.default -> none (Jira uses the API account).
+# Setting a reporter requires (a) the Reporter field on the issue type's CREATE SCREEN in that project — jira-sys-api drops the
+# field where the screen lacks it (today: WORK / Deactivate Instance) — and (b) "Modify Reporter" for the API account in the project.
+# Every value here can be overridden per environment as a Runtime Manager property (same key), no rebuild needed.
+reporters:
+  setup:
+    # System Setup tickets. TEST: NEON_CRM = MUnit. Fundraise / Arts People setup reporters are not decided yet
+    # (candidate for Arts People per the requirements v4 document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
+    default: ""
+    lines:
+      NEON_CRM: "test-natalie-account-id"
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
+  deactivation:
+    # Deactivate Instance tickets, all product lines. TEST: MUnit.
+    default: "test-chelsea-account-id"
+    lines:
+      NEON_CRM: ""
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
+
+jira:
+  project: "NSSU"
+  instanceReadyStatusId: "10805"
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "50"
+
+sf:
+  baseUrl: "https://sf.test.invalid"
+
+sysSf:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18081"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"
+sysJira:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18082"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"

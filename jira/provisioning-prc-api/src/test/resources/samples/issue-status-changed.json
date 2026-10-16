@@ -1,0 +1,11 @@
+{
+  "eventType": "jira:issue_updated",
+  "issueKey": "NSSU-42",
+  "issueId": "123456",
+  "statusChanged": true,
+  "status": { "id": "10805", "name": "System Ready", "category": "indeterminate" },
+  "previousStatus": { "id": "3", "name": "In Progress" },
+  "changedAt": "2026-09-20T09:30:00.000Z",
+  "sfOpportunityId": "006Su00000XPwLxIAL",
+  "url": "https://neoncrm.atlassian.net/browse/NSSU-42"
+}

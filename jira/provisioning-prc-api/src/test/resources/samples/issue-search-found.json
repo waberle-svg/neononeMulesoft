@@ -1,0 +1,26 @@
+[
+  {
+    "key": "NSSU-76",
+    "id": "246599",
+    "url": "https://neoncrm.atlassian.net/browse/NSSU-76",
+    "project": "NSSU",
+    "issueType": "System Setup",
+    "summary": "System shutdown for /acmenonprofit/",
+    "status": { "id": "6", "name": "Closed", "category": "done" },
+    "sfOpportunityId": "006Su00000XPwLxIAL",
+    "created": "2026-09-20T06:24:22.804Z",
+    "updated": "2026-09-21T06:24:22.804Z"
+  },
+  {
+    "key": "NSSU-77",
+    "id": "246600",
+    "url": "https://neoncrm.atlassian.net/browse/NSSU-77",
+    "project": "NSSU",
+    "issueType": "System Setup",
+    "summary": "System shutdown for /acmenonprofit/",
+    "status": { "id": "3", "name": "In Progress", "category": "indeterminate" },
+    "sfOpportunityId": "006Su00000XPwLxIAL",
+    "created": "2026-09-29T06:24:22.804Z",
+    "updated": "2026-09-29T06:24:22.804Z"
+  }
+]

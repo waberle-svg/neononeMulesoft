@@ -1,0 +1,13 @@
+{
+  "key": "NSSU-42",
+  "id": "123456",
+  "url": "https://neoncrm.atlassian.net/browse/NSSU-42",
+  "project": "NSSU",
+  "issueType": "System Setup",
+  "summary": "Acme Nonprofit | O-0210538",
+  "status": { "id": "10805", "name": "System Ready", "category": "indeterminate" },
+  "systemReadyAt": "2026-09-20T09:30:00.000Z",
+  "sfOpportunityId": "006Su00000XPwLxIAL",
+  "created": "2026-09-19T12:00:07.000Z",
+  "updated": "2026-09-20T09:30:00.000Z"
+}

@@ -1,0 +1,14 @@
+{
+  "id": "a0BSu000001legacMAA",
+  "name": "INT-000099",
+  "targetSystem": "JIRA",
+  "requestType": "PROVISIONING",
+  "requestStatus": "Requested",
+  "opportunityId": "006Su00000XPwLxIAL",
+  "accountId": "001Su00000tjc9VIAQ",
+  "sourceBusinessKey": "O-0210538",
+  "attempts": 0,
+  "external": {},
+  "createdDate": "2026-09-19T12:00:00.000Z",
+  "lastModifiedDate": "2026-09-19T12:00:00.000Z"
+}

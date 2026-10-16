@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  common/error-handler.xml — one canonical error shape for every failure.
+  { code, message, retryable, correlationId, detail }
+  Consumers (the process API) decide what to do from `retryable`, never from Salesforce's raw fault.
+
+  Error namespaces seen here:
+    APIKIT:*      the caller's request did not match the RAML
+    SALESFORCE:*  the Salesforce connector (12.0.0): CONNECTIVITY, INVALID_INPUT, INVALID_RESPONSE, FAULTY_RESPONSE, NOT_FOUND,
+                  TIMEOUT, SOURCE, LIMIT_EXCEEDED, MUTUAL_AUTHENTICATION_FAILED, UNAVAILABLE, INSUFFICIENT_PERMISSIONS,
+                  OPERATION_NOT_SUPPORTED, COMMUNICATION, RETRY_EXHAUSTED
+    APP:*         raised by our own flows (NOT_FOUND, WRITE_REJECTED, UNAUTHORIZED_CALLER, FORBIDDEN)
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <error-handler name="global-error-handler">
+
+        <!-- Caller's request did not match the RAML -->
+        <on-error-propagate type="APIKIT:BAD_REQUEST">
+            <flow-ref name="set-validation-error" doc:name="400 VALIDATION"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:NOT_FOUND">
+            <set-variable variableName="errCode" value="NOT_FOUND"/>
+            <set-variable variableName="errStatus" value="404"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+            <set-variable variableName="errCode" value="VALIDATION"/>
+            <set-variable variableName="errStatus" value="405"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APIKIT:NOT_ACCEPTABLE, APIKIT:UNSUPPORTED_MEDIA_TYPE, APIKIT:NOT_IMPLEMENTED">
+            <set-variable variableName="errCode" value="VALIDATION"/>
+            <set-variable variableName="errStatus" value="415"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Our own, explicit outcomes -->
+        <on-error-propagate type="APP:NOT_FOUND">
+            <set-variable variableName="errCode" value="NOT_FOUND"/>
+            <set-variable variableName="errStatus" value="404"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APP:WRITE_REJECTED">
+            <!-- Salesforce accepted the call but rejected the record (validation rule, required field, bad picklist value…) -->
+            <set-variable variableName="errCode" value="VALIDATION"/>
+            <set-variable variableName="errStatus" value="422"/>
+            <set-variable variableName="errRetryable" value="#[false]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APP:UNAUTHORIZED_CALLER">
+            <set-variable variableName="errCode" value="UNAUTHORIZED"/>
+            <set-variable variableName="errStatus" value="401"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="APP:FORBIDDEN">
+            <set-variable variableName="errCode" value="FORBIDDEN"/>
+            <set-variable variableName="errStatus" value="403"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Salesforce rejected the request: terminal, do not retry -->
+        <on-error-propagate type="SALESFORCE:INVALID_INPUT">
+            <flow-ref name="set-validation-error" doc:name="400 VALIDATION from Salesforce"/>
+        </on-error-propagate>
+        <on-error-propagate type="SALESFORCE:NOT_FOUND">
+            <set-variable variableName="errCode" value="NOT_FOUND"/>
+            <set-variable variableName="errStatus" value="404"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="SALESFORCE:INSUFFICIENT_PERMISSIONS">
+            <set-variable variableName="errCode" value="FORBIDDEN"/>
+            <set-variable variableName="errStatus" value="502"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <!-- Our own credentials/certificate are wrong: the caller cannot fix it, retrying will not help -->
+        <on-error-propagate type="SALESFORCE:MUTUAL_AUTHENTICATION_FAILED">
+            <set-variable variableName="errCode" value="UNAUTHORIZED"/>
+            <set-variable variableName="errStatus" value="502"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <!-- A SOAP fault or malformed answer: usually our bug (bad SOQL, unknown field). Not retryable; detail carries the fault -->
+        <on-error-propagate type="SALESFORCE:FAULTY_RESPONSE, SALESFORCE:INVALID_RESPONSE, SALESFORCE:OPERATION_NOT_SUPPORTED">
+            <set-variable variableName="errCode" value="INTERNAL"/>
+            <set-variable variableName="errStatus" value="500"/>
+            <set-variable variableName="errRetryable" value="#[false]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Transient: caller may retry -->
+        <on-error-propagate type="SALESFORCE:LIMIT_EXCEEDED">
+            <set-variable variableName="errCode" value="RATE_LIMITED"/>
+            <set-variable variableName="errStatus" value="429"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="SALESFORCE:TIMEOUT">
+            <set-variable variableName="errCode" value="BACKEND_TIMEOUT"/>
+            <set-variable variableName="errStatus" value="504"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+        <on-error-propagate type="SALESFORCE:CONNECTIVITY, SALESFORCE:UNAVAILABLE, SALESFORCE:COMMUNICATION, SALESFORCE:RETRY_EXHAUSTED">
+            <set-variable variableName="errCode" value="BACKEND_UNAVAILABLE"/>
+            <set-variable variableName="errStatus" value="502"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Our own bug (bad DataWeave, missing property): not retryable -->
+        <on-error-propagate type="MULE:EXPRESSION, MULE:TRANSFORMATION">
+            <set-variable variableName="errCode" value="INTERNAL"/>
+            <set-variable variableName="errStatus" value="500"/>
+            <set-variable variableName="errRetryable" value="#[false]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+
+        <!-- Anything else: unknown, allow a retry -->
+        <on-error-propagate type="ANY">
+            <set-variable variableName="errCode" value="INTERNAL"/>
+            <set-variable variableName="errStatus" value="500"/>
+            <set-variable variableName="errRetryable" value="#[true]"/>
+            <flow-ref name="build-error-response"/>
+        </on-error-propagate>
+    </error-handler>
+
+    <sub-flow name="set-validation-error">
+        <set-variable variableName="errCode" value="VALIDATION"/>
+        <set-variable variableName="errStatus" value="400"/>
+        <set-variable variableName="errRetryable" value="#[false]"/>
+        <flow-ref name="build-error-response"/>
+    </sub-flow>
+
+    <!-- Builds the canonical error body and sets the HTTP status for the listener's error-response -->
+    <sub-flow name="build-error-response">
+        <set-variable variableName="httpStatus" value="#[vars.errStatus default 500]"/>
+        <ee:transform doc:name="Canonical error">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/json skipNullOn="everywhere"
+// Salesforce's own fault/result when the connector attached one
+var backend = try(() -> error.errorMessage.payload)
+---
+{
+  code: vars.errCode default "INTERNAL",
+  message: error.description default "Unexpected error",
+  retryable: vars.errRetryable default false,
+  correlationId: correlationId,
+  detail: {
+    errorType: (error.errorType.namespace default "") ++ ":" ++ (error.errorType.identifier default ""),
+    backend: if (backend.success) backend.result else null
+  }
+}]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+        <logger level="ERROR" doc:name="Log error"
+                message='#[output text/plain --- "salesforce-sys-api error " ++ (vars.errCode default "INTERNAL") ++ " (" ++ (vars.httpStatus as String) ++ "): " ++ (error.description default "")]'/>
+    </sub-flow>
+
+</mule>

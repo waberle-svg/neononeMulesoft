@@ -1,0 +1,144 @@
+# provisioning-prc-api — DEV environment (local runtime). Non-secret values only. Secrets live in secure-dev.yaml.
+api:
+  name: "provisioning-prc-api"
+  version: "1.0.0"
+  enforceClientSecret: "false"
+
+http:
+  port: "8083"
+
+# Business configuration
+provisioning:
+  # Request types this process handles; anything else is acknowledged and ignored
+  requestTypes: "SETUP,DEACTIVATION"
+  # Request types other than the ones above are IGNORED (outcome IGNORED_TYPE, INFO log; the row stays Requested).
+  # Decision: the old spelling PROVISIONING is NOT accepted anywhere; Salesforce Flows must publish SETUP.
+  # legacyRequestTypes exists only as an emergency switch (comma-separated spellings processed as SETUP with a WARN); keep it empty.
+  legacyRequestTypes: ""
+  # Registry statuses that may (re)start processing; Created / Failed - Terminal / Cancelled are final
+  processableStatuses: "Requested,Retrying"
+  # Transient failures: exponential backoff, then dead-letter on the registry row (Failed - Terminal, category Transient)
+  retry:
+    maxAttempts: "6"
+    baseDelaySeconds: "60"
+    maxDelaySeconds: "3600"
+    schedulerFrequencyMinutes: "1"
+  # Where the mapping lives (classpath). ADR-014: YAML now, Salesforce Custom Metadata later.
+  mappingFile: "mapping/provisioning-ticket.yaml"
+  # ---- Scenario 1, Order model (requirements v3 and the client's answers) ----
+  # A SETUP row with Order__c set is handled per Order x product line from the Order Products (salesforce-sys-api
+  # GET /orders/{id}); a row without Order__c keeps the Opportunity model above. Decided per row, no switch to flip.
+  orderMappingFile: "mapping/setup-order-ticket.yaml"
+  # Before creating, ask Jira for a ticket already carrying this request's label (same safety net as deactivation)
+  duplicateCheck: "true"
+  # Labels on every setup ticket: "<prefix>-<order id>-<line code>" and the bare prefix
+  labelPrefix: "sf-setup"
+
+# Scenario 2 — cancellation / deactivation (the client's cancellation requirements and the decisions that followed)
+deactivation:
+  mappingFile: "mapping/deactivation-ticket.yaml"
+  # Before creating, ask Jira for a ticket that already carries this request's label (closes the duplicate gap)
+  duplicateCheck: "true"
+  # Labels put on every deactivation ticket: "<prefix>-<opportunity id>-<line code>" and the bare prefix
+  labelPrefix: "sf-deact"
+  # Shown on the ticket when Account.Deactivation_Date__c is blank (the Apex leaves it blank when no asset has an end date)
+  missingDateText: "NOT SET - confirm the last paid day with the account manager before any shutdown"
+  # One entry per product line, keyed by the Salesforce value in UPPER_SNAKE_CASE (Neon CRM -> NEON_CRM).
+  #   project / issueType   where the ticket goes (issueType = jira-sys-api canonical code)
+  #   instanceField         key under opportunity.account in salesforce-sys-api that holds this line's instance id
+  #   opportunityKey        key under opportunity.deactivation holding this line's write-back pair (existing-key guard)
+  #   instanceLabel         how the receiving team names the identifier (appears on the ticket)
+  #   summaryLabel          the word after "System shutdown for" in the ticket summary (client: CRM | Fundraise | Arts People)
+  #   summarySubject        what goes between the slashes in the summary: instanceId (Neon CRM) | accountName (Fundraise, Arts People)
+  # DEV: every line -> project WOU "Work Orders - UAT" (Neon One's test copy of WORK),
+  # real issue type Deactivate Instance (11900). Client: WOU stands in for WORK, FUND and ARTS until those exist.
+  # 29-30 Sep the stand-in was NSSU / SYSTEM_SETUP (ticket NSSU-9). Production: see config-prod.yaml.
+  # A line with project "TBD" (or no entry) fails terminally with a clear message instead of creating a wrong ticket.
+  lines:
+    NEON_CRM:
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "ncrmInstance"
+      opportunityKey: "neonCrm"
+      instanceLabel: "CRM Instance"
+      summaryLabel: "CRM"
+      summarySubject: "instanceId"
+    NEON_FUNDRAISE:
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "rbId"
+      opportunityKey: "neonFundraise"
+      instanceLabel: "Customer Id"
+      summaryLabel: "Fundraise"
+      summarySubject: "accountName"
+    ARTS_PEOPLE:
+      project: "WOU"
+      issueType: "DEACTIVATE_INSTANCE"
+      instanceField: "artsPeopleTheatreId"
+      opportunityKey: "artsPeople"
+      instanceLabel: "Theatre Id"
+      summaryLabel: "Arts People"
+      summarySubject: "accountName"
+
+
+# Jira reporters by scenario and product line (Atlassian accountIds; requirements v4).
+# Resolution per request: reporters.<scenario>.lines.<LINE_CODE> -> reporters.<scenario>.default -> none (Jira uses the API account).
+# Setting a reporter requires (a) the Reporter field on the issue type's CREATE SCREEN in that project — jira-sys-api drops the
+# field where the screen lacks it (today: WORK / Deactivate Instance) — and (b) "Modify Reporter" for the API account in the project.
+# Every value here can be overridden per environment as a Runtime Manager property (same key), no rebuild needed.
+reporters:
+  setup:
+    # System Setup tickets. DEV: NEON_CRM = the integration's API account (Dev only). Fundraise / Arts People setup reporters are not decided yet
+    # (candidate for Arts People per the requirements v4 document: Darla DeMontesquiou 6363dcc859c794184bcc56fc); blank = fall back to default/API account.
+    default: ""
+    lines:
+      NEON_CRM: "61121eff4e8d8d0069df301b"
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
+  deactivation:
+    # Deactivate Instance tickets, all product lines. DEV: the integration's API account (Dev only).
+    default: "61121eff4e8d8d0069df301b"
+    lines:
+      NEON_CRM: ""
+      NEON_FUNDRAISE: ""
+      ARTS_PEOPLE: ""
+
+jira:
+  project: "NSSU"                    # UAT project in Dev and UAT; SETUP in Production
+  instanceReadyStatusId: "10805"     # "System Ready" — matched by id, never by category
+  # Display names written to Integration_Transaction__c.External_Type__c, by canonical issue type code
+  issueTypeNames:
+    SYSTEM_SETUP: "System Setup"
+    DEACTIVATE_INSTANCE: "Deactivate Instance"
+  # Jira status category key -> Salesforce External_Status_Category__c picklist value
+  statusCategoryMap:
+    new: "To Do"
+    indeterminate: "In Progress"
+    done: "Done"
+    undefined: "To Do"
+
+inbound:
+  # Webhook for a ticket we did not create: false = ignore (log), true = create an EXTERNAL registry row
+  createRowForUnknownKeys: "false"
+  sweep:
+    enabled: "true"
+    frequencyMinutes: "60"
+    limit: "200"
+
+# Salesforce record links placed in ticket descriptions
+sf:
+  baseUrl: "https://neonone--cpqtriage.sandbox.lightning.force.com"
+
+# Downstream system APIs (local ports: sys-sf 8081, sys-jira 8082, prc 8083)
+sysSf:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8081"
+  basePath: "/api/v1"
+  responseTimeoutMs: "30000"
+sysJira:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "8082"
+  basePath: "/api/v1"
+  responseTimeoutMs: "45000"

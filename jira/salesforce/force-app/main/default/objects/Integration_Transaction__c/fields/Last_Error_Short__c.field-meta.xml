@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Last_Error_Short__c</fullName>
+    <description>First 255 characters of Last Error, for use in automation formulas and list views.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Short form of Last Error for automation and list views.</inlineHelpText>
+    <label>Last Error (short)</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>true</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>false</unique>
+</CustomField>

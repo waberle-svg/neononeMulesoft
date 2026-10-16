@@ -1,0 +1,78 @@
+# deactivation-ticket.yaml — how a Jira deactivation ticket is built for ONE product line of a churned Opportunity
+# (Scenario 2, the client's cancellation requirements; same mini mapping engine as provisioning-ticket.yaml).
+#
+# This file IS the field mapping. Changing what goes on the ticket is a change here, never in a flow.
+# Leaf spec: exactly one of  source: "<path>" | template: "text with {path} tokens" | rule: "<name>" | value: <constant>
+# plus optional  default: <used when empty>  and  maxLength: <n>. Anything else is a group and is built recursively.
+#
+# Context paths available (in addition to those of provisioning-ticket.yaml):
+#   line.salesforceValue  Product line as Salesforce spells it (Neon CRM | Neon Fundraise | Arts People)
+#   line.code             NEON_CRM | NEON_FUNDRAISE | ARTS_PEOPLE   (the key under deactivation.lines in config)
+#   line.project          Jira project key for this line (config; NSSU everywhere until Neon One provides the real targets)
+#   line.issueType        canonical issue type for this line (config; SYSTEM_SETUP as stand-in, DEACTIVATE_INSTANCE later)
+#   line.instanceId       the Account's identifier for this line (NCRM_Instance__c / RB_RB_ID__c / Arts_People_Theatre_Id__c)
+#   line.instanceLabel    how the receiving team names that identifier (CRM Instance / Customer Id / Theatre Id)
+#   line.tags             labels: ["sf-deact-<opportunity id>-<line>", "sf-deact"] — the duplicate-detection key in Jira
+#   line.deactivationDateText   the Account's deactivation date, or config deactivation.missingDateText when it is blank
+#   line.summaryLabel / line.summarySubject   the two variable parts of the summary (config per line: CRM + instance id;
+#                         Fundraise and Arts People + Account name)
+#   opp.account.deactivationDate / cancellationStatus   set by the renewal-churn Apex (last paid day; Cancel Account | Partial Cancellation)
+#
+# Output: the canonical IssueCreateRequest of jira-sys-api. jira-sys-api keeps only the fields that exist on the issue
+# type's create screen (jira.screens), so the "stand-in" fields below (modules, webTemplateCopy, SF ids) are sent to a
+# System Setup ticket and silently dropped for a Deactivate Instance ticket.
+version: 1
+fields:
+  project:   { source: "line.project" }
+  issueType: { source: "line.issueType" }
+
+  # Reporter (requirements v4): Chelsea Diehl for every deactivation line, from config reporters.deactivation.*; jira-sys-api sends it only
+  # where the create screen has the Reporter field (WOU yes, live WORK no — Neon One must add it) and the API account may modify it
+  reporterAccountId: { source: "line.reporterAccountId" }
+
+  # Summary (client rule): "System shutdown for CRM /<instance id>/", "System shutdown for Fundraise /<Account name>/",
+  # "System shutdown for Arts People /<Account name>/" — label and subject come from config deactivation.lines.<CODE>
+  summary:
+    template: "System shutdown for {line.summaryLabel} /{line.summarySubject}/"
+    maxLength: 255
+
+  # First line as in the document; the rest gives the receiving team the "when" and the "why" (agreed with the client)
+  description:
+    # (one blank line between lines: jira-sys-api renders a blank line as a paragraph break, a newline as a line break)
+    template: |
+      Please deactivate the following:
+
+      {line.instanceLabel}: {line.instanceId}
+
+      Product line: {line.salesforceValue}
+
+      Deactivation date (last paid day): {line.deactivationDateText}
+
+      Cancellation status: {opp.account.cancellationStatus}
+
+      Account: {opp.account.name}
+
+      Opportunity: {opp.name} ({opp.opportunityNumber})
+
+      Salesforce record: {sfUrl}
+
+  # Jira "Due date" = the day the instance may be switched off (Account.Deactivation_Date__c)
+  dueDate: { source: "opp.account.deactivationDate" }
+
+  # Duplicate detection: the process API searches Jira for the first label before creating
+  labels: { source: "line.tags" }
+
+  # Production Instance exists on both screens (System Setup: required; Deactivate Instance: optional)
+  productionInstance: { source: "line.instanceId" }
+
+  # Required on the System Setup stand-in only; dropped by jira-sys-api for Deactivate Instance
+  modules:         { value: "N/A - deactivation" }
+  webTemplateCopy: { value: "NOT_PURCHASED" }
+
+  # Correlation back to Salesforce (System Setup screen has these fields; Deactivate Instance does not)
+  sfOpportunityId:     { source: "opp.id" }
+  sfAccountId:         { source: "opp.account.id" }
+  sfOpportunityNumber: { source: "opp.opportunityNumber" }
+  organizationName:    { source: "opp.account.name" }
+
+  correlationId: { source: "req.requestId" }

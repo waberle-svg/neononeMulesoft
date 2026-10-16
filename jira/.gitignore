@@ -1,0 +1,26 @@
+# Build output and IDE caches (per app)
+**/target/
+**/.mule/
+**/.tooling-project/
+**/services/
+# DataWeave playground scratch folders the MuleSoft VS Code extension drops next to test resources
+**/embedded-dw_*/
+.DS_Store
+*.log
+
+# Secrets — never in Git. Encrypted secure-<env>.yaml files ARE committed; keys, keystores and env files are NOT.
+.secrets/*
+!.secrets/README.md
+*.env
+.env.*
+**/secure-*.plain.yaml
+*.key
+*.p12
+*.jks
+!**/src/test/resources/keystore/munit-dummy.jks
+demo/.last-demo.env
+
+# Local editor state
+.vscode/settings.json
+*.code-workspace.bak
+salesforce/dist/

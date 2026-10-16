@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  implementation/events.xml — the Integration_Request__e subscription and reliable hand-off to the process API.
+
+  Salesforce publishes Integration_Request__e (after commit) when a Flow creates a registry row. The connector's
+  replay-channel listener receives it; FROM_LAST_REPLAY_ID + autoReplay make the connector persist the last replay id
+  so nothing is lost across restarts (platform events are retained for 72 hours).
+
+  Delivery guarantee to provisioning-prc-api: retry (until-successful); if still failing, PARK the request in a
+  persistent Object Store and re-drive it on a schedule. The request is never dropped and never written to a
+  Salesforce field the integration filters on (the Talend defect).
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:os="http://www.mulesoft.org/schema/mule/os"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===== Source: platform-event subscription ===== -->
+    <flow name="integration-request-event-listener" doc:name="Integration_Request__e listener">
+        <salesforce:replay-channel-listener config-ref="Salesforce_Config"
+                                            streamingChannel="${sf.events.channel}"
+                                            replayOption="${sf.events.replayOption}"
+                                            autoReplay="true"
+                                            doc:name="Integration_Request__e">
+            <!-- The subscription must outlive Salesforce outages: keep reconnecting (operations use a bounded reconnect, see global.xml) -->
+            <reconnect-forever frequency="${sf.events.reconnectFrequencyMs}"/>
+        </salesforce:replay-channel-listener>
+        <logger level="INFO" doc:name="Log event"
+                message='#[output text/plain --- "Received " ++ p("sf.events.channel") ++ " replayId=" ++ ((payload.data.event.replayId default payload.event.replayId default "?") as String)]'/>
+        <flow-ref name="handle-integration-request-event" doc:name="Handle event"/>
+    </flow>
+
+    <!-- ===== Event -> canonical ProvisioningRequested -> deliver ===== -->
+    <flow name="handle-integration-request-event" doc:name="handle-integration-request-event">
+        <logger level="DEBUG" doc:name="Raw event" message='#[output text/plain --- "Raw Integration_Request__e message: " ++ write(payload, "application/json")]'/>
+        <ee:transform doc:name="Event -> ProvisioningRequested">
+            <ee:variables>
+                <ee:set-variable variableName="request"><![CDATA[%dw 2.0
+import try from dw::Runtime
+output application/java
+// Live shape (Salesforce connector, ERR-0015): the CometD envelope
+//   { channel: "/event/Integration_Request__e", data: { event: { replayId, createdDate }, payload: { <event fields> } } }
+// Older docs show { payload: {...}, event: {...} }; a flat map of fields is tolerated too.
+var envelope = payload.data default payload
+var body     = envelope.payload default payload.payload default payload
+var evt      = envelope.event default payload.event default {}
+var extra = try(() -> read(body.Payload_JSON__c, "application/json"))
+---
+{
+  requestId:      body.Request_Id__c,
+  targetSystem:   body.Target_System__c,
+  requestType:    body.Request_Type__c,
+  sourceObject:   body.Source_Object__c default "Opportunity",
+  sourceRecordId: body.Source_Record_Id__c,
+  accountId:      body.Account_Id__c,
+  sourceOrgId:    body.Source_Org_Id__c,
+  payload:        if (body.Payload_JSON__c == null) null else (if (extra.success) extra.result else body.Payload_JSON__c),
+  eventCreatedAt: body.CreatedDate default evt.createdDate,
+  replayId:       evt.replayId,
+  receivedAt:     now()
+}]]></ee:set-variable>
+                <ee:set-variable variableName="forwarded"><![CDATA[%dw 2.0
+output application/java
+---
+false]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+
+        <choice doc:name="For us?">
+            <!-- Only the configured target systems are forwarded; other integrations may share this event later -->
+            <when expression="#[!((p('sf.events.targetSystems') splitBy ',') map trim($) contains (vars.request.targetSystem default ''))]">
+                <logger level="INFO" doc:name="Ignore other target"
+                        message='#[output text/plain --- "Ignoring Integration_Request__e for target " ++ (vars.request.targetSystem default "null") ++ " (request " ++ (vars.request.requestId default "?") ++ ")"]'/>
+            </when>
+            <when expression="#[vars.request.requestId == null]">
+                <logger level="ERROR" doc:name="Malformed event"
+                        message='#[output text/plain --- "Integration_Request__e without Request_Id__c ignored: " ++ write(vars.request, "application/json")]'/>
+            </when>
+            <otherwise>
+                <flow-ref name="deliver-to-process-api" doc:name="Deliver to prc"/>
+            </otherwise>
+        </choice>
+    </flow>
+
+    <!-- ===== Deliver vars.request to provisioning-prc-api; park it if delivery keeps failing ===== -->
+    <flow name="deliver-to-process-api" doc:name="deliver-to-process-api">
+        <try doc:name="Deliver or park">
+            <until-successful maxRetries="${prc.retry.maxRetries}" millisBetweenRetries="${prc.retry.millisBetweenRetries}" doc:name="Retry delivery">
+                <http:request config-ref="Process_Api_Request_Config" method="POST" path="${prc.paths.provisioningRequests}"
+                              sendCorrelationId="NEVER" doc:name="prc: POST provisioning-requests">
+                    <http:body>#[output application/json --- vars.request]</http:body>
+                    <http:headers>#[{
+                        "Content-Type": "application/json",
+                        "X-Client-Id": p('api.name'),
+                        "X-Client-Secret": p('secure::api.clientSecret'),
+                        "X-Correlation-Id": vars.request.requestId
+                    }]</http:headers>
+                </http:request>
+            </until-successful>
+            <set-variable variableName="forwarded" value="#[true]" doc:name="forwarded=true"/>
+            <logger level="INFO" doc:name="Delivered"
+                    message='#[output text/plain --- "Delivered request " ++ vars.request.requestId ++ " to process API: " ++ write(payload, "application/json")]'/>
+            <error-handler>
+                <on-error-continue type="ANY">
+                    <logger level="ERROR" doc:name="Park"
+                            message='#[output text/plain --- "Process API unreachable for request " ++ vars.request.requestId ++ "; parking for redrive. Cause: " ++ (error.description default "unknown")]'/>
+                    <os:store key="#[vars.request.requestId]" objectStore="undelivered_events_store" doc:name="Park in Object Store">
+                        <os:value>#[output application/json --- vars.request ++ { deliveryAttempts: 1, lastError: error.description default "unknown", firstFailedAt: now() }]</os:value>
+                    </os:store>
+                </on-error-continue>
+            </error-handler>
+        </try>
+    </flow>
+
+    <!-- ===== Scheduler: re-drive parked requests ===== -->
+    <flow name="redrive-undelivered-events" doc:name="Redrive undelivered events">
+        <scheduler doc:name="Every N minutes">
+            <scheduling-strategy>
+                <fixed-frequency frequency="${prc.redrive.frequencyMinutes}" timeUnit="MINUTES"/>
+            </scheduling-strategy>
+        </scheduler>
+        <os:retrieve-all-keys objectStore="undelivered_events_store" doc:name="Parked keys"/>
+        <choice doc:name="Anything parked?">
+            <when expression="#[isEmpty(payload)]">
+                <logger level="DEBUG" doc:name="Nothing parked" message="No undelivered events"/>
+            </when>
+            <otherwise>
+                <logger level="INFO" doc:name="Redrive count"
+                        message='#[output text/plain --- "Redriving " ++ (sizeOf(payload) as String) ++ " undelivered request(s)"]'/>
+                <foreach doc:name="For each parked request">
+                    <set-variable variableName="parkedKey" value="#[payload]" doc:name="parkedKey"/>
+                    <os:retrieve key="#[vars.parkedKey]" objectStore="undelivered_events_store" doc:name="Load parked request"/>
+                    <ee:transform doc:name="Parked -> request">
+                        <ee:variables>
+                            <ee:set-variable variableName="parked"><![CDATA[%dw 2.0
+output application/java
+---
+if (payload is String) read(payload, "application/json") else payload]]></ee:set-variable>
+                        </ee:variables>
+                    </ee:transform>
+                    <set-variable variableName="request" value="#[vars.parked - 'deliveryAttempts' - 'lastError' - 'firstFailedAt']" doc:name="request"/>
+                    <choice doc:name="Attempts left?">
+                        <when expression="#[(vars.parked.deliveryAttempts default 0) >= (p('prc.redrive.maxAttempts') as Number)]">
+                            <logger level="ERROR" doc:name="Give up (manual action)"
+                                    message='#[output text/plain --- "Request " ++ vars.parkedKey ++ " exceeded " ++ p("prc.redrive.maxAttempts") ++ " delivery attempts; left in undelivered_events_store for manual action"]'/>
+                        </when>
+                        <otherwise>
+                            <try doc:name="Redeliver">
+                                <http:request config-ref="Process_Api_Request_Config" method="POST" path="${prc.paths.provisioningRequests}"
+                                              sendCorrelationId="NEVER" doc:name="prc: POST provisioning-requests (redrive)">
+                                    <http:body>#[output application/json --- vars.request]</http:body>
+                                    <http:headers>#[{
+                                        "Content-Type": "application/json",
+                                        "X-Client-Id": p('api.name'),
+                                        "X-Client-Secret": p('secure::api.clientSecret'),
+                                        "X-Correlation-Id": vars.parkedKey
+                                    }]</http:headers>
+                                </http:request>
+                                <os:remove key="#[vars.parkedKey]" objectStore="undelivered_events_store" doc:name="Delivered: remove"/>
+                                <logger level="INFO" doc:name="Redelivered"
+                                        message='#[output text/plain --- "Redelivered request " ++ vars.parkedKey ++ " after " ++ ((vars.parked.deliveryAttempts default 0) as String) ++ " failed attempt(s)"]'/>
+                                <error-handler>
+                                    <on-error-continue type="ANY">
+                                        <logger level="WARN" doc:name="Still failing"
+                                                message='#[output text/plain --- "Request " ++ vars.parkedKey ++ " still undeliverable: " ++ (error.description default "unknown")]'/>
+                                        <os:store key="#[vars.parkedKey]" objectStore="undelivered_events_store" doc:name="Update attempts">
+                                            <os:value>#[output application/json --- vars.parked ++ { deliveryAttempts: (vars.parked.deliveryAttempts default 0) + 1, lastError: error.description default "unknown", lastFailedAt: now() }]</os:value>
+                                        </os:store>
+                                    </on-error-continue>
+                                </error-handler>
+                            </try>
+                        </otherwise>
+                    </choice>
+                </foreach>
+            </otherwise>
+        </choice>
+    </flow>
+
+</mule>

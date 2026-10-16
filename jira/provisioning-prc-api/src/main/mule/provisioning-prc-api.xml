@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  provisioning-prc-api.xml — the API front door: listener, caller check, APIkit router, one thin flow per operation.
+-->
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+        http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+        http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <flow name="provisioning-prc-api-main" doc:name="provisioning-prc-api main">
+        <http:listener config-ref="api-httpListenerConfig" path="/api/v1/*" doc:name="HTTP /api/v1/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <logger level="INFO" doc:name="Log request"
+                message="#[output text/plain --- 'provisioning-prc-api ' ++ attributes.method ++ ' ' ++ attributes.requestPath ++ ' from ' ++ (attributes.headers.'x-client-id' default 'anonymous')]"/>
+        <flow-ref name="authorize-caller" doc:name="Check caller"/>
+        <apikit:router config-ref="provisioning-prc-api-config" doc:name="APIkit router"/>
+        <error-handler ref="global-error-handler"/>
+    </flow>
+
+    <!-- Interim inter-app authentication (before API Manager): shared secret per environment; off in dev -->
+    <sub-flow name="authorize-caller">
+        <choice doc:name="Enforce client secret?">
+            <when expression="#[p('api.enforceClientSecret') == 'true' and (attributes.headers.'x-client-secret' default '') != p('secure::api.clientSecret')]">
+                <raise-error type="APP:UNAUTHORIZED_CALLER" description="Missing or invalid X-Client-Secret" doc:name="401"/>
+            </when>
+            <otherwise>
+                <logger level="DEBUG" doc:name="Caller accepted" message="caller accepted"/>
+            </otherwise>
+        </choice>
+    </sub-flow>
+
+    <flow name="get:\ping:provisioning-prc-api-config" doc:name="GET /ping">
+        <ee:transform doc:name="Ping response">
+            <ee:message>
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{ status: "ok", app: p('api.name'), version: p('api.version'), env: p('mule.env'), timestamp: now() }]]></ee:set-payload>
+            </ee:message>
+        </ee:transform>
+    </flow>
+
+    <!-- Salesforce -> Jira: one provisioning request, processed synchronously; the body is the outcome -->
+    <flow name="post:\provisioning-requests:application\json:provisioning-prc-api-config" doc:name="POST /provisioning-requests">
+        <flow-ref name="process-provisioning-request" doc:name="Process"/>
+    </flow>
+
+    <!-- Jira -> Salesforce: a normalised webhook event -->
+    <flow name="post:\issue-status-events:application\json:provisioning-prc-api-config" doc:name="POST /issue-status-events">
+        <flow-ref name="handle-issue-status-event" doc:name="Handle status event"/>
+    </flow>
+
+    <!-- Manual trigger of the reconciliation sweep -->
+    <flow name="post:\sweeps\instance-ready:provisioning-prc-api-config" doc:name="POST /sweeps/instance-ready">
+        <flow-ref name="sweep-instance-ready" doc:name="Sweep"/>
+    </flow>
+
+    <!-- Operations view of parked retries -->
+    <flow name="get:\retry-queue:provisioning-prc-api-config" doc:name="GET /retry-queue">
+        <flow-ref name="retry-queue-list" doc:name="List retry queue"/>
+    </flow>
+
+</mule>

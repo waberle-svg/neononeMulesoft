@@ -1,0 +1,109 @@
+# setup-order-ticket.yaml — how a Jira "System Setup" ticket is built for ONE product line of an activated Order
+# (Scenario 1, Order model — requirements v3 "Jira Requirements" and the client's answers).
+# The Opportunity-model mapping (Phase 1) stays in provisioning-ticket.yaml; the process API picks this file when the
+# registry row carries Order__c.
+#
+# This file IS the field mapping. Changing what goes on the ticket is a change here, never in a flow.
+# Leaf spec: exactly one of  source: "<path>" | template: "text with {path} tokens" | rule: "<name>" | value: <constant>
+# plus optional  default: <used when empty>  and  maxLength: <n>. Anything else is a group and is built recursively.
+# (The DataWeave YAML reader rejects trailing comments after inline mappings, so comments sit on their own lines.)
+#
+# Context paths:
+#   opp.*                 canonical Opportunity (salesforce-sys-api): account.{name,nteeCode,nteeDivision,billingCountry},
+#                         primaryContact, technicalContact (= the ACCOUNT's technical contact, client decision), partnerContact, description,
+#                         productionInstanceName, productRollup, opportunityNumber
+#   order.*               canonical Order: orderNumber, activatedDate, neonCrmModules (Order.NeonCRM_Modules__c, built by the
+#                         Salesforce Order Flow; null when blank), items[], additionalUsers[]
+#   items                 the FLAGGED Order Products of this line (what the ticket covers)
+#   line.*                salesforceValue (Neon CRM), code (NEON_CRM), label, tags
+#   derived.primaryContactBlock / technicalContactBlock / partnerBlock   "<Header> / name / email" lines, or empty when that
+#                         contact is blank (header hidden too — document rule for the partner block, applied to all three)
+#   env.jiraProject       NSSU in Dev/UAT, SETUP in Production (config jira.project)
+#   env.reporterAccountId reporters.setup.lines.<CODE> -> reporters.setup.default (config); empty -> Jira's default (API account)
+#   sfUrl                 link to the Opportunity record
+#
+# Rules referenced below live in modules/TicketMapping.dwl: implementationType, additionalUsers.
+# Open with Neon One (C2 in KB 27): confirm the Implementation Type table (the Modules values are Salesforce's concern now).
+version: 1
+
+# Implementation Type: first rule whose "contains" text appears (case-insensitive) in Opportunity.ProductRollup__c wins;
+# the requirements v3 table. Option values are exactly Jira's (customfield_15343).
+rules:
+  implementationType:
+    - contains:
+        - "standard data conversion"
+      value: "Standard Data Conversion"
+    - contains:
+        - "custom data conversion"
+        - "premium data conversion"
+      value: "Custom Data Conversion"
+    - contains:
+        - "assisted import"
+        - "guided data conversion"
+      value: "Assisted Self Import"
+    - contains:
+        - "configuration session"
+      value: "Configuration Only"
+  implementationTypeDefault: "N/A"
+
+fields:
+  project:   { source: "env.jiraProject" }
+  issueType: { value: "SYSTEM_SETUP" }
+
+  # Reporter: per environment and product line in config (reporters.setup.*); Dev = the API account, UAT/Prod = Natalie Newendyke for CRM
+  reporterAccountId: { source: "env.reporterAccountId" }
+
+  # Summary = Account name (document: "Summary (Title): Account.Name")
+  summary:
+    source: "opp.account.name"
+    maxLength: 255
+
+  # Description laid out like the setup team's hand-written tickets (SETUP-11083):
+  #   bold labels, underlined contact names, e-mail on its own line, Sales Notes as bullets, bold section
+  #   headers with the value on the next line. No Order section (client: a dedicated field may follow).
+  # Markup rendered by jira-sys-api: blank line = new paragraph, newline = line break, "- " = bullet,
+  # **bold**, __underline__, a bare e-mail = mailto link.
+  description:
+    template: |
+      {derived.primaryContactBlock}
+      {derived.technicalContactBlock}
+      {derived.partnerBlock}
+      **==========Sales Notes==========**
+
+      {derived.salesNotes}
+
+      **==========NTEE Code==========**
+      {opp.account.nteeCode} {opp.account.nteeDivision}
+
+  # Required on the System Setup screen
+  productionInstance: { source: "opp.productionInstanceName", default: "Pending" }
+  # Modules: Order.NeonCRM_Modules__c verbatim (the Salesforce Order Flow builds it from Product2.Jira_Module_Value__c);
+  # "NA" when the field is blank (client decision). Mule does not derive it from the products.
+  modules:            { source: "order.neonCrmModules", default: "NA" }
+  webTemplateCopy:    { value: "NOT_PURCHASED" }
+
+  # Requirements v3 fields (ids in jira-sys-api config)
+  implementationType: { rule: "implementationType" }
+  operatingCountry:   { source: "opp.account.billingCountry" }
+  nteeCode:           { source: "opp.account.nteeCode" }
+  nteeDivision:       { source: "opp.account.nteeDivision" }
+  # Additional Users: one "Name <email>" per line; jira-sys-api sends the multi-line field as ADF paragraphs
+  additionalUsers:    { rule: "additionalUsers" }
+
+  # Duplicate detection: the process API searches Jira for the first label before creating
+  labels: { source: "line.tags" }
+
+  # Correlation back to Salesforce (the feedback direction finds the row by key; these fields help humans)
+  sfOpportunityId:     { source: "opp.id" }
+  sfAccountId:         { source: "opp.account.id" }
+  sfOpportunityNumber: { source: "opp.opportunityNumber" }
+  organizationName:    { source: "opp.account.name" }
+
+  primaryContact:
+    name:  { source: "opp.primaryContact.name" }
+    email: { source: "opp.primaryContact.email" }
+  technicalContact:
+    name:  { source: "opp.technicalContact.name" }
+    email: { source: "opp.technicalContact.email" }
+
+  correlationId: { source: "req.requestId" }

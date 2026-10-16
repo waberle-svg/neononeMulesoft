@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Group_Key__c</fullName>
+    <caseSensitive>false</caseSensitive>
+    <description>Unique key of the business request: &lt;source record Id&gt;:&lt;request type&gt;:&lt;product line code&gt;. Prevents a second request for the same record, request type and product line.</description>
+    <externalId>true</externalId>
+    <label>Group Key</label>
+    <length>255</length>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <trackTrending>false</trackTrending>
+    <type>Text</type>
+    <unique>true</unique>
+</CustomField>

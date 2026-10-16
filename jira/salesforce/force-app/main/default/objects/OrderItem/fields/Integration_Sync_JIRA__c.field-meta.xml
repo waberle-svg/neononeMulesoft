@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Integration_Sync_JIRA__c</fullName>
+    <label>Integration Sync JIRA</label>
+    <type>Checkbox</type>
+    <formula>Product2.Sync_JIRA__c</formula>
+    <description>Whether the product is flagged to create a System Setup ticket, read through to the Product so automation can select the relevant Order Products.</description>
+    <externalId>false</externalId>
+    <required>false</required>
+    <unique>false</unique>
+</CustomField>

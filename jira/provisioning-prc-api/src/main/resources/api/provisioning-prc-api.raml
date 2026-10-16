@@ -1,0 +1,175 @@
+#%RAML 1.0
+title: Provisioning Process API
+version: v1
+description: |
+  Process API for Neon One's Salesforce -> Jira provisioning and Jira -> Salesforce status feedback.
+  Owns the business rules; talks only to salesforce-sys-api and jira-sys-api.
+  Inputs arrive from the two system APIs (platform event hand-off, Jira webhook hand-off) and from schedulers
+  (retry re-drive, reconciliation sweep).
+baseUri: http://localhost:8083/api/v1
+mediaType: application/json
+
+types:
+  ProvisioningRequested:
+    description: Hand-off of an Integration_Request__e platform event by salesforce-sys-api.
+    properties:
+      requestId:
+        type: string
+        description: Integration_Transaction__c record id (the correlation id of the whole request)
+      targetSystem?: string
+      requestType: string
+      sourceObject?: string
+      sourceRecordId:
+        type: string
+        description: Opportunity id
+      accountId?: string
+      sourceOrgId?: string
+      payload?: any
+      eventCreatedAt?: string
+      replayId?: number
+      receivedAt?: string
+
+  ProvisioningOutcome:
+    properties:
+      requestId: string
+      outcome:
+        type: string
+        enum: [CREATED, LINKED_EXISTING_TICKET, SKIPPED_ALREADY_PROCESSED, SKIPPED_EXISTING_KEY, IGNORED_TYPE, IGNORED_UNKNOWN_REQUEST, TERMINAL_ERROR, RETRY_SCHEDULED, RETRIES_EXHAUSTED]
+        description: |
+          LINKED_EXISTING_TICKET: the ticket already existed and was linked to the registry row instead of a duplicate
+          being created — either this app's own created-issue store remembered the key (a retry after the Salesforce
+          write-back failed), or Jira already held a ticket carrying this request's label (deactivation and Order-model
+          setup requests).
+      issueKey?: string
+      issueUrl?: string
+      attempts?: number
+      message?: string
+
+  IssueStatusChanged:
+    description: Normalised Jira webhook event from jira-sys-api.
+    properties:
+      eventType?: string
+      issueKey: string
+      issueId?: string
+      statusChanged?: boolean
+      status:
+        properties:
+          id: string
+          name: string
+          category?: string
+      previousStatus?:
+        properties:
+          id?: string
+          name?: string
+      changedAt?: string
+      sfOpportunityId?: string
+      url?: string
+
+  StatusEventOutcome:
+    properties:
+      issueKey: string
+      outcome:
+        type: string
+        enum: [UPDATED, CREATED_EXTERNAL_ROW, IGNORED_UNKNOWN_KEY]
+      requestId?: string
+
+  SweepResult:
+    properties:
+      checked: number
+      updated: number
+      unchanged: number
+      errors: number
+      startedAt: datetime
+      finishedAt: datetime
+
+  RetryEntry:
+    properties:
+      requestId: string
+      attempt: number
+      nextAttemptAt?: string
+      lastError?: string
+      request: ProvisioningRequested
+
+  Error:
+    properties:
+      code:
+        type: string
+        enum: [VALIDATION, NOT_FOUND, UNAUTHORIZED, FORBIDDEN, RATE_LIMITED, BACKEND_UNAVAILABLE, BACKEND_TIMEOUT, CONFLICT, INTERNAL]
+      message: string
+      retryable: boolean
+      correlationId: string
+      detail?: any
+
+traits:
+  errorResponses:
+    responses:
+      400:
+        body: Error
+      401:
+        body: Error
+      404:
+        body: Error
+      429:
+        body: Error
+      500:
+        body: Error
+      502:
+        body: Error
+      504:
+        body: Error
+
+/ping:
+  get:
+    description: Liveness check.
+    responses:
+      200:
+        body:
+          properties:
+            status: string
+            app: string
+            version: string
+            env: string
+            timestamp: datetime
+
+/provisioning-requests:
+  post:
+    is: [errorResponses]
+    description: |
+      Process one integration request end to end: idempotency check on the registry, read the Opportunity,
+      build the ticket from the mapping, create it in Jira, write the outcome back to the registry.
+      Routed on the registry row's request type: SETUP (System Setup ticket, Scenario 1; legacy spelling PROVISIONING accepted while configured) or
+      DEACTIVATION (one deactivation ticket per product line of a churned Opportunity, Scenario 2).
+      Always answers 200 with an outcome when the request could be handled (including terminal failures,
+      which are recorded on the registry row). A 5xx means the registry itself could not be read or written;
+      the caller should re-deliver later.
+    body: ProvisioningRequested
+    responses:
+      200:
+        body: ProvisioningOutcome
+
+/issue-status-events:
+  post:
+    is: [errorResponses]
+    description: Apply a Jira status change to the registry row with that issue key. Salesforce Flows do the rest.
+    body: IssueStatusChanged
+    responses:
+      200:
+        body: StatusEventOutcome
+
+/sweeps/instance-ready:
+  post:
+    is: [errorResponses]
+    description: |
+      Run the reconciliation sweep now (it also runs on a schedule): for every registry row with a ticket that is
+      not Done, read the ticket's current status from Jira and update the row when it changed.
+    responses:
+      200:
+        body: SweepResult
+
+/retry-queue:
+  get:
+    is: [errorResponses]
+    description: Requests parked for retry after a transient failure (operations view).
+    responses:
+      200:
+        body: RetryEntry[]

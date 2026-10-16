@@ -1,0 +1,7 @@
+# Test-only fake secrets. Plain values (not wrapped in ![...]) are used as-is by the secure properties module.
+sf:
+  consumerKey: "munit-fake-consumer-key"
+  keystore:
+    password: "munit-dummy-password"
+api:
+  clientSecret: "munit-client-secret"

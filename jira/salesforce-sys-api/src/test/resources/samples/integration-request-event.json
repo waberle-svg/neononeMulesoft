@@ -1,0 +1,16 @@
+{
+  "schema": "abcDEF123",
+  "payload": {
+    "CreatedDate": "2026-09-19T12:00:05.000Z",
+    "CreatedById": "005Su00000ABCDEFGH",
+    "Target_System__c": "JIRA",
+    "Request_Type__c": "SETUP",
+    "Request_Id__c": "a0BSu000001abcdMAA",
+    "Source_Object__c": "Opportunity",
+    "Source_Record_Id__c": "006Su00000XPwLxIAL",
+    "Account_Id__c": "001Su00000tjc9VIAQ",
+    "Source_Org_Id__c": "00DSu000008AXB0MAO",
+    "Payload_JSON__c": "{\"priority\":\"normal\"}"
+  },
+  "event": { "replayId": 42 }
+}

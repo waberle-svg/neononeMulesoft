@@ -1,0 +1,30 @@
+[
+  {
+    "Id": "a0BSu000001abcdMAA",
+    "Name": "INT-000001",
+    "Target_System__c": "JIRA",
+    "Request_Type__c": "SETUP",
+    "Request_Status__c": "Requested",
+    "Opportunity__c": "006Su00000XPwLxIAL",
+    "Account__c": "001Su00000tjc9VIAQ",
+    "Source_Business_Key__c": "O-0210538",
+    "Product_Line__c": null,
+    "Group_Key__c": null,
+    "Attempts__c": 0,
+    "Last_Error__c": null,
+    "Error_Category__c": null,
+    "Mule_Correlation_Id__c": null,
+    "External_Key__c": null,
+    "External_Id__c": null,
+    "External_URL__c": null,
+    "External_Container__c": null,
+    "External_Type__c": null,
+    "External_Status__c": null,
+    "External_Status_Id__c": null,
+    "External_Status_Category__c": null,
+    "Status_Changed_At__c": null,
+    "Last_Synced_At__c": null,
+    "CreatedDate": "2026-09-19T12:00:00.000Z",
+    "LastModifiedDate": "2026-09-19T12:00:00.000Z"
+  }
+]

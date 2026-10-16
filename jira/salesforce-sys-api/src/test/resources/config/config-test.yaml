@@ -1,0 +1,44 @@
+# salesforce-sys-api — TEST (MUnit) environment. Salesforce and the process API are mocked; hosts point nowhere on purpose.
+api:
+  name: "salesforce-sys-api"
+  version: "1.0.0-test"
+  enforceClientSecret: "false"
+
+http:
+  port: "18081"
+
+sf:
+  tokenEndpoint: "https://test.salesforce.invalid/services/oauth2/token"
+  principal: "munit@test.invalid"
+  keystore:
+    path: "keystore/munit-dummy.jks"
+    alias: "munit-dummy"
+  reconnect:
+    # Bounded: operations fail fast with a canonical error (ERR-0009); the event listener reconnects forever (events.reconnectFrequencyMs)
+    count: "1"
+    frequencyMs: "500"
+  events:
+    reconnectFrequencyMs: "1000"
+    channel: "/event/Integration_Request__e"
+    replayOption: "ONLY_NEW"
+    targetSystems: "JIRA"
+    allowSimulation: "true"
+  opportunity:
+    extraFields: "BusinessUnit__c"
+  registry:
+    sweepLimit: "50"
+
+prc:
+  protocol: "HTTP"
+  host: "localhost"
+  port: "18083"
+  basePath: "/api/v1"
+  responseTimeoutMs: "1000"
+  paths:
+    provisioningRequests: "/provisioning-requests"
+  retry:
+    maxRetries: "0"
+    millisBetweenRetries: "1"
+  redrive:
+    frequencyMinutes: "60"
+    maxAttempts: "2"
